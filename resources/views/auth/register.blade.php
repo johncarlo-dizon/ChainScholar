@@ -1,0 +1,78 @@
+<x-layout>
+
+  <form action="{{route('register')}}" method="POST">
+  @csrf
+ 
+ 
+
+  <label for="name">Name:</label>
+  <input 
+ class="w-full px-8 py-3 mb-2  rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
+    placeholder="Name"
+    type="text"
+    name="name"
+      value="{{old('name')}}"
+    required
+  >
+
+    <label for="email">Email:</label>
+  <input 
+   class="w-full px-8 py-3 mb-2  rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
+    placeholder="Email"
+    type="email"
+    name="email"
+      value="{{old('email')}}"
+    required
+  >
+
+  <label for="password">Password:</label>
+  <input 
+   class="w-full px-8 py-3 mb-2 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
+    placeholder="Password"
+    type="password"
+    name="password"
+    required
+  >
+
+  <label for="password_confirmation">Confirm Password:</label>
+  <input 
+   class="w-full px-8 py-3 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
+    placeholder="Confirm Password"
+    type="password"
+    name="password_confirmation"
+    required
+  >
+
+  <button type="submit"   class="mt-5 tracking-wide font-semibold bg-indigo-500 w-full py-4 rounded-lg hover:bg-indigo-400 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none" style="color: white;">Sign up</button>
+
+
+                   
+
+        <div class="mt-4 text-center text-sm text-gray-400">
+            <span>    Already have an account? </span>
+            <a href="{{ route('show.login') }}" class="ml-1 font-medium text-blue-500 hover:text-blue-700">
+              Sign in
+            </a>
+        </div>
+
+
+    <!-- validation errors -->
+      @if ($errors->any())
+      <ul class="px-4 py-2 bg-red-100 rounded-lg mt-5 text-center">
+        @foreach ($errors->all() as $error)
+          <li class="my-2 text-red-500">{{ $error }}</li>
+        @endforeach
+      </ul>
+    @endif
+</form>
+ 
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="flex-1 bg-indigo-100 text-center hidden lg:flex">
+            <div class="m-12 xl:m-30 w-full bg-contain bg-center bg-no-repeat"
+               style="background-image: url('{{ asset('storage/images/register.png') }}')">
+            </div>
+        </div>
+</x-layout>
