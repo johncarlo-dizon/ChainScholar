@@ -4,16 +4,26 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\MainController;
+use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Http\Request;
+ 
 
-// PUB ROUTE
-Route::get('/sss', function () {
-    return view('welcome');
+Route::middleware(['auth'])->group(function () {
+    Route::resource('documents', DocumentController::class);
+ 
+    Route::post('/upload-image', [DocumentController::class, 'uploadImage'])
+        ->name('upload.image');
+    Route::get('show/verify' , [DocumentController::class, 'showVerify'])->name('show.verify');
+    Route::get('show/dashboard' , [DocumentController::class, 'showDashboard'])->name('show.dashboard');
 });
+
+
+
 
 // GUEST ROUTES
 Route::middleware('guest')->controller(AuthController::class)->group(function() {
@@ -62,16 +72,18 @@ Route::middleware('auth')->group(function() {
 
 
 
-// USER ROUTES
-Route::middleware(['auth', 'verified'])->controller(MainController::class)->group(function() {
-    Route::get('/res/home', 'showDashboard')->name('show.home');
-    Route::get('/res/create', 'showCreate')->name('show.create');
-    Route::get('/res/verify', 'showVerify')->name('show.verify');
-    Route::get('/res/files', 'showFiles')->name('show.files');
-});
 
 
 // ADMIN ROUTES
-Route::middleware(['auth', 'admin'])->controller(AdminController::class)->group(function() {
-    Route::get('/admin/home', 'showDashboard')->name('admin.home');
+Route::middleware(['auth', 'admin'])->group(function() {
+    // Admin Dashboard
+    Route::get('/admin/home', [AdminController::class, 'showDashboard'])->name('admin.home');
+    
+    // User CRUD Routes
+    Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
+    Route::get('/admin/users/create', [UserController::class, 'create'])->name('admin.users.create');
+    Route::post('/admin/users', [UserController::class, 'store'])->name('admin.users.store');
+    Route::get('/admin/users/{user}/edit', [UserController::class, 'edit'])->name('admin.users.edit');
+    Route::put('/admin/users/{user}', [UserController::class, 'update'])->name('admin.users.update');
+    Route::delete('/admin/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
 });

@@ -6,13 +6,14 @@
     <title>Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     @vite('resources/css/app.css')
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="bg-gray-50 flex h-screen">
 
 
-
   <x-sidebar>
   </x-sidebar>
+
 
 
 
@@ -31,8 +32,32 @@
     <script>
         feather.replace();
     </script>
+ 
 
+ @if (session('status'))
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: '{{ session("status") }}',
+            showConfirmButton: false,
+            timer: 3000,
+            toast: true,
+            position: 'top-end'
+        });
+    </script>
+@endif
 
-    
+@if (session('registered'))
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: '{{ session("registered") }}',
+            showConfirmButton: false,
+            timer: 3000,
+            toast: true,
+            position: 'top-end'
+        });
+    </script>
+@endif
 </body>
 </html>

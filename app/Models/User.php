@@ -25,6 +25,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'password',
+        'position'
     ];
 
     /**
@@ -58,6 +59,18 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $this->notify(new CustomResetPasswordNotification($token));
     }
+    public function documents()
+    {
+        return $this->hasMany(Document::class);
+    }
+    public function isAdmin()
+    {
+        return $this->position === 'admin';
+    }
 
+    public function isUser()
+    {
+        return $this->position === 'user';
+    }
  
 }

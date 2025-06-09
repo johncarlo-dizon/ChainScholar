@@ -34,5 +34,8 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'tiny' => [
+        'key' => env('q4ojn7q4jqhfv1h6bdfxwb8ywgs7t4kpw698i7lxkq026qjx'),
+    ],
 
 ];

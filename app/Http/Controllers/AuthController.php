@@ -56,7 +56,7 @@ class AuthController extends Controller
             return redirect()->route('admin.home');  
         }
         
-        return redirect()->route('show.home');  
+        return redirect()->route('documents.index');  
     }
 
     throw ValidationException::withMessages([

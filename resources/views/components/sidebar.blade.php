@@ -26,16 +26,43 @@
         <div class="p-4">
         
             <ul class="space-y-2">
-         <li>
-               <a href="{{ route('show.home') }}" 
-                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('show.home') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+        @auth 
+            @if(auth()->user()->position === 'admin')
+            <li>
+            <a href="{{ route('admin.home') }}" 
+                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.home') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                 <i data-feather="home" class="w-4 h-4 mr-3"></i>
                 Dashboard
             </a>
+            </li>
+            <li>
+               <a href="{{ route('admin.users.index') }}" 
+                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.users.index','admin.users.create','admin.users.store','admin.users.edit','admin.users.update','admin.users.destroy') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                <i data-feather="home" class="w-4 h-4 mr-3"></i>
+                Users
+            </a>
+            @endif
 
+
+
+
+
+            @if(auth()->user()->position === 'users')
+                <li>
+                <a href="{{ route('show.dashboard') }}" 
+                    class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('show.dashboard') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <i data-feather="home" class="w-4 h-4 mr-3"></i>
+                    Dashboard
+                </a>
+                </li>
+                      <li>
+                    <a href="{{route('documents.index')}}" class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.index','documents.show') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                        <i data-feather="file-text" class="mr-3 w-4 h-4 "></i>
+                        Files
+                    </a>
                 </li>
                 <li>
-                    <a href="{{route('show.create')}}"  class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('show.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <a href="{{route('documents.create')}}"  class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.create','documents.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                         <i data-feather="book-open" class="mr-3 w-4 h-4 "></i>
                         Create
                     </a>
@@ -46,12 +73,8 @@
                         Verify
                     </a>
                 </li>
-                <li>
-                    <a href="{{route('show.files')}}" class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('show.files') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                        <i data-feather="file-text" class="mr-3 w-4 h-4 "></i>
-                        Files
-                    </a>
-                </li>
+                @endif
+        @endauth
             </ul>
         </div>
 
