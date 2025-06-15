@@ -37,5 +37,10 @@ return [
     'tiny' => [
         'key' => env('q4ojn7q4jqhfv1h6bdfxwb8ywgs7t4kpw698i7lxkq026qjx'),
     ],
+    'google' => [
+        'api_key' => env('GOOGLE_API_KEY'),
+        'cse_id' => env('GOOGLE_CSE_ID'),
+    ],
+
 
 ];

@@ -15,10 +15,7 @@
         "vite": "^6.2.4"
     },
     "dependencies": {
-        "@ckeditor/ckeditor5-build-classic": "^41.4.2",
-        "@ckeditor/ckeditor5-vue": "^7.3.0",
-        "@tinymce/tinymce-vue": "^6.2.0",
-        "sweetalert2": "^11.6.13",
-        "tinymce": "^7.9.1"
+        "puppeteer": "^24.10.1",
+        "sweetalert2": "^11.6.13"
     }
 }

@@ -25,7 +25,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'password',
-        'position'
+        'position',
+        'avatar'
     ];
 
     /**
@@ -62,6 +63,10 @@ class User extends Authenticatable implements MustVerifyEmail
     public function documents()
     {
         return $this->hasMany(Document::class);
+    }
+    public function template()
+    {
+        return $this->hasMany(Template::class);
     }
     public function isAdmin()
     {

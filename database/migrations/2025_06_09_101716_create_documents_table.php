@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained();
             $table->string('title');
             $table->string('file_path')->nullable(); // For document files
+            $table->enum('status', ['pending', 'approved'])->default('pending'); 
             $table->longText('content'); // HTML content
             $table->timestamps();
         });

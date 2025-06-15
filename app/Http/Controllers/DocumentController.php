@@ -1,11 +1,14 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Models\Notification;
 use App\Models\Document;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class DocumentController extends Controller
 {
@@ -56,6 +59,13 @@ class DocumentController extends Controller
             'title' => $request->title,
             'content' => $request->content
         ]);
+
+        Notification::create([
+        'user_id' => auth()->id(),
+        'title' => 'Document Submitted',
+        'message' => 'Your document "' . $request->title . '" has been submitted and is now pending approval.',
+        ]);
+
 
         return redirect()->route('documents.index')->with('success', 'Document saved!');
     }
@@ -109,4 +119,63 @@ class DocumentController extends Controller
     public function showVerify(){
         return view('documents.verify');
     }
+
+    public function checkTitleSimilarity(Request $request)
+    {
+    $inputTitle = $request->input('title');
+    $documentId = $request->input('document_id'); // Accept the current doc ID (optional)
+
+    $documents = Document::all();
+
+    $similarities = [];
+    foreach ($documents as $doc) {
+        // Skip if the current document matches the one being edited
+        if ($documentId && $doc->id == $documentId) {
+            continue;
+        }
+
+        similar_text(strtolower($inputTitle), strtolower($doc->title), $percent);
+        $similarities[] = [
+            'existing_title' => $doc->title,
+            'similarity' => round($percent, 2)
+        ];
+    }
+
+    // Find the most similar title
+    $maxSimilarity = collect($similarities)->max('similarity') ?? 0;
+
+    return response()->json([
+        'max_similarity' => $maxSimilarity,
+        'similarities' => $similarities,
+        'approved' => $maxSimilarity < 30
+    ]);
+    }
+
+
+    
+    public function checkWebTitleSimilarity(Request $request)
+    {
+        $title = $request->input('title');
+        $response = Http::get('https://api.semanticscholar.org/graph/v1/paper/search', [
+            'query' => $title,
+            'fields' => 'title',
+            'limit' => 5,
+        ]);
+
+        $items = $response->json('data', []);
+        $similarities = [];
+
+        foreach ($items as $item) {
+            similar_text(strtolower($title), strtolower($item['title']), $percent);
+            $similarities[] = $percent;
+        }
+
+        $max = count($similarities) ? round(max($similarities), 2) : 0;
+        return response()->json([
+            'max_similarity' => $max,
+            'approved' => $max < 30,
+            'results' => $items,
+        ]);
+    }
+
 }

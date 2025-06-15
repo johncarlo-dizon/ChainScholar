@@ -23,7 +23,7 @@
     required
   >
 
-  <button type="submit"  class="mt-5 tracking-wide font-semibold bg-indigo-500 text-white-1000 w-full py-4 rounded-lg hover:bg-indigo-400 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none" style="color: white;">    
+  <button type="submit"  class="mt-5 tracking-wide font-semibold   text-white-1000 w-full py-4 rounded-lg btn-auth transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none" style="color: white;">    
                                 Sign In
                            </button>
 
@@ -59,11 +59,7 @@
                 </div>
             </div>
         </div>
-        <div class="flex-1 bg-indigo-100 text-center hidden lg:flex">
-            <div class="m-12 xl:m-30 w-full bg-contain bg-center bg-no-repeat"
-               style="background-image: url('{{ asset('storage/images/login.png') }}')">
-            </div>
-        </div>
+        
 </x-layout>
 
 

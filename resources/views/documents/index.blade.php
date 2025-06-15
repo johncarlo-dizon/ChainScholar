@@ -1,17 +1,9 @@
-<x-reslayout>
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-3xl font-semibold mb-4">My Documents</h2>
-             <a href="{{ route('documents.create') }}" 
-               class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray rounded-md text-sm font-medium">
-                <!-- Plus circle icon (Heroicons outline plus-circle) -->
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Create New
-            </a>
+<x-userlayout>
+    <div class="bg-blue-600 rounded-lg shadow p-6">
+        <h2 class="text-3xl font-semibold mb-4 text-white">My Documents</h2>
     </div>
 
-    <div class="container mx-auto px-4 mt-8">
+    <div class="container mx-auto px-4 mt-2">
         <div class="flex justify-end items-center mb-6">
     
        
@@ -148,4 +140,4 @@
             @endif
         </div>
     </div>
-</x-reslayout>
+</x-userlayout>

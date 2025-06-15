@@ -7,15 +7,55 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TemplateController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Http\Request;
+
+
+
+//TITLE VERIFY
+Route::post('/check-title-similarity', [DocumentController::class, 'checkTitleSimilarity'])->name('documents.check-similarity');
+Route::post('/check-title-web', [DocumentController::class, 'checkWebTitleSimilarity'])->name('documents.check-web');
+
+
+
+
+
+//NOTIF
+Route::post('/notifications/read/{id}', function ($id) {
+    $notif = \App\Models\Notification::where('id', $id)
+              ->where('user_id', auth()->id())
+              ->firstOrFail();
+
+    $notif->update([
+        'is_read' => true,
+        'read_at' => now(),
+    ]);
+
+    return response()->json(['success' => true]);
+});
+
  
 
 Route::middleware(['auth'])->group(function () {
-    Route::resource('documents', DocumentController::class);
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::post('/profile/update-avatar', [ProfileController::class, 'updateAvatar'])->name('profile.update.avatar');
+    Route::post('/profile/update-username', [ProfileController::class, 'updateUsername'])->name('profile.update.username');
+    Route::post('/profile/update-password', [ProfileController::class, 'updatePassword'])->name('profile.update.password');
+});
+
  
+
+
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::resource('documents', DocumentController::class);
+    Route::resource('templates', TemplateController::class);
+    Route::get('/templates/{template}/use', [TemplateController::class, 'useTemplate'])->name('templates.use');
     Route::post('/upload-image', [DocumentController::class, 'uploadImage'])
         ->name('upload.image');
     Route::get('show/verify' , [DocumentController::class, 'showVerify'])->name('show.verify');
@@ -77,7 +117,7 @@ Route::middleware('auth')->group(function() {
 // ADMIN ROUTES
 Route::middleware(['auth', 'admin'])->group(function() {
     // Admin Dashboard
-    Route::get('/admin/home', [AdminController::class, 'showDashboard'])->name('admin.home');
+    Route::get('/admin/index', [UserController::class, 'showDashboard'])->name('admin.index');
     
     // User CRUD Routes
     Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');

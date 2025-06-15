@@ -19,3 +19,27 @@ label{
 }
 
 
+ 
+ 
+.ring-gray-300  {
+    background-color: #f9fafb !important; /* Tailwind green-500 */
+    color: rgb(46, 41, 41) !important;
+    border: solid 1px rgb(255, 239, 239) !important;
+}
+
+.ring-gray-300:hover  {
+   background-color: #f3f4f6 !important; /* Tailwind green-500 */
+   font-weight: bold !important;
+      color: rgb(20, 20, 20) !important;
+}
+.cursor-default{
+   background-color: #f3f4f6 !important; /* Tailwind green-500 */
+   color: rgb(20, 20, 20) !important;
+   font-weight: bold !important;
+    border: solid 1px rgb(255, 239, 239) !important;
+}
+
+.btn-auth{
+  @apply bg-indigo-600;
+  @apply hover:bg-indigo-700;
+}

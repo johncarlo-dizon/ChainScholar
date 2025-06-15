@@ -53,10 +53,10 @@ class AuthController extends Controller
         
         // Redirect based on user role
         if (auth()->user()->position === 'admin') {
-            return redirect()->route('admin.home');  
+            return redirect()->route('admin.users.index');  
         }
         
-        return redirect()->route('documents.index');  
+        return redirect()->route('documents.create');  
     }
 
     throw ValidationException::withMessages([

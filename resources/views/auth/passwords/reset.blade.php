@@ -26,7 +26,7 @@
                     <span class="text-danger text-sm text-red-500">{{ $message }}</span>
                 @enderror
 
-            <button type="submit" class="mt-5 tracking-wide font-semibold bg-indigo-500 w-full py-4 rounded-lg hover:bg-indigo-400 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none" style="color: white;">Reset Password</button>
+            <button type="submit" class="mt-5 tracking-wide font-semibold   w-full py-4 rounded-lg  btn-auth transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none" style="color: white;">Reset Password</button>
         </form>
  </div>
    
@@ -34,10 +34,6 @@
                 </div>
             </div>
         </div>
-        <div class="flex-1 bg-indigo-100 text-center hidden lg:flex">
-            <div class="m-12 xl:m-30 w-full bg-contain bg-center bg-no-repeat"
-               style="background-image: url('{{ asset('storage/images/forgot.png') }}')">
-            </div>
-        </div>
+        
 
 </x-layout>

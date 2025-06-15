@@ -10,9 +10,11 @@ class UserController extends Controller
 {
     // Display all users
     public function index()
-    {
-        $users = User::all();
-        return view('admin.users.index', compact('users'));
+{
+    $users = User::where('id', '!=', auth()->id()) // exclude current user
+                 ->paginate(perPage: 6); // pagination, 10 per page
+
+    return view('admin.users.index', compact('users'));
     }
 
     // Show create user form
@@ -21,22 +23,29 @@ class UserController extends Controller
         return view('admin.users.create');
     }
 
+
+    public function showDashboard()
+    {
+        return view('admin.index');
+    }
+
     // Store new user
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:users',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'position' => 'required|string|max:255' // Changed to position
+            'position' => 'required|string|max:255',
         ]);
 
         User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'position' => $request->position // Changed to position
+            'position' => $request->position,
         ]);
+
 
         return redirect()->route('admin.users.index')->with('success', 'User created successfully!');
     }
@@ -51,17 +60,18 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,'.$user->id,
+            'name' => 'required|string|max:255|unique:users,name,' . $user->id,
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8|confirmed',
-            'position' => 'required|string|max:255' // Changed to position
+            'position' => 'required|string|max:255',
         ]);
 
         $data = [
             'name' => $request->name,
             'email' => $request->email,
-            'position' => $request->position // Changed to position
+            'position' => $request->position,
         ];
+
 
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
