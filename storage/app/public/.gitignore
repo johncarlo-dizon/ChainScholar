@@ -1,2 +1,10 @@
 *
+!avatars/
+!images/
+!previews/
+!assets/
+!index.php
+!favicon.ico
+!robots.txt
+!.htaccess
 !.gitignore
