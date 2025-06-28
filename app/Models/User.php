@@ -64,6 +64,11 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Document::class);
     }
+    public function titles()
+    {
+        return $this->hasMany(Title::class);
+    }
+
     public function template()
     {
         return $this->hasMany(Template::class);

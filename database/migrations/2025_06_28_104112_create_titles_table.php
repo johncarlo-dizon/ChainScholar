@@ -9,24 +9,24 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
+    public function up()
     {
-        Schema::create('documents', function (Blueprint $table) {
+        Schema::create('titles', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained();
+            $table->unsignedBigInteger('user_id');
             $table->string('title');
-            $table->string('file_path')->nullable(); // For document files
-            $table->enum('status', ['pending', 'approved'])->default('pending'); 
-            $table->longText('content'); // HTML content
             $table->timestamps();
+
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
+
 
     /**
      * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::dropIfExists('documents');
+        Schema::dropIfExists('titles');
     }
 };

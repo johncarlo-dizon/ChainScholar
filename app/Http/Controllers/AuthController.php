@@ -56,7 +56,7 @@ class AuthController extends Controller
             return redirect()->route('admin.users.index');  
         }
         
-        return redirect()->route('documents.create');  
+        return redirect()->route('titles.verify');  
     }
 
     throw ValidationException::withMessages([

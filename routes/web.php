@@ -9,11 +9,15 @@ use App\Http\Controllers\MainController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
+use App\Http\Controllers\TitleController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Http\Request;
 
+
+
+ 
 
 
 //TITLE VERIFY
@@ -53,6 +57,15 @@ Route::middleware(['auth'])->group(function () {
 
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/titles', [TitleController::class, 'index'])->name('titles.index');
+    Route::delete('/titles/{id}', [TitleController::class, 'destroy'])->name('titles.destroy');
+    Route::get('/documents/verify', [TitleController::class, 'verifyForm'])->name('titles.verify');
+
+// Handle POST from verify form and redirect to chapters (step 2)
+    Route::post('/documents/verify', [TitleController::class, 'verifyAndProceed'])->name('titles.verify.submit');
+
+// Show chapters page after verifying title (step 2)
+    Route::get('/titles/{id}/chapters', [TitleController::class, 'showChapters'])->name('titles.chapters');
     Route::resource('documents', DocumentController::class);
     Route::resource('templates', TemplateController::class);
     Route::get('/templates/{template}/use', [TemplateController::class, 'useTemplate'])->name('templates.use');

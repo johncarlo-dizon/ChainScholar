@@ -7,15 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 class Document extends Model
 {
     //
-     protected $fillable = [
-        'user_id',
-        'title',
-        'content',
-        'file_path'
-    ];
+     protected $fillable = ['user_id', 'title_id', 'chapter', 'content', 'file_path'];
     // app/Models/Document.php
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+    public function title()
+    {
+        return $this->belongsTo(Title::class);
     }
 }

@@ -42,56 +42,56 @@ class DocumentController extends Controller
 
  
 
-    public function create()
+    public function create(Request $request)
     {
-        return view('documents.editor');
+        $title = $request->input('title'); // from verification step
+        return view('documents.editor', compact('title'));
     }
+
 
     public function store(Request $request)
     {
         $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required'
+            'title_id' => 'required|exists:titles,id',
+            'chapter' => 'required|string|max:255',
         ]);
 
-        Document::create([
+        $document = Document::create([
             'user_id' => auth()->id(),
-            'title' => $request->title,
-            'content' => $request->content
+            'title_id' => $request->title_id,
+            'chapter' => $request->chapter,
+            'content' => '', // Start empty
         ]);
 
-        Notification::create([
-        'user_id' => auth()->id(),
-        'title' => 'Document Submitted',
-        'message' => 'Your document "' . $request->title . '" has been submitted and is now pending approval.',
-        ]);
-
-
-        return redirect()->route('documents.index')->with('success', 'Document saved!');
+        // Redirect to editor
+        return redirect()->route('documents.edit', $document->id);
     }
 
-    public function edit(Document $document)
+
+
+   public function edit(Document $document)
     {
         $this->authorize('update', $document);
         return view('documents.editor', compact('document'));
     }
 
+
     public function update(Request $request, Document $document)
     {
         $this->authorize('update', $document);
-        
+
         $request->validate([
-            'title' => 'required|string|max:255',
             'content' => 'required'
         ]);
 
         $document->update([
-            'title' => $request->title,
             'content' => $request->content
         ]);
 
-        return redirect()->route('documents.index')->with('success', 'Document updated!');
+        return redirect()->route('titles.chapters', $document->title_id)
+                        ->with('success', 'Chapter updated successfully!');
     }
+
 
     public function show(Document $document)
     {
