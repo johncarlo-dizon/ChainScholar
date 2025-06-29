@@ -14,7 +14,19 @@ use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
+Route::get('/documents/{document}/undo-template', [DocumentController::class, 'undoTemplate'])->name('documents.undoTemplate');
+
+Route::get('/clear-template-session', function () {
+    session()->forget('templateContent');
+    session()->forget('previousEditorContent');
+    return response()->json(['cleared' => true]);
+})->name('clear.template.session');
+
+
+
+ 
 
 
 Route::get('/get-template-content/{id}', function ($id) {

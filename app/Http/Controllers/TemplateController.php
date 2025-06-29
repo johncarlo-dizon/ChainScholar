@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Document as ModelsDocument;
 use App\Models\Template;
+use Dom\Document;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -59,12 +61,16 @@ class TemplateController extends Controller
         return redirect()->route('templates.index')->with('success', 'Template saved!');
     }
 
-    public function edit(Template $template)
+    public function edit(Document $document)
     {
-        $document = $template;
-     
-        return view('templates.editor', compact('document'));
+        $this->authorize('update', $document);
+
+        // Pull persisted template content (if exists)
+        $templateContent = session('templateContent'); // Persistent
+
+        return view('documents.editor', compact('document', 'templateContent'));
     }
+
 
 
     public function useTemplate(Request $request, Template $template)
@@ -73,13 +79,25 @@ class TemplateController extends Controller
         $documentId = $request->query('document_id');
 
         if ($useFor === 'chapter' && $documentId) {
+            $document = ModelsDocument::findOrFail($documentId);
+
+            // Save original content for undo
+            session()->put('previousEditorContent', $document->content);
+
+            // Persist template content (not flash)
+            session()->put('templateContent', $template->content);
+
             return redirect()
-                ->route('documents.edit', ['document' => $documentId])
-                ->with('templateContent', $template->content);
+                ->route('documents.edit', $documentId)
+                ->with('success', 'Template applied! You can undo it.');
         }
 
-        return view('documents.editor', ['template' => $template]); // fallback
+        return view('documents.editor', ['template' => $template]);
     }
+
+
+
+
 
 
 

@@ -67,12 +67,34 @@
                         </div>
 
 
-                        
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-700">Actions</h3>
+                            </div>
+                            <div class="space-y-4 ">
+                                <div class="flex flex-col">
+                                  <a href="{{ route('templates.index', ['use_for' => 'chapter', 'document_id' => $document->id]) }}"
+                            class="text-sm text-blue-500 transition  hover:text-blue-700">
+                                Use Template
+                            </a>
 
-                        <a href="{{ route('templates.index', ['use_for' => 'chapter', 'document_id' => $document->id]) }}"
-   class="inline-block px-4 py-2 mb-4 bg-green-600 text-white rounded hover:bg-green-700 transition">
-    Use Template
-</a>
+                           @if(session()->has('templateContent') && !session()->has('templateUndone'))
+    <a href="{{ route('documents.undoTemplate', $document) }}"
+       class="text-sm text-blue-500 transition hover:text-blue-700">
+        Undo Template
+    </a>
+@endif
+
+                                </div>
+                            </div>
+
+                            
+                
+                        </div>
+ 
+
+
+
 
 
                         <div class="pt-2 border-t border-gray-200">
@@ -96,6 +118,12 @@
     <!-- CKEditor Scripts -->
     <link rel="stylesheet" href="{{ asset('assets/editor.css') }}">
     <script src="{{ asset('assets/editor.js') }}"></script>
+
+    <script>
+        window.addEventListener("beforeunload", function () {
+            fetch("{{ route('clear.template.session') }}");
+        });
+    </script>
 
     <style>
         .ck-content {

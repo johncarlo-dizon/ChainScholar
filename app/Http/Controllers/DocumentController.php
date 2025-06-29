@@ -69,11 +69,35 @@ class DocumentController extends Controller
 
 
 
-   public function edit(Document $document)
+    public function edit(Document $document)
     {
         $this->authorize('update', $document);
+       
         return view('documents.editor', compact('document'));
     }
+
+  public function undoTemplate(Document $document)
+    {
+        $this->authorize('update', $document);
+
+        // Restore previous content (if stored)
+        $restoredContent = session('previousEditorContent', $document->content);
+
+        // Forget both template and previous content
+        session()->forget('templateContent');
+        session()->forget('previousEditorContent');
+
+        // Pass the restored content back as flash session (temporary)
+        return redirect()
+            ->route('documents.edit', $document->id)
+            ->with('templateContent', $restoredContent)
+            ->with('templateUndone', true); // flag for blade
+    }
+
+
+
+
+
 
 
     public function update(Request $request, Document $document)
