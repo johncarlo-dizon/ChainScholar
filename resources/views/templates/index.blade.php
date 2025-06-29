@@ -1,3 +1,4 @@
+ <!-- templates/index.blade.php -->
 <x-userlayout>
     <div class="bg-blue-600 rounded-lg shadow p-6">
         <h2 class="text-3xl font-semibold mb-4 text-white">ChainScholar Templates</h2>
@@ -9,6 +10,14 @@
                 {{ session('success') }}
             </div>
         @endif
+
+        @if(request('use_for') === 'chapter' && request('document_id'))
+            <a href="{{ route('documents.edit', ['document' => request('document_id')]) }}"
+            class="inline-block px-4 py-2 mb-6 bg-white  shadow rounded hover:bg-gray-50 transition">
+                Cancel and Return to Editing
+            </a>
+        @endif
+
 
         <div class="bg-white shadow rounded-lg p-6">
             @if($templates->isEmpty())
@@ -54,10 +63,11 @@
                       @auth 
                         @if(auth()->user()->position === 'user')
                             <div class="flex flex-wrap justify-center gap-2 mt-2">
-                                <a href="{{ route('templates.use', $template->id) }}" 
-                                    class=" w-25 text-center px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-700 text-sm">
-                                    Use
-                                </a>
+                                <a href="{{ route('templates.use', ['template' => $template->id, 'use_for' => request('use_for'), 'document_id' => request('document_id')]) }}"
+                                    class="w-25 text-center px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-700 text-sm">
+                                        Use
+                                    </a>
+
 
                                 @if($template->user->position === 'user' || auth()->user()->position === 'admin')
                                     <a href="{{ route('templates.edit', $template->id) }}" 

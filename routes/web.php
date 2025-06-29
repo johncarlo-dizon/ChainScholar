@@ -17,6 +17,11 @@ use Illuminate\Http\Request;
 
 
 
+Route::get('/get-template-content/{id}', function ($id) {
+    $template = \App\Models\Template::findOrFail($id);
+    return response()->json(['content' => $template->content]);
+})->middleware('auth');
+
  
 
 
@@ -44,12 +49,7 @@ Route::post('/notifications/read/{id}', function ($id) {
 
  
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
-    Route::post('/profile/update-avatar', [ProfileController::class, 'updateAvatar'])->name('profile.update.avatar');
-    Route::post('/profile/update-username', [ProfileController::class, 'updateUsername'])->name('profile.update.username');
-    Route::post('/profile/update-password', [ProfileController::class, 'updatePassword'])->name('profile.update.password');
-});
+
 
  
 
@@ -75,6 +75,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('show/dashboard' , [DocumentController::class, 'showDashboard'])->name('show.dashboard');
 });
 
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::post('/profile/update-avatar', [ProfileController::class, 'updateAvatar'])->name('profile.update.avatar');
+    Route::post('/profile/update-username', [ProfileController::class, 'updateUsername'])->name('profile.update.username');
+    Route::post('/profile/update-password', [ProfileController::class, 'updatePassword'])->name('profile.update.password');
+});
 
 
 

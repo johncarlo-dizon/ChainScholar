@@ -67,16 +67,20 @@ class TemplateController extends Controller
     }
 
 
-    public function useTemplate(Template $template)
+    public function useTemplate(Request $request, Template $template)
     {
-        // We're passing the template content to the document editor
-        // but NOT passing an existing $document -> this will trigger the "New Document" mode
+        $useFor = $request->query('use_for');
+        $documentId = $request->query('document_id');
 
-        // You can pass the template as "template" so you can prefill the form.
-        return view('documents.editor', [
-            'template' => $template
-        ]);
+        if ($useFor === 'chapter' && $documentId) {
+            return redirect()
+                ->route('documents.edit', ['document' => $documentId])
+                ->with('templateContent', $template->content);
+        }
+
+        return view('documents.editor', ['template' => $template]); // fallback
     }
+
 
 
 

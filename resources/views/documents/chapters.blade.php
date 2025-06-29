@@ -33,7 +33,7 @@
         
         @if ($title->documents->isEmpty())
             <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-4 rounded ">
-                <p>No chapters yet. Use the form below to create your first one.</p>
+                <p>No chapters yet. Use the form above to create your first one.</p>
             </div>
         @else
             <div class="grid gap-4 mb-10">

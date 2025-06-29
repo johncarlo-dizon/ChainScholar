@@ -1,3 +1,4 @@
+ <!-- documents/editor.blade.php -->
 <x-userlayout>
     <div class="bg-blue-600 rounded-lg shadow p-6 max-w-8xl container">
         <h2 class="text-3xl text-white font-semibold mb-4">
@@ -36,11 +37,16 @@
                                 <label for="editor" class="block mb-2 font-bold text-blue-600">Document Content</label>
                                 <div class="editor-container editor-container_classic-editor editor-container_include-style editor-container_include-word-count editor-container_include-fullscreen" id="editor-container">
                                     <div class="editor-container__editor">
-                                        <textarea 
-                                            name="content" 
-                                            id="editor" 
-                                            class="min-h-[600px] w-full p-4 bg-white border border-gray-300 rounded-md hidden"
-                                        >{{ old('content', $document->content ?? '') }}</textarea>
+                           @php
+    $prefillContent = session('templateContent') ?? old('content', $document->content ?? '');
+@endphp
+
+<textarea 
+    name="content" 
+    id="editor" 
+    class="min-h-[600px] w-full p-4 bg-white border border-gray-300 rounded-md hidden"
+>{{ $prefillContent }}</textarea>
+
                                     </div>
                                 </div>
                             </div>
@@ -59,6 +65,15 @@
                                 <!-- Word count will be injected here -->
                             </div>
                         </div>
+
+
+                        
+
+                        <a href="{{ route('templates.index', ['use_for' => 'chapter', 'document_id' => $document->id]) }}"
+   class="inline-block px-4 py-2 mb-4 bg-green-600 text-white rounded hover:bg-green-700 transition">
+    Use Template
+</a>
+
 
                         <div class="pt-2 border-t border-gray-200">
                             <div class="flex justify-between">
