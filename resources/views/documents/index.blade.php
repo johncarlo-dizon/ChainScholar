@@ -36,7 +36,7 @@
                                     <td class="px-6 py-4 text-sm text-gray-900">{{ $title->title }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-500">{{ $title->updated_at->format('M d, Y H:i') }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-900 space-x-2">
-                                        <a href="{{ route('titles.chapters', $title->id) }}"
+                                        <a href="{{ route('open.chapters', $title->id) }}"
                                            class="inline-flex items-center px-3 py-1.5 border border-green-600 text-green-600 rounded hover:bg-green-50">
                                             Open
                                         </a>

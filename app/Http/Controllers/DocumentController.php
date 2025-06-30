@@ -26,18 +26,12 @@ class DocumentController extends Controller
 
     public function destroy($id)
     {
-        $document = Document::findOrFail($id);
-        
-        // Optional: check if the authenticated user owns the document
-        // if (auth()->id() !== $document->user_id) {
-        //     abort(403);
-        // }
+        $doc = Document::findOrFail($id);
+        $doc->delete();
 
-        $document->delete();
-
-        return redirect()->route('documents.index')
-                        ->with('success', 'Document deleted successfully.');
+        return redirect()->back()->with('success', 'Chapter deleted successfully.');
     }
+
 
 
  
@@ -95,6 +89,50 @@ class DocumentController extends Controller
     }
 
 
+  public function combineCustom(Request $request, $titleId)
+    {
+        $orderedIds = $request->input('ordered_ids');
+        $includedIds = $request->input('included_ids');
+        $customName = $request->input('combined_name');
+
+        if (!$orderedIds || !$includedIds || !$customName) {
+            return back()->with('error', 'Please fill all required fields and select at least one chapter.');
+        }
+
+        // Only keep the ordered IDs that are also in the included list
+        $filteredIds = array_values(array_filter($orderedIds, function ($id) use ($includedIds) {
+            return in_array($id, $includedIds);
+        }));
+
+        if (empty($filteredIds)) {
+            return back()->with('error', 'No chapters selected for combination.');
+        }
+
+        $documents = Document::whereIn('id', $filteredIds)->get()->keyBy('id');
+
+        $combinedContent = '';
+        foreach ($filteredIds as $docId) {
+            if (!isset($documents[$docId])) continue;
+            $doc = $documents[$docId];
+            $combinedContent .=   "\n\n" . $doc->content . "\n\n";
+        }
+
+        $combinedDoc = Document::create([
+            'user_id' => auth()->id(),
+            'title_id' => $titleId,
+            'chapter' => $customName,
+            'content' => $combinedContent,
+            'format' => 'combined',
+            'status' => 'in progress',
+        ]);
+
+        return redirect()->route('documents.edit', $combinedDoc->id)
+                        ->with('success', 'Chapters combined successfully!');
+    }
+
+
+
+
 
 
 
@@ -135,6 +173,12 @@ class DocumentController extends Controller
             'url' => $url
         ]);
     }
+
+
+
+
+
+
 
 
     public function showDashboard(){

@@ -16,6 +16,9 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
+Route::post('/documents/combine/custom/{titleId}', [DocumentController::class, 'combineCustom'])->name('documents.combine.custom');
+
+
 Route::get('/documents/{document}/undo-template', [DocumentController::class, 'undoTemplate'])->name('documents.undoTemplate');
 
 Route::get('/clear-template-session', function () {
@@ -76,8 +79,16 @@ Route::middleware(['auth'])->group(function () {
 // Handle POST from verify form and redirect to chapters (step 2)
     Route::post('/documents/verify', [TitleController::class, 'verifyAndProceed'])->name('titles.verify.submit');
 
+
+
+
 // Show chapters page after verifying title (step 2)
     Route::get('/titles/{id}/chapters', [TitleController::class, 'showChapters'])->name('titles.chapters');
+    Route::get('/open/{id}/chapters', [TitleController::class, 'showChapters'])->name('open.chapters');
+
+
+
+
     Route::resource('documents', DocumentController::class);
     Route::resource('templates', TemplateController::class);
     Route::get('/templates/{template}/use', [TemplateController::class, 'useTemplate'])->name('templates.use');

@@ -60,16 +60,16 @@
                     Dashboard
                 </a>
                 <li>
-                    <a href="{{route('titles.verify')}}"  class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.create','templates.use','titles.verify') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <a href="{{route('titles.verify')}}"  class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.create','templates.use','titles.verify','titles.chapters') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                         <i data-feather="edit-3" class="mr-3 w-4 h-4 "></i>
                         Create
                     </a>
                 </li>
                 </li>
                       <li>
-                    <a href="{{route('titles.index')}}" class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('titles.index','documents.show','documents.edit','titles.chapters','templates.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <a href="{{route('titles.index')}}" class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('titles.index','documents.show','documents.edit','open.chapters','templates.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                         <i data-feather="folder" class="mr-3 w-4 h-4 "></i>
-                        Files
+                        Titles
                     </a>
                 </li>
                 </li>

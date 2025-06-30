@@ -17,6 +17,8 @@ return new class extends Migration
             $table->unsignedBigInteger('title_id');
             $table->string('chapter')->nullable();
             $table->longText('content')->nullable();
+            $table->enum('format', ['separate', 'combined'])->default('separate');
+            $table->string('status')->nullable();
             $table->string('file_path')->nullable();
             $table->timestamps();
 
