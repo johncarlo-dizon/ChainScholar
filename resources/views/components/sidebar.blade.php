@@ -72,7 +72,14 @@
                         Titles
                     </a>
                 </li>
-                </li>
+                <li>
+                <a href="{{ route('research-papers.create') }}" 
+                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.*') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <i data-feather="file-text" class="mr-3 w-4 h-4"></i>
+                    Research Papers
+                </a>
+            </li>
+             
 
                 <li>
                     <a href="{{route('templates.index')}}" class="hidden flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('templates.index','templates.create','templates.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">

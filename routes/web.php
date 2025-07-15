@@ -8,6 +8,7 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ResearchPaperController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TitleController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
@@ -16,11 +17,25 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
+
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/submit-research', [ResearchPaperController::class, 'create'])
+        ->name('research-papers.create');
+    Route::post('/submit-research', [ResearchPaperController::class, 'store'])
+        ->name('research-papers.store');
+    Route::get('/check-filename', [ResearchPaperController::class, 'checkFilename'])
+        ->name('research-papers.check-filename');
+});
+
+
+
+
+
+
 Route::post('/documents/combine/custom/{titleId}', [DocumentController::class, 'combineCustom'])->name('documents.combine.custom');
-
-
 Route::get('/documents/{document}/undo-template', [DocumentController::class, 'undoTemplate'])->name('documents.undoTemplate');
-
 Route::get('/clear-template-session', function () {
     session()->forget('templateContent');
     session()->forget('previousEditorContent');

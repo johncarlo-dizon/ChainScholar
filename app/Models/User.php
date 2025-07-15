@@ -68,6 +68,10 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Title::class);
     }
+    public function researchPapers()
+    {
+        return $this->hasMany(ResearchPaper::class);
+    }
 
     public function template()
     {
@@ -82,5 +86,6 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->position === 'user';
     }
+
  
 }
