@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 use App\Models\Title;
 use Illuminate\Http\Request;
+use App\Models\Document;
+use App\Models\Notification;
 
 class TitleController extends Controller
 {
@@ -12,17 +14,52 @@ class TitleController extends Controller
         return view('documents.verify');
     }
 
+  
     public function verifyAndProceed(Request $request)
     {
         $request->validate(['title' => 'required|string|max:255']);
-
+    
         $title = Title::create([
             'user_id' => auth()->id(),
             'title' => $request->title
         ]);
-
-        return redirect()->route('titles.chapters', $title->id);
+    
+        // Create default chapters
+        $defaultChapters = [
+            'Chapter 1',
+            'Chapter 2',
+            'Chapter 3',
+            'Chapter 4',
+            'Chapter 5',
+        ];
+    
+        foreach ($defaultChapters as $chapterName) {
+            Document::create([
+                'user_id' => auth()->id(),
+                'title_id' => $title->id,
+                'chapter' => $chapterName,
+                'content' => '',
+                'format' => 'separate',
+            ]);
+        }
+    
+        // Create notification
+        Notification::create([
+            'user_id' => auth()->id(),
+            'title' => 'Title Verified',
+            'message' => 'Your title and default chapters have been successfully created.',
+            'is_read' => false,
+        ]);
+    
+        return redirect()
+        ->route('titles.chapters', $title->id)
+        ->with('status', 'Title and chapters created successfully!');
+    
     }
+
+
+
+
 
     public function showChapters($titleId)
     {
@@ -46,7 +83,7 @@ class TitleController extends Controller
     // Delete title
     $title->delete();
 
-    return redirect()->route('titles.index')->with('success', 'Title and its chapters deleted successfully.');
+    return redirect()->route('titles.index')->with('status', 'Title and its chapters deleted successfully.');
 }
 
 

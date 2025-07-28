@@ -37,5 +37,36 @@
 
 
 
+<script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+@if (session('status'))
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: '{{ session("status") }}',
+            showConfirmButton: false,
+            timer: 3000,
+            toast: true,
+            position: 'top-end'
+        });
+    </script>
+@endif
+
+@if (session('registered'))
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: '{{ session("registered") }}',
+            showConfirmButton: false,
+            timer: 3000,
+            toast: true,
+            position: 'top-end'
+        });
+    </script>
+@endif
+
+
+
 </body>
 </html>
+

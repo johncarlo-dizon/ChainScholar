@@ -11,11 +11,26 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ResearchPaperController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TitleController;
+use App\Http\Controllers\SubmittedDocumentController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+
+
+
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/submitted-documents', [SubmittedDocumentController::class, 'index'])->name('submitted_documents.index');
+    Route::get('/submitted-documents/{id}', [SubmittedDocumentController::class, 'show'])->name('submitted_documents.show');
+});
+
+Route::post('/documents/submit/{title_id}', [DocumentController::class, 'submitFinal'])->name('documents.submit');
+
+
+
 
 
 

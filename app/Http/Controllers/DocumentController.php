@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 use App\Models\Notification;
 use App\Models\Document;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -15,13 +16,47 @@ class DocumentController extends Controller
     use AuthorizesRequests;
     public function index()
     {
-     
-        $documents = auth()->check() 
-           ? auth()->user()->documents()->latest()->get()
-            : collect(); 
-
-        return view('documents.index', compact('documents'));
+        $user = auth()->user();
+    
+        $documents = $user->documents()->latest()->get();
+        $titles = $user->titles()->latest()->get(); // ✅ Add this line
+    
+        return view('documents.index', compact('documents', 'titles')); // ✅ Pass both
     }
+    
+
+
+    public function submitFinal(Request $request, $title_id)
+    {
+        $request->validate([
+            'finaldocument_id' => 'required|exists:documents,id',
+            'abstract' => 'required|string',
+            'keywords' => 'required|string',
+            'category' => 'required|string',
+            'sub_category' => 'nullable|string',
+            'research_type' => 'required|string',
+        ]);
+    
+        $title = \App\Models\Title::findOrFail($title_id);
+    
+        $title->update([
+            'finaldocument_id' => $request->finaldocument_id,
+            'abstract' => $request->abstract,
+            'keywords' => $request->keywords,
+            'category' => $request->category,
+            'sub_category' => $request->sub_category,
+            'research_type' => $request->research_type,
+            'status' => 'pending', // ✅ set status to pending
+            'submitted_at' => now(), // ✅ set submission time
+        ]);
+    
+        return redirect()->route('documents.index')->with('success', 'Final document submitted!');
+    }
+    
+    
+    
+    
+    
 
 
     public function destroy($id)
@@ -89,7 +124,7 @@ class DocumentController extends Controller
     }
 
 
-  public function combineCustom(Request $request, $titleId)
+    public function combineCustom(Request $request, $titleId)
     {
         $orderedIds = $request->input('ordered_ids');
         $includedIds = $request->input('included_ids');
@@ -123,7 +158,7 @@ class DocumentController extends Controller
             'chapter' => $customName,
             'content' => $combinedContent,
             'format' => 'combined',
-            'status' => 'in progress',
+            'status' => 'draft',
         ]);
 
         return redirect()->route('documents.edit', $combinedDoc->id)
