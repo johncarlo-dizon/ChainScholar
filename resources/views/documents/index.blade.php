@@ -1,6 +1,7 @@
 <x-userlayout>
     <div class="bg-blue-600 rounded-lg shadow p-6">
-        <h2 class="text-3xl font-semibold mb-4 text-white">My Titles</h2>
+        <h2 class="text-3xl font-semibold mb-4 text-white">📝 My Draft Titles</h2>
+        <p class="text-sm text-blue-100">These are titles you're still working on. Submit once ready for review.</p>
     </div>
 
     <div class="container mx-auto px-4 mt-4">
@@ -13,8 +14,8 @@
         <div class="bg-white shadow rounded-lg overflow-hidden">
             @if($titles->isEmpty())
                 <div class="text-center py-12">
-                    <h4 class="text-xl font-semibold mb-2">No titles found</h4>
-                    <p class="text-gray-600 mb-4">Create your first title to get started</p>
+                    <h4 class="text-xl font-semibold mb-2">No draft titles found</h4>
+                    <p class="text-gray-600 mb-4">Start by creating or verifying your first title.</p>
                     <a href="{{ route('titles.verify') }}"
                        class="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                         Verify & Create Title

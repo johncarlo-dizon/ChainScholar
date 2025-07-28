@@ -67,11 +67,20 @@ class TitleController extends Controller
         return view('documents.chapters', compact('title'));
     }
 
+
     public function index()
     {
-        $titles = auth()->user()->titles()->latest()->get();
+        $titles = auth()->user()
+            ->titles()
+            ->whereIn('status', ['draft']) // ✅ Only draft or returned
+            ->latest()
+            ->get();
+    
         return view('documents.index', compact('titles'));
     }
+    
+    
+    
 
     public function destroy($id)
     {

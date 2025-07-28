@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdminTitleController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\AuthController;
@@ -11,7 +12,6 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ResearchPaperController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TitleController;
-use App\Http\Controllers\SubmittedDocumentController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
@@ -22,10 +22,28 @@ use Illuminate\Support\Facades\Log;
 
 
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('/submitted-documents', [SubmittedDocumentController::class, 'index'])->name('submitted_documents.index');
-    Route::get('/submitted-documents/{id}', [SubmittedDocumentController::class, 'show'])->name('submitted_documents.show');
+Route::prefix('admin/titles')->name('admin.titles.')->group(function () {
+    Route::get('/pending', [AdminTitleController::class, 'pendingTitles'])->name('pending');
+    Route::get('/approved', [AdminTitleController::class, 'approvedTitles'])->name('approved');
+    Route::patch('/{id}/approve', [AdminTitleController::class, 'approve'])->name('approve');
+    Route::patch('/return', [AdminTitleController::class, 'return'])->name('return');
 });
+Route::get('/admin/documents/{id}/review', [AdminTitleController::class, 'review'])->name('admin.documents.review');
+
+
+
+
+
+
+
+// Admin view of final document
+Route::get('/admin/documents/{id}/view', [AdminTitleController::class, 'viewFinal'])->name('admin.documents.view');
+
+
+
+Route::patch('/titles/{id}/cancel', [DocumentController::class, 'cancelSubmission'])->name('titles.cancel');
+Route::get('/submitted-documents', [DocumentController::class, 'showSubmittedDocuments'])->name('documents.submitted');
+Route::get('/documents/{id}/view', [DocumentController::class, 'viewFinalDocument'])->name('documents.view');
 
 Route::post('/documents/submit/{title_id}', [DocumentController::class, 'submitFinal'])->name('documents.submit');
 

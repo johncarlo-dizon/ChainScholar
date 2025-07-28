@@ -26,27 +26,48 @@
         
             <ul class="space-y-2">
         @auth 
-            @if(auth()->user()->position === 'admin')
-            <li>
-            <a href="{{ route('admin.index') }}" 
-                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                <i data-feather="home" class="w-4 h-4 mr-3"></i>
-                Dashboard
-            </a>
-            </li>
-            <li>
-               <a href="{{ route('admin.users.index') }}" 
-                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.users.index','admin.users.create','admin.users.store','admin.users.edit','admin.users.update','admin.users.destroy') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                <i data-feather="users" class="w-4 h-4 mr-3"></i>
-                Users
-            </a>
-             <li>
-                    <a href="{{route('templates.index')}}" class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('templates.index','templates.create','templates.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                        <i data-feather="file-text" class="mr-3 w-4 h-4 "></i>
-                        Templates
-                    </a>
-                </li>
-            @endif
+      @if(auth()->user()->position === 'admin')
+    <li>
+        <a href="{{ route('admin.index') }}" 
+            class="flex items-center p-2 hidden rounded-lg transition text-sm {{ request()->routeIs('admin.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="home" class="w-4 h-4 mr-3"></i>
+            Dashboard
+        </a>
+    </li>
+    <li>
+        <a href="{{ route('admin.users.index') }}" 
+            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.users.index','admin.users.create','admin.users.store','admin.users.edit','admin.users.update','admin.users.destroy') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="users" class="w-4 h-4 mr-3"></i>
+            Users
+        </a>
+    </li>
+    <li>
+        <a href="{{ route('templates.index') }}" 
+            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('templates.index','templates.create','templates.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="file-text" class="mr-3 w-4 h-4 "></i>
+            Templates
+        </a>
+    </li>
+
+    <!-- 📄 Title Review Section -->
+    <li class="mt-2 text-xs text-gray-500 uppercase tracking-wider px-2">Documents</li>
+    
+    <li>
+        <a href="{{ route('admin.titles.pending') }}" 
+            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.pending','admin.documents.review') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="clock" class="w-4 h-4 mr-3"></i>
+            Pending Titles
+        </a>
+    </li>
+    <li>
+        <a href="{{ route('admin.titles.approved') }}" 
+            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.approved') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="check-circle" class="w-4 h-4 mr-3"></i>
+            Approved Titles
+        </a>
+    </li>
+@endif
+
 
 
 
@@ -75,7 +96,7 @@
                 </li>
 
                        <li>
-                    <a href="{{route('submitted_documents.index')}}" class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('submitted_documents.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <a href="{{route('documents.submitted')}}" class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.submitted','documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                         <i data-feather="folder" class="mr-3 w-4 h-4 "></i>
                         Submitted Documents
                     </a>

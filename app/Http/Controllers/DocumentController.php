@@ -23,6 +23,45 @@ class DocumentController extends Controller
     
         return view('documents.index', compact('documents', 'titles')); // ✅ Pass both
     }
+
+    public function showSubmittedDocuments(Request $request)
+    {
+        $query = auth()->user()->titles()->whereIn('status', ['pending', 'approved', 'returned']);
+    
+        if ($request->filled('search')) {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+    
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+    
+        $titles = $query->latest()->get();
+    
+        return view('documents.submitted_documents', compact('titles'));
+    }
+    
+    public function viewFinalDocument($id)
+    {
+        $document = \App\Models\Document::with('user', 'titleRelation')->findOrFail($id);
+
+        return view('documents.final_document_viewer', compact('document'));
+    }
+
+    public function cancelSubmission($id)
+    {
+        $title = \App\Models\Title::findOrFail($id);
+
+        // Reset title status and submitted_at
+        $title->update([
+            'status' => 'draft',
+            'submitted_at' => null,
+        ]);
+
+        return redirect()->back()->with('success', 'Submission has been cancelled.');
+    }
+
+
     
 
 
@@ -35,6 +74,11 @@ class DocumentController extends Controller
             'category' => 'required|string',
             'sub_category' => 'nullable|string',
             'research_type' => 'required|string',
+        ]);
+
+        $document = Document::findOrFail($request->finaldocument_id);
+        $document->update([
+            'content' => $request->final_content,
         ]);
     
         $title = \App\Models\Title::findOrFail($title_id);
@@ -50,7 +94,7 @@ class DocumentController extends Controller
             'submitted_at' => now(), // ✅ set submission time
         ]);
     
-        return redirect()->route('documents.index')->with('success', 'Final document submitted!');
+        return redirect()->route('titles.index')->with('success', 'Final document submitted!');
     }
     
     

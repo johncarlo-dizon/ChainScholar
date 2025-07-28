@@ -27,7 +27,9 @@ return new class extends Migration {
             $table->timestamp('submitted_at')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->timestamp('returned_at')->nullable();
-            $table->enum('status', ['draft', 'pending', 'approved'])->default('draft');
+            $table->enum('status', ['draft', 'pending', 'approved', 'returned'])->default('draft');
+
+
 
         
             // Final document ID (add foreign key later)

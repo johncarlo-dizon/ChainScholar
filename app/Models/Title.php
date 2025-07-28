@@ -23,6 +23,12 @@ class Title extends Model
         'finaldocument_id',
         'status', // ✅ add this line
     ];
+    protected $casts = [
+        'submitted_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'returned_at' => 'datetime',
+    ];
+    
 
     public function user()
     {
@@ -38,4 +44,5 @@ class Title extends Model
     {
         return $this->belongsTo(Document::class, 'finaldocument_id');
     }
+    
 }
