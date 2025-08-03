@@ -242,6 +242,7 @@ function prepareFinalContent() {
             min-height: 600px;
             background-color: white;
             color: #000;
+            padding: 1.5rem !important;
         }
         .ck-content ul, .ck-content ol {
             padding-left: 2rem;

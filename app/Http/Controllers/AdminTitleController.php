@@ -42,7 +42,8 @@ class AdminTitleController extends Controller
         $title->review_comments = null;
         $title->save();
 
-        return redirect()->back()->with('success', 'Document approved successfully.');
+        return redirect()->route('admin.titles.pending')->with('success', 'Document approved successfully.');
+
     }
 
     public function return(Request $request)

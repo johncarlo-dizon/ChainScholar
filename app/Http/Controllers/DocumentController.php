@@ -267,10 +267,22 @@ class DocumentController extends Controller
         return view('documents.verify');
     }
 
+
+
+
+
+    //DocumentController.php
+    // TITLE VERIFY -----------------------------------------------------------------------------------------
+
+
+
+
+
+
     public function checkTitleSimilarity(Request $request)
     {
     $inputTitle = $request->input('title');
-    $documentId = $request->input('document_id'); // Accept the current doc ID (optional)
+    $documentId = $request->input('document_id'); 
 
     $documents = Document::all();
 
@@ -324,5 +336,9 @@ class DocumentController extends Controller
             'results' => $items,
         ]);
     }
+
+
+
+      // TITLE VERIFY -----------------------------------------------------------------------------------------
 
 }

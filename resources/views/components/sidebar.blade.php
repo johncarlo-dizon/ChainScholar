@@ -61,7 +61,7 @@
     </li>
     <li>
         <a href="{{ route('admin.titles.approved') }}" 
-            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.approved') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.approved','admin.documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="check-circle" class="w-4 h-4 mr-3"></i>
             Approved Titles
         </a>

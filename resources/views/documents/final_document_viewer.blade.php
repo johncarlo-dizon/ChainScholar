@@ -1,4 +1,4 @@
-<x-userlayout>
+<x-userlayout> 
     <div class="bg-blue-600 rounded-lg shadow p-6 max-w-8xl container">
         <h2 class="text-3xl text-white font-semibold mb-4">
             View Final Document — {{ $document->titleRelation->title ?? 'Untitled Title' }}
@@ -25,7 +25,7 @@
                             <label class="block mb-2 font-bold text-blue-600">Document Content</label>
                             <div class="editor-container editor-container_classic-editor editor-container_include-style editor-container_include-word-count editor-container_include-fullscreen" id="viewer-container">
                                 <div class="editor-container__editor">
-                                    <div class="ck-content w-full min-h-[600px] p-6 bg-white border border-gray-300 rounded-md shadow-sm leading-relaxed text-base">
+                                    <div class="ck-content w-full min-h-[600px]  bg-white border border-gray-300 rounded-md shadow-sm leading-relaxed text-base">
                                         {!! $document->content !!}
                                     </div>
                                 </div>
@@ -43,12 +43,12 @@
                             <h3 class="text-lg font-semibold text-gray-700">Document Info</h3>
                         </div>
                         <div class="text-sm text-gray-500 space-y-1">
-                            <p><strong>Submitted by:</strong> {{ $document->user->name }}</p>
-                            <p><strong>Submitted on:</strong> {{ $document->created_at->format('F d, Y h:i A') }}</p>
-                            <p><strong>Research Type:</strong> {{ $document->titleRelation->research_type }}</p>
-                            <p><strong>Category:</strong> {{ $document->titleRelation->category }}</p>
-                            <p><strong>Sub-Category:</strong> {{ $document->titleRelation->sub_category ?? '—' }}</p>
-                            <p><strong>Status:</strong> 
+                            <p><span class="font-semibold">Submitted by:</span> {{ $document->user->name }}</p>
+                            <p><span class="font-semibold">Submitted on:</span> {{ $document->created_at->format('F d, Y h:i A') }}</p>
+                            <p><span class="font-semibold">Research Type:</span> {{ $document->titleRelation->research_type }}</p>
+                            <p><span class="font-semibold">Category:</span> {{ $document->titleRelation->category }}</p>
+                            <p><span class="font-semibold">Sub-Category:</span> {{ $document->titleRelation->sub_category ?? '—' }}</p>
+                            <p><span class="font-semibold">Status:</span> 
                                 <span class="inline-block px-2 py-1 rounded-full text-xs font-semibold 
                                     @if($document->titleRelation->status == 'pending') bg-yellow-100 text-yellow-800 
                                     @elseif($document->titleRelation->status == 'approved') bg-green-100 text-green-800 
@@ -57,8 +57,20 @@
                                     {{ ucfirst($document->titleRelation->status) }}
                                 </span>
                             </p>
-                            <p><strong>Ethics Clearance #:</strong> {{ $document->titleRelation->ethics_clearance_no ?? '—' }}</p>
-                            <p><strong>Plagiarism Score:</strong> {{ $document->titleRelation->plagiarism_score ?? '—' }}%</p>
+                            <p><span class="font-semibold">Plagiarism Score:</span> {{ $document->titleRelation->plagiarism_score ?? '—' }}%</p>
+                        </div>
+                    </div>
+
+
+
+                       <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-gray-700">Comment</h3>
+                        </div>
+                        <div class="text-sm text-gray-500 space-y-1">
+                          
+                            <p> {{ $document->titleRelation->review_comments ?? '—' }}</p>
+                      
                         </div>
                     </div>
 
@@ -78,10 +90,12 @@
         </div>
     </div>
 
+    <!-- Styles to mirror editor.blade.php -->
+    <link rel="stylesheet" href="{{ asset('assets/editor.css') }}">
     <style>
         .ck-content {
             background-color: white;
-            color: black;
+            color: #000;
             min-height: 600px;
             font-size: 1rem;
             line-height: 1.75;
@@ -89,13 +103,17 @@
             padding: 1.5rem;
         }
 
-        .ck-content ul, .ck-content ol {
+        .ck-content ul,
+        .ck-content ol {
             padding-left: 2rem;
-            list-style: disc;
+        }
+
+        .ck-content ul {
+            list-style-type: disc;
         }
 
         .ck-content ol {
-            list-style: decimal;
+            list-style-type: decimal;
         }
 
         .ck-content li {
@@ -104,6 +122,11 @@
 
         .editor-container__editor {
             background-color: white;
+        }
+
+        .ck.ck-toolbar,
+        .ck-powered-by {
+            display: none !important;
         }
     </style>
 </x-userlayout>
