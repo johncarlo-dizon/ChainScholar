@@ -275,23 +275,16 @@ class DocumentController extends Controller
     // TITLE VERIFY -----------------------------------------------------------------------------------------
 
 
-
-
-
-
-    public function checkTitleSimilarity(Request $request)
-    {
+public function checkTitleSimilarity(Request $request)
+{
     $inputTitle = $request->input('title');
     $documentId = $request->input('document_id'); 
 
     $documents = Document::all();
-
     $similarities = [];
+
     foreach ($documents as $doc) {
-        // Skip if the current document matches the one being edited
-        if ($documentId && $doc->id == $documentId) {
-            continue;
-        }
+        if ($documentId && $doc->id == $documentId) continue;
 
         similar_text(strtolower($inputTitle), strtolower($doc->title), $percent);
         $similarities[] = [
@@ -300,23 +293,28 @@ class DocumentController extends Controller
         ];
     }
 
-    // Find the most similar title
-    $maxSimilarity = collect($similarities)->max('similarity') ?? 0;
+    // Sort from highest to lowest similarity
+    usort($similarities, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+    $maxSimilarity = $similarities[0]['similarity'] ?? 0;
 
     return response()->json([
         'max_similarity' => $maxSimilarity,
         'similarities' => $similarities,
         'approved' => $maxSimilarity < 30
     ]);
-    }
+}
+
 
 
     
-    public function checkWebTitleSimilarity(Request $request)
-    {
-        $title = $request->input('title');
+public function checkWebTitleSimilarity(Request $request)
+{
+    $inputTitle = strtolower($request->input('title'));
+    $cacheKey = 'web_similarity_' . md5($inputTitle);
+
+    $data = Cache::remember($cacheKey, now()->addMinutes(60), function () use ($inputTitle) {
         $response = Http::get('https://api.semanticscholar.org/graph/v1/paper/search', [
-            'query' => $title,
+            'query' => $inputTitle,
             'fields' => 'title',
             'limit' => 5,
         ]);
@@ -325,17 +323,79 @@ class DocumentController extends Controller
         $similarities = [];
 
         foreach ($items as $item) {
-            similar_text(strtolower($title), strtolower($item['title']), $percent);
-            $similarities[] = $percent;
+            $webTitle = strtolower($item['title']);
+            $score = self::cosineSimilarity($inputTitle, $webTitle);
+
+            $similarities[] = [
+                'title' => $item['title'],
+                'similarity' => round($score * 100, 2),
+            ];
         }
 
-        $max = count($similarities) ? round(max($similarities), 2) : 0;
-        return response()->json([
+        usort($similarities, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+        $max = $similarities[0]['similarity'] ?? 0;
+
+        return [
             'max_similarity' => $max,
             'approved' => $max < 30,
-            'results' => $items,
-        ]);
+            'results' => $similarities,
+        ];
+    });
+
+    return response()->json($data);
+}
+
+// Helper functions
+private static function cosineSimilarity($textA, $textB)
+{
+    $tokensA = self::tokenize($textA);
+    $tokensB = self::tokenize($textB);
+
+    $freqA = self::termFreqMap($tokensA);
+    $freqB = self::termFreqMap($tokensB);
+
+    $dotProduct = self::dotProduct($freqA, $freqB);
+    $magnitude = self::magnitude($freqA) * self::magnitude($freqB);
+
+    return $magnitude == 0 ? 0 : $dotProduct / $magnitude;
+}
+
+private static function tokenize($text)
+{
+    $stopWords = ['a','an','and','are','as','at','be','by','for','from','has','he','in','is','it','its','of','on','that','the','to','was','were','will','with','study','research','paper','report','project','capstone','case','review','investigation','analysis','approach','effect','impact','model','method','methods','design','development','evaluation','implementation','system','application','framework','prototype','solution','tool','tools','technology','technologies','process','exploration','assessment'];
+    $words = preg_split('/\W+/', strtolower($text));
+    return array_values(array_filter($words, fn($word) => !in_array($word, $stopWords) && strlen($word) > 1));
+}
+
+private static function termFreqMap($tokens)
+{
+    $freq = [];
+    foreach ($tokens as $token) {
+        $freq[$token] = ($freq[$token] ?? 0) + 1;
     }
+    return $freq;
+}
+
+private static function dotProduct($mapA, $mapB)
+{
+    $dot = 0;
+    foreach ($mapA as $key => $val) {
+        if (isset($mapB[$key])) {
+            $dot += $val * $mapB[$key];
+        }
+    }
+    return $dot;
+}
+
+private static function magnitude($map)
+{
+    $sum = 0;
+    foreach ($map as $val) {
+        $sum += $val * $val;
+    }
+    return sqrt($sum);
+}
+
 
 
 
