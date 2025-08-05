@@ -135,7 +135,7 @@
         <nav class="flex-grow p-4">
             <ul class="space-y-2">
                 <li>
-                    <a href="#" class="flex items-center p-2 text-gray-700 text-sm hover:bg-indigo-50  rounded-lg transition">
+                    <a href="#" class="flex hidden items-center p-2 text-gray-700 text-sm hover:bg-indigo-50  rounded-lg transition">
                         <i data-feather="settings" class="mr-3 w-4 h-4"></i>
                         Settings
                     </a>

@@ -14,6 +14,11 @@ use Illuminate\Support\Facades\Cache;
 class DocumentController extends Controller
 {
     use AuthorizesRequests;
+
+
+    
+
+
     public function index()
     {
         $user = auth()->user();
