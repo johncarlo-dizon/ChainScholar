@@ -42,7 +42,7 @@ class AuthController extends Controller
     }
 
     public function login(Request $request)
-{
+    {
     $validated = $request->validate([
         'email' => 'required|email',
         'password' => 'required|string'
@@ -56,7 +56,7 @@ class AuthController extends Controller
             return redirect()->route('admin.users.index');  
         }
         
-        return redirect()->route('titles.verify');  
+        return redirect()->route('dashboard');  
     }
 
     throw ValidationException::withMessages([
