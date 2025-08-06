@@ -19,6 +19,111 @@ class DocumentController extends Controller
     use AuthorizesRequests;
 
 
+    // PLAG START --------------------------------------
+
+  public function checkPlagiarismLive(Request $request)
+{
+    $rawContent = $request->input('content');
+    $submittedText = $this->plagCleanText($rawContent);
+
+    $submittedVector = $this->plagTermFreqMap($this->plagTokenize($this->plagNormalizeText($submittedText)));
+    $submittedMagnitude = $this->plagMagnitude($submittedVector);
+
+    $maxScore = 0;
+
+    $documents = Document::where('user_id', '!=', auth()->id())->pluck('content');
+
+    foreach ($documents as $content) {
+        $cleaned = $this->plagCleanText($content);
+        $comparedVector = $this->plagTermFreqMap($this->plagTokenize($this->plagNormalizeText($cleaned)));
+        $dot = $this->plagDotProduct($submittedVector, $comparedVector);
+        $mag = $this->plagMagnitude($comparedVector) * $submittedMagnitude;
+        $score = $mag == 0 ? 0 : $dot / $mag;
+
+        if ($score > $maxScore) {
+            $maxScore = $score;
+        }
+    }
+
+    return response()->json([
+        'score' => round($maxScore * 100, 2)
+    ]);
+}
+
+protected function plagCleanText($html)
+{
+    // Remove all base64 images
+    $html = preg_replace('/<img[^>]+src="data:image\/[^"]+"[^>]*>/i', '', $html);
+
+    // Remove CKEditor resizers and widget blocks
+    $html = preg_replace('/<div class="ck[^"]*"[^>]*>.*?<\/div>/si', '', $html);
+
+    // Strip tags and decode HTML entities
+    $text = strip_tags($html);
+    $text = html_entity_decode($text);
+
+    // Normalize whitespace
+    $text = preg_replace('/\s+/', ' ', $text);
+
+    return trim($text);
+}
+
+
+
+    protected function plagNormalizeText($text)
+    {
+        $text = mb_strtolower($text, 'UTF-8'); // Lowercase
+        $text = preg_replace('/[^\p{L}\p{N}\s]/u', '', $text); // Remove punctuation
+
+        $stopWords = ['the', 'is', 'at', 'which', 'on', 'a', 'an', 'of', 'to', 'in', 'and', 'with', 'for', 'as', 'by', 'are'];
+        $words = explode(' ', $text);
+        $filtered = array_filter($words, fn($word) => !in_array($word, $stopWords));
+
+        return implode(' ', $filtered);
+    }
+
+    protected function plagTokenize($text)
+    {
+        return array_filter(explode(' ', $text));
+    }
+
+    protected function plagTermFreqMap($tokens)
+    {
+        $freqMap = [];
+        foreach ($tokens as $token) {
+            $token = trim($token);
+            if ($token === '') continue;
+            $freqMap[$token] = ($freqMap[$token] ?? 0) + 1;
+        }
+        return $freqMap;
+    }
+
+    protected function plagMagnitude($vector)
+    {
+        $sum = 0;
+        foreach ($vector as $val) {
+            $sum += $val ** 2;
+        }
+        return sqrt($sum);
+    }
+
+    protected function plagDotProduct($vec1, $vec2)
+    {
+        $dot = 0;
+        foreach ($vec1 as $key => $val) {
+            if (isset($vec2[$key])) {
+                $dot += $val * $vec2[$key];
+            }
+        }
+        return $dot;
+    }
+
+
+    // PLAG END -----------------------------------------
+
+
+
+
     public function showSearchDashboard()
     {
         return view('documents.dashboard'); // Initial search screen only

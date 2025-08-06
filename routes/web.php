@@ -22,6 +22,11 @@ use Illuminate\Support\Facades\Log;
 
 
 
+Route::post('/documents/check-plagiarism', [DocumentController::class, 'checkPlagiarismLive'])->name('documents.checkPlagiarismLive');
+
+
+
+
 Route::get('/dashboard', [DocumentController::class, 'showSearchDashboard'])->name('dashboard');
 Route::post('/dashboard/search', [DocumentController::class, 'searchResearch'])->name('dashboard.search');
 Route::get('/dashboard/view/{id}', [DocumentController::class, 'viewResearch'])->name('dashboard.view');

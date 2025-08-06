@@ -94,6 +94,43 @@
             </div>
         </div>
 
+
+
+           <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3> <button 
+    type="button"
+    onclick="checkPlagiarism()"
+    class="flex items-center gap-2 text-sm text-red-500 shadow-sm bg-white px-4 py-2 rounded-lg hover:bg-gray-50 transition"
+>
+    <i data-feather="search" class="w-4 h-4"></i>
+    <span>Run</span>
+</button>
+
+            </div>
+            <div class="space-y-4">
+                <div class="flex flex-col">
+                   
+
+<div id="plagiarism-result" class="text-sm  text-gray-700 hidden"></div>
+              
+                </div>
+            </div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="pt-2 border-t border-gray-200">
             <div class="flex justify-between">
                 <a href="{{ route('titles.chapters', $document->title_id) }}"
@@ -235,6 +272,58 @@ function prepareFinalContent() {
         submitSidebar.classList.toggle('hidden');
     }
 </script>
+
+
+
+
+<script>
+    async function checkPlagiarism() {
+        const contentElement = document.querySelector('.ck-content');
+        if (!contentElement) return alert('Editor not ready.');
+
+        const text = contentElement.innerText.trim();
+        const resultBox = document.getElementById('plagiarism-result');
+        resultBox.classList.remove('hidden');
+
+        // Show loading spinner
+        resultBox.innerHTML = `
+            <div class="flex items-center space-x-2 text-gray-600">
+                <svg class="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span>Checking for plagiarism...</span>
+            </div>
+        `;
+
+        try {
+            const response = await fetch("{{ route('documents.checkPlagiarismLive') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ content: text })
+            });
+
+            const data = await response.json();
+
+            resultBox.innerHTML = `<span>Plagiarism Score:</span> ${data.score}%`;
+
+            if (data.score >= 30) {
+                resultBox.innerHTML += `<br><span class="text-red-600">High similarity detected! ⚠️</span>`;
+            } else {
+                resultBox.innerHTML += `<br><span class="text-green-600">Content appears original ✅</span>`;
+            }
+
+        } catch (error) {
+            resultBox.innerHTML = `<span class="text-red-500">Error checking plagiarism. Please try again.</span>`;
+        }
+    }
+</script>
+
+
+
 
 
     <style>
