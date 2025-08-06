@@ -22,6 +22,14 @@ use Illuminate\Support\Facades\Log;
 
 
 
+Route::get('/dashboard', [DocumentController::class, 'showSearchDashboard'])->name('dashboard');
+Route::post('/dashboard/search', [DocumentController::class, 'searchResearch'])->name('dashboard.search');
+Route::get('/dashboard/view/{id}', [DocumentController::class, 'viewResearch'])->name('dashboard.view');
+ 
+
+
+
+
 Route::prefix('admin/titles')->name('admin.titles.')->group(function () {
     Route::get('/pending', [AdminTitleController::class, 'pendingTitles'])->name('pending');
     Route::get('/approved', [AdminTitleController::class, 'approvedTitles'])->name('approved');
@@ -143,7 +151,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/upload-image', [DocumentController::class, 'uploadImage'])
         ->name('upload.image');
     Route::get('show/verify' , [DocumentController::class, 'showVerify'])->name('show.verify');
-    Route::get('show/dashboard' , [DocumentController::class, 'showDashboard'])->name('show.dashboard');
+
 });
 
 

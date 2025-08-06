@@ -75,8 +75,8 @@
 
             @if(auth()->user()->position === 'user')
                 <li>
-                <a href="{{ route('show.dashboard') }}" 
-                    class="flex items-center p-2 rounded-lg transition text-sm hidden {{ request()->routeIs('show.dashboard') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                <a href="{{ route('dashboard') }}" 
+                    class="flex items-center p-2 rounded-lg transition text-sm   {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                     <i data-feather="home" class="w-4 h-4 mr-3"></i>
                     Dashboard
                 </a>

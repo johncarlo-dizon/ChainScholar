@@ -10,13 +10,89 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use App\Models\Title;
+use Illuminate\Support\Str;
+
 
 class DocumentController extends Controller
 {
     use AuthorizesRequests;
 
 
-    
+    public function showSearchDashboard()
+    {
+        return view('documents.dashboard'); // Initial search screen only
+    }
+
+    public function searchResearch(Request $request)
+    {
+        $query = $request->input('query');
+
+        $approvedTitles = Title::with('user')
+            ->where('status', 'approved')
+            ->where('user_id', '!=', auth()->id())
+            ->get();
+
+        $results = [];
+
+        foreach ($approvedTitles as $title) {
+            $similarity = $this->cosSimilarity($query, $title->title);
+            if ($similarity >= 0.3) { // You can adjust this threshold
+                $results[] = [
+                    'title' => $title->title,
+                    'id' => $title->id,
+                    'similarity' => $similarity
+                ];
+            }
+        }
+
+        // Sort by highest similarity
+        usort($results, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+
+        return view('documents.dashboard', compact('results', 'query'));
+    }
+
+    public function viewResearch($id)
+    {
+        $title = Title::with(['user', 'finalDocument'])->findOrFail($id);
+        return view('documents.search_research', compact('title'));
+    }
+
+    // ✅ Cosine Similarity Helper
+    private function cosSimilarity($str1, $str2)
+    {
+        $tokens1 = array_count_values(str_word_count(strtolower($str1), 1));
+        $tokens2 = array_count_values(str_word_count(strtolower($str2), 1));
+
+        $allWords = array_unique(array_merge(array_keys($tokens1), array_keys($tokens2)));
+
+        $vec1 = $vec2 = [];
+
+        foreach ($allWords as $word) {
+            $vec1[] = $tokens1[$word] ?? 0;
+            $vec2[] = $tokens2[$word] ?? 0;
+        }
+
+        $dotProduct = array_sum(array_map(fn($a, $b) => $a * $b, $vec1, $vec2));
+        $magnitude1 = sqrt(array_sum(array_map(fn($a) => $a * $a, $vec1)));
+        $magnitude2 = sqrt(array_sum(array_map(fn($b) => $b * $b, $vec2)));
+
+        if ($magnitude1 * $magnitude2 == 0) return 0;
+
+        return $dotProduct / ($magnitude1 * $magnitude2);
+    }
+
+
+
+
+
+
+
+
+
+
+    // GOOGLE SCHOLAR SEARCH LIKE END ----------------------------------------------------------------
+
 
 
     public function index()
@@ -265,9 +341,6 @@ class DocumentController extends Controller
 
 
 
-    public function showDashboard(){
-        return view('documents.dashboard');
-    }
     public function showVerify(){
         return view('documents.verify');
     }
