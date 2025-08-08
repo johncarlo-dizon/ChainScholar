@@ -18,6 +18,7 @@ return new class extends Migration {
             $table->longText('content')->nullable();
             $table->enum('format', ['separate', 'combined'])->default('separate');
             $table->string('file_path')->nullable();
+            $table->decimal('plagiarism_score', 5, 2)->nullable();
             $table->timestamps();
         
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');

@@ -9,12 +9,12 @@ class Title extends Model
     protected $fillable = [
         'user_id',
         'title',
+        'authors',
         'abstract',
         'keywords',
         'category',
         'sub_category',
         'research_type',
-        'plagiarism_score',
         'ethics_clearance_no',
         'review_comments',
         'submitted_at',

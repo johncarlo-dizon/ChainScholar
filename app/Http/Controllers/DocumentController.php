@@ -21,21 +21,34 @@ class DocumentController extends Controller
 
     // PLAG START --------------------------------------
 
-  public function checkPlagiarismLive(Request $request)
+public function checkPlagiarismLive(Request $request)
 {
     $rawContent = $request->input('content');
+    $documentId = $request->input('document_id'); // Pass this from JS
+    $document = Document::findOrFail($documentId);
+
     $submittedText = $this->plagCleanText($rawContent);
 
-    $submittedVector = $this->plagTermFreqMap($this->plagTokenize($this->plagNormalizeText($submittedText)));
+    $submittedVector = $this->plagTermFreqMap(
+        $this->plagTokenize(
+            $this->plagNormalizeText($submittedText)
+        )
+    );
     $submittedMagnitude = $this->plagMagnitude($submittedVector);
 
     $maxScore = 0;
 
-    $documents = Document::where('user_id', '!=', auth()->id())->pluck('content');
+    // ✅ Compare with ALL other documents except the same title_id
+    $documents = Document::where('title_id', '!=', $document->title_id)
+        ->pluck('content');
 
     foreach ($documents as $content) {
         $cleaned = $this->plagCleanText($content);
-        $comparedVector = $this->plagTermFreqMap($this->plagTokenize($this->plagNormalizeText($cleaned)));
+        $comparedVector = $this->plagTermFreqMap(
+            $this->plagTokenize(
+                $this->plagNormalizeText($cleaned)
+            )
+        );
         $dot = $this->plagDotProduct($submittedVector, $comparedVector);
         $mag = $this->plagMagnitude($comparedVector) * $submittedMagnitude;
         $score = $mag == 0 ? 0 : $dot / $mag;
@@ -49,6 +62,8 @@ class DocumentController extends Controller
         'score' => round($maxScore * 100, 2)
     ]);
 }
+
+
 
 protected function plagCleanText($html)
 {
@@ -117,6 +132,48 @@ protected function plagCleanText($html)
         }
         return $dot;
     }
+
+
+private function computePlagiarismScoreForContent(string $rawHtml, Document $document): float
+{
+    $submittedText = $this->plagCleanText($rawHtml);
+
+    $submittedVector = $this->plagTermFreqMap(
+        $this->plagTokenize(
+            $this->plagNormalizeText($submittedText)
+        )
+    );
+    $submittedMagnitude = $this->plagMagnitude($submittedVector);
+
+    if ($submittedMagnitude == 0) {
+        return 0.0;
+    }
+
+    // Compare with ALL other documents except the same title_id
+    $candidates = Document::where('title_id', '!=', $document->title_id)
+        ->pluck('content');
+
+    $maxScore = 0.0;
+
+    foreach ($candidates as $content) {
+        $cleaned = $this->plagCleanText($content);
+        $comparedVector = $this->plagTermFreqMap(
+            $this->plagTokenize(
+                $this->plagNormalizeText($cleaned)
+            )
+        );
+
+        $dot = $this->plagDotProduct($submittedVector, $comparedVector);
+        $mag = $this->plagMagnitude($comparedVector) * $submittedMagnitude;
+        $score = $mag == 0 ? 0 : $dot / $mag;
+
+        if ($score > $maxScore) $maxScore = $score;
+    }
+
+    return round($maxScore * 100, 2); // return as percentage
+}
+
+
 
 
     // PLAG END -----------------------------------------
@@ -250,38 +307,46 @@ protected function plagCleanText($html)
 
     
 
-
     public function submitFinal(Request $request, $title_id)
     {
         $request->validate([
             'finaldocument_id' => 'required|exists:documents,id',
+            'authors' => 'required|string',
             'abstract' => 'required|string',
-            'keywords' => 'required|string',
-            'category' => 'required|string',
-            'sub_category' => 'nullable|string',
             'research_type' => 'required|string',
+            'final_content' => 'nullable|string',
         ]);
 
         $document = Document::findOrFail($request->finaldocument_id);
+
+        $finalHtml = $request->final_content ?? $document->content;
+
+        $plagPct = $this->computePlagiarismScoreForContent($finalHtml, $document);
+
         $document->update([
-            'content' => $request->final_content,
+            'content' => $finalHtml,
+            'plagiarism_score' => $plagPct,
         ]);
-    
-        $title = \App\Models\Title::findOrFail($title_id);
-    
+
+        $title = Title::findOrFail($title_id);
+
         $title->update([
             'finaldocument_id' => $request->finaldocument_id,
+            'authors' => $request->authors,
             'abstract' => $request->abstract,
-            'keywords' => $request->keywords,
-            'category' => $request->category,
-            'sub_category' => $request->sub_category,
             'research_type' => $request->research_type,
-            'status' => 'pending', // ✅ set status to pending
-            'submitted_at' => now(), // ✅ set submission time
+            'status' => 'pending',
+            'submitted_at' => now(),
         ]);
-    
-        return redirect()->route('titles.index')->with('success', 'Final document submitted!');
+
+        return redirect()
+            ->route('titles.index')
+            ->with('success', "Final document submitted! Similarity: {$plagPct}%");
     }
+
+
+
+
     
     
     
@@ -402,7 +467,6 @@ protected function plagCleanText($html)
 
 
 
-
     public function update(Request $request, Document $document)
     {
         $this->authorize('update', $document);
@@ -411,13 +475,19 @@ protected function plagCleanText($html)
             'content' => 'required'
         ]);
 
+        // Compute plagiarism score but don't block
+        $plagPct = $this->computePlagiarismScoreForContent($request->content, $document);
+
         $document->update([
-            'content' => $request->content
+            'content' => $request->content,
+            'plagiarism_score' => $plagPct,
         ]);
 
-        return redirect()->route('titles.chapters', $document->title_id)
-                        ->with('success', 'Chapter updated successfully!');
+        return redirect()
+            ->route('titles.chapters', $document->title_id)
+            ->with('success', "Chapter updated successfully! Similarity: {$plagPct}%");
     }
+
 
 
     public function show(Document $document)

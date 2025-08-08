@@ -45,15 +45,14 @@
 
                     <div class="space-y-4">
                         <h3 class="text-lg font-semibold text-gray-700">Document Info</h3>
-                        <div class="text-sm text-gray-500 space-y-1">
-                            <p><strong>Submitted by:</strong> {{ $document->user->name }}</p>
-                            <p><strong>Submitted on:</strong> {{ $document->created_at->format('F d, Y h:i A') }}</p>
-                            <p><strong>Research Type:</strong> {{ $document->titleRelation->research_type }}</p>
-                            <p><strong>Category:</strong> {{ $document->titleRelation->category }}</p>
-                            <p><strong>Sub-Category:</strong> {{ $document->titleRelation->sub_category ?? '—' }}</p>
-                            <p><strong>Ethics Clearance #:</strong> {{ $document->titleRelation->ethics_clearance_no ?? '—' }}</p>
-                            <p><strong>Plagiarism Score:</strong> {{ $document->titleRelation->plagiarism_score ?? '—' }}%</p>
-                        </div>
+                    <div class="text-sm text-gray-500 space-y-1">
+                        <p><strong>Submitted by:</strong> {{ $document->user->name }}</p>
+                        <p><strong>Submitted on:</strong> {{ $document->created_at->format('F d, Y h:i A') }}</p>
+                        <p><strong>Authors:</strong> {{ $document->titleRelation->authors ?? '—' }}</p>
+                        <p><strong>Research Type:</strong> {{ $document->titleRelation->research_type }}</p>                 
+                        <p><strong>Plagiarism Score:</strong> {{ $document->plagiarism_score ?? '—' }}%</p>
+                    </div>
+
                     </div>
 
                     <!-- Comments -->

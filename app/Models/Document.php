@@ -12,6 +12,7 @@ class Document extends Model
         'chapter',
         'content',
         'file_path',
+        'plagiarism_score',
         'format',
     ];
 

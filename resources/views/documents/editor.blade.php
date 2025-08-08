@@ -98,14 +98,7 @@
 
            <div class="space-y-4">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3> <button 
-    type="button"
-    onclick="checkPlagiarism()"
-    class="flex items-center gap-2 text-sm text-red-500 shadow-sm bg-white px-4 py-2 rounded-lg hover:bg-gray-50 transition"
->
-    <i data-feather="search" class="w-4 h-4"></i>
-    <span>Run</span>
-</button>
+                <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3>  
 
             </div>
             <div class="space-y-4">
@@ -137,7 +130,7 @@
                    class="flex-1 text-center px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-100 transition duration-200">
                     Back to Chapters
                 </a>
-                <button type="submit"
+                <button type="submit"      id="saveBtn"
                         class="flex-1 text-center ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-sm focus:ring-2 focus:ring-blue-300">
                     Save
                 </button>
@@ -155,6 +148,17 @@
 
 
       <div class="space-y-5">
+
+
+    <!-- Authors -->
+    <div>
+        <label class="block text-gray-700 font-medium mb-1">Authors <span class="text-sm text-gray-500">(comma-separated)</span></label>
+        <input type="text" name="authors" required
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+            placeholder="e.g., Juan Dela Cruz, Maria Santos">
+    </div>
+
+
     <!-- Abstract -->
     <div>
         <label class="block text-gray-700 font-medium mb-1">Abstract</label>
@@ -163,29 +167,7 @@
             placeholder="Enter a concise summary of your research..."></textarea>
     </div>
 
-    <!-- Keywords -->
-    <div>
-        <label class="block text-gray-700 font-medium mb-1">Keywords <span class="text-sm text-gray-500">(comma-separated)</span></label>
-        <input type="text" name="keywords" required
-            class="w-full border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-            placeholder="e.g., technology, education, AI">
-    </div>
-
-    <!-- Category -->
-    <div>
-        <label class="block text-gray-700 font-medium mb-1">Category</label>
-        <input type="text" name="category" required
-            class="w-full border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-            placeholder="e.g., Computer Science">
-    </div>
-
-    <!-- Sub-category -->
-    <div>
-        <label class="block text-gray-700 font-medium mb-1">Sub-category <span class="text-sm text-gray-500">(optional)</span></label>
-        <input type="text" name="sub_category"
-            class="w-full border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-            placeholder="e.g., Machine Learning">
-    </div>
+ 
 
     <!-- Research Type -->
     <div>
@@ -211,6 +193,8 @@
                     ← Cancel
                 </button>
                 <button type="submit"
+                  id="submitBtn"
+ 
                         onclick="prepareFinalContent()"
                class="flex-1 text-center ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-sm focus:ring-2 focus:ring-blue-300">
                     Submit Final Document
@@ -275,51 +259,119 @@ function prepareFinalContent() {
 
 
 
-
 <script>
-    async function checkPlagiarism() {
-        const contentElement = document.querySelector('.ck-content');
-        if (!contentElement) return alert('Editor not ready.');
+// ---------- config ----------
+const THRESHOLD = 30;
+const MIN_CHARS_TO_CHECK = 40; // avoid noise when the doc is still empty
 
-        const text = contentElement.innerText.trim();
-        const resultBox = document.getElementById('plagiarism-result');
+// ---------- helpers ----------
+const saveBtn = document.getElementById('saveBtn');
+const submitBtn = document.getElementById('submitBtn');
+const resultBox = document.getElementById('plagiarism-result');
+
+function setButtonsDisabled(disabled, reason = '') {
+    [saveBtn, submitBtn].forEach(btn => {
+        if (!btn) return;
+        btn.disabled = disabled;
+        btn.classList.toggle('opacity-50', disabled);
+        btn.classList.toggle('cursor-not-allowed', disabled);
+        btn.classList.toggle('hover:bg-blue-700', !disabled);
+    });
+    if (reason && resultBox) {
         resultBox.classList.remove('hidden');
-
-        // Show loading spinner
-        resultBox.innerHTML = `
-            <div class="flex items-center space-x-2 text-gray-600">
-                <svg class="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                </svg>
-                <span>Checking for plagiarism...</span>
-            </div>
-        `;
-
-        try {
-            const response = await fetch("{{ route('documents.checkPlagiarismLive') }}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({ content: text })
-            });
-
-            const data = await response.json();
-
-            resultBox.innerHTML = `<span>Plagiarism Score:</span> ${data.score}%`;
-
-            if (data.score >= 30) {
-                resultBox.innerHTML += `<br><span class="text-red-600">High similarity detected! ⚠️</span>`;
-            } else {
-                resultBox.innerHTML += `<br><span class="text-green-600">Content appears original ✅</span>`;
-            }
-
-        } catch (error) {
-            resultBox.innerHTML = `<span class="text-red-500">Error checking plagiarism. Please try again.</span>`;
-        }
+        resultBox.innerHTML = `<span class="text-gray-600">${reason}</span>`;
     }
+}
+
+function getEditorText() {
+    const contentElement = document.querySelector('.ck-content');
+    if (!contentElement) return null;
+    return contentElement.innerText.trim();
+}
+
+// ---------- run check ----------
+async function checkPlagiarism() {
+    const text = getEditorText();
+    if (text === null) {
+        setButtonsDisabled(true, 'Editor not ready yet…');
+        return;
+    }
+    if (text.length < MIN_CHARS_TO_CHECK) {
+        setButtonsDisabled(true, 'Type more content, then run the checker.');
+        resultBox.classList.remove('hidden');
+        resultBox.innerHTML = `<span class="text-gray-600">Waiting for more content…</span>`;
+        return;
+    }
+
+    resultBox.classList.remove('hidden');
+    resultBox.innerHTML = `
+        <div class="flex items-center space-x-2 text-gray-600">
+            <svg class="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Checking for plagiarism...</span>
+        </div>
+    `;
+
+    try {
+        const response = await fetch("{{ route('documents.checkPlagiarismLive') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ 
+                content: text,
+                document_id: {{ $document->id }}
+            })
+        });
+
+        const data = await response.json();
+        const score = Number(data.score ?? 0);
+
+        resultBox.innerHTML = `<span>Plagiarism Score:</span> ${score}%`;
+
+        if (score >= THRESHOLD) {
+            resultBox.innerHTML += `<br><span class="text-red-600">High similarity detected! ⚠️</span>`;
+            setButtonsDisabled(true);
+        } else {
+            resultBox.innerHTML += `<br><span class="text-green-600">Content appears original ✅</span>`;
+            setButtonsDisabled(false);
+        }
+    } catch (error) {
+        setButtonsDisabled(true, 'Error checking plagiarism. Please try again.');
+    }
+}
+
+// ---------- init: disable on load, then auto-run when editor is ready ----------
+document.addEventListener('DOMContentLoaded', () => {
+    setButtonsDisabled(true, 'Run the plagiarism checker to enable Save & Submit.');
+
+    // Wait for CKEditor .ck-content to exist, then auto-run once
+    const waitForEditor = setInterval(() => {
+        const el = document.querySelector('.ck-content');
+        if (el) {
+            clearInterval(waitForEditor);
+            // Auto-run once the editor is ready
+            setTimeout(checkPlagiarism, 300);
+
+            // Re-disable when user types; debounce re-check
+            let debounce;
+            const observer = new MutationObserver(() => {
+                setButtonsDisabled(true, 'Content changed. Please run the checker again.');
+                clearTimeout(debounce);
+                // Optional: auto re-check after user stops typing for 1s
+                // comment out the next line if you want manual "Run" only
+                debounce = setTimeout(checkPlagiarism, 1000);
+            });
+            observer.observe(el, { subtree: true, characterData: true, childList: true });
+        }
+    }, 150);
+});
+
+// Expose to the Run button
+window.checkPlagiarism = checkPlagiarism;
 </script>
 
 

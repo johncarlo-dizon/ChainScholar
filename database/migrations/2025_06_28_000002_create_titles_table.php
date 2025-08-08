@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->string('title');
+            $table->string('authors')->nullable();
         
             // Metadata
             $table->text('abstract')->nullable();
@@ -21,7 +22,6 @@ return new class extends Migration {
             $table->string('category')->nullable();
             $table->string('sub_category')->nullable();
             $table->enum('research_type', ['Capstone', 'Thesis', 'Journal', 'Funded', 'Independent'])->default('Capstone');
-            $table->decimal('plagiarism_score', 5, 2)->nullable();
             $table->string('ethics_clearance_no')->nullable();
             $table->text('review_comments')->nullable();
             $table->timestamp('submitted_at')->nullable();

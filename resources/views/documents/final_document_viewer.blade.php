@@ -42,23 +42,23 @@
                         <div class="flex items-center justify-between">
                             <h3 class="text-lg font-semibold text-gray-700">Document Info</h3>
                         </div>
-                        <div class="text-sm text-gray-500 space-y-1">
-                            <p><span class="font-semibold">Submitted by:</span> {{ $document->user->name }}</p>
-                            <p><span class="font-semibold">Submitted on:</span> {{ $document->created_at->format('F d, Y h:i A') }}</p>
-                            <p><span class="font-semibold">Research Type:</span> {{ $document->titleRelation->research_type }}</p>
-                            <p><span class="font-semibold">Category:</span> {{ $document->titleRelation->category }}</p>
-                            <p><span class="font-semibold">Sub-Category:</span> {{ $document->titleRelation->sub_category ?? '—' }}</p>
-                            <p><span class="font-semibold">Status:</span> 
-                                <span class="inline-block px-2 py-1 rounded-full text-xs font-semibold 
-                                    @if($document->titleRelation->status == 'pending') bg-yellow-100 text-yellow-800 
-                                    @elseif($document->titleRelation->status == 'approved') bg-green-100 text-green-800 
-                                    @elseif($document->titleRelation->status == 'returned') bg-red-100 text-red-800 
-                                    @else bg-gray-100 text-gray-600 @endif">
-                                    {{ ucfirst($document->titleRelation->status) }}
-                                </span>
-                            </p>
-                            <p><span class="font-semibold">Plagiarism Score:</span> {{ $document->titleRelation->plagiarism_score ?? '—' }}%</p>
-                        </div>
+                    <div class="text-sm text-gray-500 space-y-1">
+    <p><span class="font-semibold">Submitted by:</span> {{ $document->user->name }}</p>
+    <p><span class="font-semibold">Submitted on:</span> {{ $document->created_at->format('F d, Y h:i A') }}</p>
+    <p><span class="font-semibold">Authors:</span> {{ $document->titleRelation->authors ?? '—' }}</p>
+    <p><span class="font-semibold">Research Type:</span> {{ $document->titleRelation->research_type }}</p>
+    <p><span class="font-semibold">Status:</span> 
+        <span class="inline-block px-2 py-1 rounded-full text-xs font-semibold 
+            @if($document->titleRelation->status == 'pending') bg-yellow-100 text-yellow-800 
+            @elseif($document->titleRelation->status == 'approved') bg-green-100 text-green-800 
+            @elseif($document->titleRelation->status == 'returned') bg-red-100 text-red-800 
+            @else bg-gray-100 text-gray-600 @endif">
+            {{ ucfirst($document->titleRelation->status) }}
+        </span>
+    </p>
+    <p><span class="font-semibold">Plagiarism Score:</span> {{ $document->plagiarism_score ?? '—' }}%</p>
+</div>
+
                     </div>
 
 
