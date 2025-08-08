@@ -267,22 +267,27 @@ private function computePlagiarismScoreForContent(string $rawHtml, Document $doc
         return view('documents.index', compact('documents', 'titles')); // ✅ Pass both
     }
 
-    public function showSubmittedDocuments(Request $request)
+   public function showSubmittedDocuments(Request $request)
     {
-        $query = auth()->user()->titles()->whereIn('status', ['pending', 'approved', 'returned']);
-    
+        $query = auth()->user()
+            ->titles()
+            ->whereIn('status', ['pending', 'approved', 'returned'])
+            ->latest();
+
         if ($request->filled('search')) {
-            $query->where('title', 'like', '%' . $request->search . '%');
+            $query->where('title', 'like', '%'.$request->search.'%');
         }
-    
+
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-    
-        $titles = $query->latest()->get();
-    
+
+        // 👇 Paginate (change 10 to whatever you want)
+        $titles = $query->paginate(7)->withQueryString();
+
         return view('documents.submitted_documents', compact('titles'));
     }
+
     
     public function viewFinalDocument($id)
     {

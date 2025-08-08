@@ -9,15 +9,29 @@ use App\Models\Notification;
 
 class AdminTitleController extends Controller
 {
-    public function pendingTitles()
+   public function pendingTitles(Request $request)
     {
-        $titles = Title::with('user')
+        $q = Title::with('user')
             ->where('status', 'pending')
-            ->orderByDesc('submitted_at')
-            ->get();
+            ->orderByDesc('submitted_at');
+
+        // 🔍 Search by title or submitter name
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $q->where(function ($qq) use ($search) {
+                $qq->where('title', 'like', "%{$search}%")
+                ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        // 📄 Per-page (default 10)
+        $perPage = (int) $request->input('per_page', 5);
+
+        $titles = $q->paginate($perPage)->withQueryString();
 
         return view('admin.titles.pending', compact('titles'));
     }
+
 
     public function review($id)
     {
@@ -25,15 +39,29 @@ class AdminTitleController extends Controller
         return view('admin.titles.admin_view_pending_document', compact('document'));
     }
 
-    public function approvedTitles()
+   public function approvedTitles(Request $request)
     {
-        $titles = Title::with('user')
+        $q = Title::with('user')
             ->where('status', 'approved')
-            ->orderByDesc('approved_at')
-            ->get();
+            ->orderByDesc('approved_at');
+
+        // 🔍 Search by title or student name
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $q->where(function ($qq) use ($search) {
+                $qq->where('title', 'like', "%{$search}%")
+                ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        // 📄 Per-page (optional, defaults to 10)
+        $perPage = (int) $request->input('per_page', default: 5);
+
+        $titles = $q->paginate($perPage)->withQueryString();
 
         return view('admin.titles.approved', compact('titles'));
     }
+
 
     public function approve($id)
     {

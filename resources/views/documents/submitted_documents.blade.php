@@ -12,23 +12,45 @@
         @endif
 
         <!-- 🔍 Search + Filter -->
-        <form method="GET" class="flex items-center gap-4 mb-4">
+        <form method="GET" class="flex flex-wrap items-center gap-4 mb-4">
             <input type="text" name="search" value="{{ request('search') }}"
-                   class="w-full max-w-sm border border-gray-300 rounded px-4 py-2 text-sm"
+                   class="w-full sm:w-auto flex-1 border border-gray-300 rounded px-4 py-2 text-sm"
                    placeholder="Search by title...">
-            <button type="submit"
+                    <button type="submit"
                     class="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
                 Search
             </button>
             <select name="status" onchange="this.form.submit()"
                     class="border border-gray-300 rounded px-3 py-2 text-sm">
                 <option value="">All Statuses</option>
-                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
+                <option value="pending"  {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
                 <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
                 <option value="returned" {{ request('status') == 'returned' ? 'selected' : '' }}>Returned</option>
             </select>
-      
+           
         </form>
+
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-sm text-gray-600">
+                Showing <span class="font-medium">{{ $titles->firstItem() ?? 0 }}</span>–
+                <span class="font-medium">{{ $titles->lastItem() ?? 0 }}</span>
+                of <span class="font-medium">{{ $titles->total() }}</span>
+            </p>
+
+            <!-- (Optional) per-page dropdown — if you implement it server-side -->
+            {{-- 
+            <form method="GET">
+                @foreach(request()->except('per_page', 'page') as $k => $v)
+                    <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+                @endforeach
+                <select name="per_page" onchange="this.form.submit()" class="border rounded px-2 py-1 text-sm">
+                    @foreach([10,20,50,100] as $pp)
+                        <option value="{{ $pp }}" {{ request('per_page', 10) == $pp ? 'selected' : '' }}>{{ $pp }}/page</option>
+                    @endforeach
+                </select>
+            </form>
+            --}}
+        </div>
 
         <div class="bg-white shadow rounded-lg overflow-hidden">
             @if($titles->isEmpty())
@@ -93,6 +115,11 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- 🔽 Pagination -->
+                <div class="px-6 py-4">
+                    {{ $titles->onEachSide(1)->links() }}
+                </div>
             @endif
         </div>
     </div>
@@ -116,7 +143,6 @@
             document.getElementById('commentContent').textContent = comment;
             document.getElementById('commentModal').classList.remove('hidden');
         }
-
         function closeCommentModal() {
             document.getElementById('commentModal').classList.add('hidden');
         }

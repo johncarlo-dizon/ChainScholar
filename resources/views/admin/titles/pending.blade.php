@@ -11,6 +11,38 @@
             </div>
         @endif
 
+        <!-- 🔍 Search + Per-page -->
+        <form method="GET" class="flex flex-wrap items-center gap-3 mb-4">
+            <input
+                type="text"
+                name="search"
+                value="{{ request('search') }}"
+                class="w-full sm:w-72 border border-gray-300 rounded px-4 py-2 text-sm"
+                placeholder="Search by title or student..."
+            />
+            <select name="per_page" class="border border-gray-300 rounded px-2 py-2 text-sm" onchange="this.form.submit()">
+                @foreach([5,10,20,50,100] as $pp)
+                    <option value="{{ $pp }}" {{ (int)request('per_page', 5) === $pp ? 'selected' : '' }}>
+                        {{ $pp }}/page
+                    </option>
+                @endforeach
+            </select>
+            <button type="submit" class="px-3 py-2 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600">
+                Search
+            </button>
+            @if(request('search'))
+                <a href="{{ url()->current() }}" class="text-sm text-gray-600 hover:underline">Clear</a>
+            @endif
+        </form>
+
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-sm text-gray-600">
+                Showing <span class="font-medium">{{ $titles->firstItem() ?? 0 }}</span>–
+                <span class="font-medium">{{ $titles->lastItem() ?? 0 }}</span>
+                of <span class="font-medium">{{ $titles->total() }}</span>
+            </p>
+        </div>
+
         <div class="bg-white shadow rounded-lg overflow-hidden">
             @if($titles->isEmpty())
                 <div class="text-center py-12">
@@ -33,7 +65,7 @@
                                 <tr>
                                     <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ $title->title }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-700">{{ $title->user->name }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-500">{{ $title->submitted_at->format('M d, Y h:i A') }}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">{{ $title->submitted_at?->format('M d, Y h:i A') ?? '—' }}</td>
                                     <td class="px-6 py-4 text-sm space-x-2">
                                         <a href="{{ route('admin.documents.review', $title->finaldocument_id) }}"
                                            class="inline-flex items-center px-3 py-1.5 border border-blue-600 text-blue-600 rounded hover:bg-blue-50">
@@ -57,12 +89,17 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- 🔽 Pagination -->
+                <div class="px-6 py-4">
+                    {{ $titles->onEachSide(1)->links() }}
+                </div>
             @endif
         </div>
     </div>
 
     <!-- Return Modal -->
-    <div id="return-modal" class="fixed inset-0 hidden bg-transparent  backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
+    <div id="return-modal" class="fixed inset-0 hidden bg-transparent backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white w-full max-w-lg rounded shadow p-6 space-y-4">
             <h3 class="text-xl font-bold text-gray-800">Return Document with Comments</h3>
             <form method="POST" action="{{ route('admin.titles.return') }}">
