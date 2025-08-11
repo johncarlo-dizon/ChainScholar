@@ -87,156 +87,211 @@
         </div>
     </div>
 
-    <script>
-        let passedInternal = false;
-        let passedExternal = false;
+   <script>
+    let passedInternal = false;
+    let passedExternal = false;
+    let isRunning = false;
 
-        const existingTitles = @json(\App\Models\Title::pluck('title')->toArray());
+    const existingTitles = @json(\App\Models\Title::pluck('title')->toArray());
 
-        function updateBars(target, percent, approved) {
-            target.bar.style.width = percent + '%';
-            target.percent.innerText = percent + '%';
-            target.result.innerText = `Similarity: ${percent}% — ${approved ? 'Title is acceptable.' : 'Title might be rejected.'}`;
-            target.result.classList.toggle('text-green-600', approved);
-            target.result.classList.toggle('text-red-600', !approved);
-        }
-
-        function tokenize(text) {
-            const stopWords = new Set([
-                'a','an','and','are','as','at','be','by','for','from','has','he','in','is','it','its','of','on','that','the','to','was','were','will','with','she','they','we','you','your','but','or','if','then','so','because','about','this','what','which','who','whom','where','when','how','can','could','would','should','may','might','must','do','does','did','done','not','no','yes','also','such','their','there','here','into','out','up','down','over','under','again','each','other','any','all','more','most','some','few','than','very','just','now','only','like','even','ever','many','one','two','three','first','second','third','new','old','same','use','used','using','based','among','between','via','per','toward','towards','across','through','within','without','study','research','paper','report','project','capstone','case','review','investigation','analysis','approach','effect','impact','model','method','methods','design','development','evaluation','implementation','system','application','framework','prototype','solution','tool','tools','technology','technologies','process','processes','exploration','assessment','insight'
-            ]);
-            return (text.toLowerCase().match(/\w+/g) || []).filter(word => !stopWords.has(word));
-        }
-
-        function termFreqMap(tokens) {
-            const freqMap = {};
-            tokens.forEach(token => freqMap[token] = (freqMap[token] || 0) + 1);
-            return freqMap;
-        }
-
-        function dotProduct(mapA, mapB) {
-            let product = 0;
-            for (const key in mapA) {
-                if (mapB[key]) product += mapA[key] * mapB[key];
-            }
-            return product;
-        }
-
-        function magnitude(freqMap) {
-            return Math.sqrt(Object.values(freqMap).reduce((sum, val) => sum + val * val, 0));
-        }
-
-        function cosineSimilarity(textA, textB) {
-            const tokensA = tokenize(textA);
-            const tokensB = tokenize(textB);
-            const freqA = termFreqMap(tokensA);
-            const freqB = termFreqMap(tokensB);
-            const dot = dotProduct(freqA, freqB);
-            const mag = magnitude(freqA) * magnitude(freqB);
-            return mag === 0 ? 0 : dot / mag;
-        }
-
-        function startVerification() {
-            const title = document.getElementById('title').value.trim();
-            if (title.length < 5) {
-                alert("Please enter a more descriptive title.");
-                return;
-            }
-
-            showLoading();
-
-            // Internal Similarity (Cosine)
-            const similarities = existingTitles.map(existing => ({
-                title: existing,
-                score: cosineSimilarity(title, existing)
-            }));
-
-            const sorted = similarities.sort((a, b) => b.score - a.score);
-            const topMatches = sorted.slice(0, 5);
-            const maxSim = topMatches[0]?.score || 0;
-            const percent = Math.round(maxSim * 100);
-
-            updateBars({
-                bar: document.getElementById("similarity-bar"),
-                percent: document.getElementById("similarity-percent"),
-                result: document.getElementById("similarity-result")
-            }, percent, percent < 30);
-
-            // Internal List
-            const internalList = document.getElementById("internal-similar-titles");
-            internalList.innerHTML = "";
-            if (topMatches.length > 0) {
-      let hasValidMatch = false;
-topMatches.forEach((match, index) => {
-    const percent = Math.round(match.score * 100);
-    if (percent > 0) {
-        const li = document.createElement("li");
-        li.innerHTML = index === 0 
-            ? `${match.title} — ${percent}%` 
-            : `${match.title} — ${percent}%`;
-        internalList.appendChild(li);
-        hasValidMatch = true;
+    function updateBars(target, percent, approved, labelWhenWaiting = null) {
+        target.bar.style.width = percent + '%';
+        target.percent.innerText = percent + '%';
+        target.result.innerText = labelWhenWaiting ?? `Similarity: ${percent}% — ${approved ? 'Title is acceptable.' : 'Title might be rejected.'}`;
+        target.result.classList.toggle('text-green-600', approved);
+        target.result.classList.toggle('text-red-600', !approved);
     }
-});
 
-if (!hasValidMatch) {
-    internalList.innerHTML = `<li class="italic text-gray-400">No similar internal titles found.</li>`;
-}
+    function tokenize(text) {
+        const stopWords = new Set([
+            'a','an','and','are','as','at','be','by','for','from','has','he','in','is','it','its','of','on','that','the','to','was','were','will','with','she','they','we','you','your','but','or','if','then','so','because','about','this','what','which','who','whom','where','when','how','can','could','would','should','may','might','must','do','does','did','done','not','no','yes','also','such','their','there','here','into','out','up','down','over','under','again','each','other','any','all','more','most','some','few','than','very','just','now','only','like','even','ever','many','one','two','three','first','second','third','new','old','same','use','used','using','based','among','between','via','per','toward','towards','across','through','within','without','study','research','paper','report','project','capstone','case','review','investigation','analysis','approach','effect','impact','model','method','methods','design','development','evaluation','implementation','system','application','framework','prototype','solution','tool','tools','technology','technologies','process','processes','exploration','assessment','insight'
+        ]);
+        return (text.toLowerCase().match(/\w+/g) || []).filter(word => !stopWords.has(word));
+    }
 
+    function termFreqMap(tokens) {
+        const freqMap = {};
+        tokens.forEach(token => freqMap[token] = (freqMap[token] || 0) + 1);
+        return freqMap;
+    }
 
+    function dotProduct(mapA, mapB) {
+        let product = 0;
+        for (const key in mapA) if (mapB[key]) product += mapA[key] * mapB[key];
+        return product;
+    }
 
+    function magnitude(freqMap) {
+        return Math.sqrt(Object.values(freqMap).reduce((sum, val) => sum + val * val, 0));
+    }
 
-            } else {
-                internalList.innerHTML = `<li class="italic text-gray-400">No similar internal titles found.</li>`;
-            }
+    function cosineSimilarity(textA, textB) {
+        const tokensA = tokenize(textA);
+        const tokensB = tokenize(textB);
+        const freqA = termFreqMap(tokensA);
+        const freqB = termFreqMap(tokensB);
+        const dot = dotProduct(freqA, freqB);
+        const mag = magnitude(freqA) * magnitude(freqB);
+        return mag === 0 ? 0 : dot / mag;
+    }
 
-            // Web Similarity
-            fetch("{{ route('documents.check-web') }}", {
+    function showLoading(message = 'Scanning title for similarity...') {
+        document.getElementById('loading-overlay').classList.remove('hidden');
+        document.querySelector('#loading-overlay p').textContent = message;
+    }
+
+    function hideLoading() {
+        document.getElementById('loading-overlay').classList.add('hidden');
+    }
+
+    function updateProceedButton() {
+        const btn = document.getElementById('proceed-btn');
+        btn.disabled = !(passedInternal && passedExternal);
+    }
+
+    async function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+    async function fetchWebSimilarityWithRetries(title, maxTries = 5) {
+        let last = null;
+
+        for (let attempt = 1; attempt <= maxTries; attempt++) {
+            // Tell server which attempt this is (so it can decide whether to bypass cache)
+            const res = await fetch("{{ route('documents.check-web') }}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                body: JSON.stringify({ title })
-            })
-            .then(res => res.json())
-            .then(data => {
-                hideLoading();
-                updateBars({
-                    bar: document.getElementById("external-similarity-bar"),
-                    percent: document.getElementById("external-similarity-percent"),
-                    result: document.getElementById("external-similarity-result")
-                }, data.max_similarity, data.approved);
-
-                const webList = document.getElementById("web-similar-titles");
-                webList.innerHTML = "";
-                if (data.results && data.results.length > 0) {
-                            data.results.forEach((item, index) => {
-                    const li = document.createElement("li");
-                    const label = index === 0 ? "" : "";
-                    li.innerHTML = `${label}${item.title} — ${item.similarity}%`;
-                    webList.appendChild(li);
-                });
-
-                } else {
-                    webList.innerHTML = `<li class="italic text-gray-400">No similar web titles found.</li>`;
-                }
-
-                passedInternal = percent < 30;
-                passedExternal = data.approved;
-                updateProceedButton();
+                body: JSON.stringify({ title, attempt })
             });
+
+            last = await res.json();
+
+            const hasResult =
+                Array.isArray(last.results) &&
+                last.results.length > 0 &&
+                (Number(last.max_similarity) > 0 || last.results.some(r => Number(r.similarity) > 0));
+
+            if (hasResult) {
+                return { data: last, attempts: attempt };
+            }
+
+            // Update overlay to indicate retry
+            showLoading(`No results yet. Retrying (${attempt}/${maxTries})…`);
+            // Exponential backoff (0.4s, 0.8s, 1.2s, 1.6s, 2.0s)
+            await sleep(400 * attempt);
         }
 
-        function showLoading() {
-            document.getElementById('loading-overlay').classList.remove('hidden');
+        return { data: last ?? { max_similarity: 0, approved: true, results: [] }, attempts: maxTries };
+    }
+
+    async function startVerification() {
+        if (isRunning) return; // prevent double-click spam
+        isRunning = true;
+        passedInternal = false;
+        passedExternal = false;
+        updateProceedButton();
+
+        const title = document.getElementById('title').value.trim();
+        if (title.length < 5) {
+            alert("Please enter a more descriptive title.");
+            isRunning = false;
+            return;
         }
 
-        function hideLoading() {
-            document.getElementById('loading-overlay').classList.add('hidden');
+        // Lock button UI
+        const verifyBtn = event?.target?.closest('button') || document.querySelector('button[onclick="startVerification()"]');
+        if (verifyBtn) {
+            verifyBtn.disabled = true;
+            verifyBtn.classList.add('opacity-60','cursor-not-allowed');
         }
 
-        function updateProceedButton() {
-            const btn = document.getElementById('proceed-btn');
-            btn.disabled = !(passedInternal && passedExternal);
+        showLoading();
+
+        /* ------- Internal Similarity (Cosine) ------- */
+        const similarities = existingTitles.map(existing => ({
+            title: existing,
+            score: cosineSimilarity(title, existing)
+        }));
+
+        similarities.sort((a, b) => b.score - a.score);
+
+        const topMatches = similarities.slice(0, 5);
+        const internalPercent = Math.round(((topMatches[0]?.score) || 0) * 100);
+
+        updateBars({
+            bar: document.getElementById("similarity-bar"),
+            percent: document.getElementById("similarity-percent"),
+            result: document.getElementById("similarity-result")
+        }, internalPercent, internalPercent < 30);
+
+        // Internal list UI
+        const internalList = document.getElementById("internal-similar-titles");
+        internalList.innerHTML = "";
+        let hasValidInternal = false;
+
+        topMatches.forEach((m, i) => {
+            const pct = Math.round(m.score * 100);
+            if (pct > 0) {
+                const li = document.createElement("li");
+                li.innerHTML = `${i === 0 ? '🔥 ' : ''}${m.title} — ${pct}%`;
+                internalList.appendChild(li);
+                hasValidInternal = true;
+            }
+        });
+
+        if (!hasValidInternal) {
+            internalList.innerHTML = `<li class="italic text-gray-400">No similar internal titles found.</li>`;
         }
-    </script>
+
+        passedInternal = internalPercent < 30; // gate
+
+        /* ------- Web Similarity with auto-retry ------- */
+        updateBars({
+            bar: document.getElementById("external-similarity-bar"),
+            percent: document.getElementById("external-similarity-percent"),
+            result: document.getElementById("external-similarity-result")
+        }, 0, false, 'Waiting for web results…');
+
+        const { data, attempts } = await fetchWebSimilarityWithRetries(title, 5);
+
+        // Update web bars/lists
+        hideLoading();
+
+        const webPercent = Math.round(Number(data.max_similarity || 0));
+        updateBars({
+            bar: document.getElementById("external-similarity-bar"),
+            percent: document.getElementById("external-similarity-percent"),
+            result: document.getElementById("external-similarity-result")
+        }, webPercent, Boolean(data.approved));
+
+        const webList = document.getElementById("web-similar-titles");
+        webList.innerHTML = "";
+        if (Array.isArray(data.results) && data.results.length > 0) {
+            data.results.forEach((item, index) => {
+                const li = document.createElement("li");
+                li.innerHTML = `${index === 0 ? '🔥 ' : ''}${item.title} — ${item.similarity}%`;
+                webList.appendChild(li);
+            });
+            if (attempts > 1) {
+                // Subtle hint that we retried
+                const hint = document.createElement('div');
+                hint.className = 'text-xs text-gray-500 mt-2';
+                hint.textContent = `Found after ${attempts} attempt(s).`;
+                webList.parentElement.appendChild(hint);
+            }
+        } else {
+            webList.innerHTML = `<li class="italic text-gray-400">No similar web titles found after ${attempts} attempt(s).</li>`;
+        }
+
+        passedExternal = Boolean(data.approved);
+        updateProceedButton();
+
+        // Unlock button UI
+        if (verifyBtn) {
+            verifyBtn.disabled = false;
+            verifyBtn.classList.remove('opacity-60','cursor-not-allowed');
+        }
+        isRunning = false;
+    }
+</script>
+
 </x-userlayout>
  

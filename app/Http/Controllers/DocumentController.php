@@ -21,8 +21,8 @@ class DocumentController extends Controller
 
     // PLAG START --------------------------------------
 
-public function checkPlagiarismLive(Request $request)
-{
+    public function checkPlagiarismLive(Request $request)
+    {
     $rawContent = $request->input('content');
     $documentId = $request->input('document_id'); // Pass this from JS
     $document = Document::findOrFail($documentId);
@@ -61,12 +61,12 @@ public function checkPlagiarismLive(Request $request)
     return response()->json([
         'score' => round($maxScore * 100, 2)
     ]);
-}
+    }
 
 
 
-protected function plagCleanText($html)
-{
+    protected function plagCleanText($html)
+    {
     // Remove all base64 images
     $html = preg_replace('/<img[^>]+src="data:image\/[^"]+"[^>]*>/i', '', $html);
 
@@ -267,7 +267,7 @@ private function computePlagiarismScoreForContent(string $rawHtml, Document $doc
         return view('documents.index', compact('documents', 'titles')); // ✅ Pass both
     }
 
-   public function showSubmittedDocuments(Request $request)
+    public function showSubmittedDocuments(Request $request)
     {
         $query = auth()->user()
             ->titles()
@@ -568,40 +568,52 @@ public function checkTitleSimilarity(Request $request)
 public function checkWebTitleSimilarity(Request $request)
 {
     $inputTitle = strtolower($request->input('title'));
+    $attempt = (int) $request->input('attempt', 1);
+
     $cacheKey = 'web_similarity_' . md5($inputTitle);
 
-    $data = Cache::remember($cacheKey, now()->addMinutes(60), function () use ($inputTitle) {
-        $response = Http::get('https://api.semanticscholar.org/graph/v1/paper/search', [
+    // Serve from cache only on first attempt (so a bad first hit won't keep poisoning)
+    if ($attempt === 1 && Cache::has($cacheKey)) {
+        return response()->json(Cache::get($cacheKey));
+    }
+
+    // Fresh call each attempt>1 (or first attempt without cache)
+    $response = Http::retry(2, 200) // quick server-side retry for transient errors
+        ->get('https://api.semanticscholar.org/graph/v1/paper/search', [
             'query' => $inputTitle,
             'fields' => 'title',
-            'limit' => 5,
+            'limit'  => 5,
         ]);
 
-        $items = $response->json('data', []);
-        $similarities = [];
+    $items = $response->ok() ? $response->json('data', []) : [];
+    $similarities = [];
 
-        foreach ($items as $item) {
-            $webTitle = strtolower($item['title']);
-            $score = self::cosineSimilarity($inputTitle, $webTitle);
-
-            $similarities[] = [
-                'title' => $item['title'],
-                'similarity' => round($score * 100, 2),
-            ];
-        }
-
-        usort($similarities, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
-        $max = $similarities[0]['similarity'] ?? 0;
-
-        return [
-            'max_similarity' => $max,
-            'approved' => $max < 30,
-            'results' => $similarities,
+    foreach ($items as $item) {
+        $webTitle = strtolower($item['title'] ?? '');
+        $score = self::cosineSimilarity($inputTitle, $webTitle);
+        $similarities[] = [
+            'title' => $item['title'] ?? '',
+            'similarity' => round($score * 100, 2),
         ];
-    });
+    }
+
+    usort($similarities, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+    $max = $similarities[0]['similarity'] ?? 0;
+
+    $data = [
+        'max_similarity' => $max,
+        'approved'       => $max < 30,
+        'results'        => $similarities,
+    ];
+
+    // 💡 Cache ONLY if we actually have results.
+    if (!empty($similarities)) {
+        Cache::put($cacheKey, $data, now()->addMinutes(60));
+    }
 
     return response()->json($data);
 }
+
 
 // Helper functions
 private static function cosineSimilarity($textA, $textB)
