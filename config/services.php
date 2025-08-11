@@ -34,12 +34,16 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-    'tiny' => [
-        'key' => env('q4ojn7q4jqhfv1h6bdfxwb8ywgs7t4kpw698i7lxkq026qjx'),
-    ],
+    
     'google' => [
         'api_key' => env('GOOGLE_API_KEY'),
         'cse_id' => env('GOOGLE_CSE_ID'),
+    ],
+     'gemini' => [
+        'key'      => env('GEMINI_API_KEY'),
+        // Safe defaults even if you forget to set them in .env
+        'model'    => env('GEMINI_MODEL', 'gemini-1.5-flash'),
+        'endpoint' => env('GEMINI_ENDPOINT', 'https://generativelanguage.googleapis.com/v1beta'),
     ],
 
 

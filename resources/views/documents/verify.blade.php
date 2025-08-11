@@ -4,6 +4,9 @@
     </div>
 
     <div class="container mx-auto px-4 py-8 bg-white mt-7 shadow rounded-xl">
+
+
+
         <form method="POST" action="{{ route('titles.verify.submit') }}">
             @csrf
 
@@ -19,41 +22,82 @@
                 >
             </div>
 
+
+
+
+
             <!-- ✅ Verify Button -->
-            <div class="mb-4 flex justify-start">
-                <button type="button" onclick="startVerification()" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">
-                    Verify Title
-                </button>
-            </div>
+<div class="mb-3 flex items-center gap-3">
+  <button type="button"
+          onclick="startVerification(event)"
+          id="verify-btn"
+          class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">
+    Verify Title
+  </button>
+
+  <!-- Inline AI loader (only for Gemini; hidden by default) -->
+  <div id="ai-inline-loader" class="hidden w-40 h-2 rounded bg-gray-200 overflow-hidden">
+    <div id="ai-inline-loader-bar" class="h-2 w-0 bg-purple-600 transition-all duration-300"></div>
+  </div>
+
+  <!-- Small text hint on rejection -->
+  <span id="reject-hint" class="text-sm text-rose-600 hidden">
+      Title Rejected
+  </span>
+</div>
+
+
+
+<div id="ai-suggestions" class="mt-4 hidden">
+  <h4 class="font-semibold text-purple-700 mb-2">🤖 AI Suggested Titles</h4>
+  <ul id="ai-suggestions-list" class="space-y-2 bg-purple-50 p-4 rounded-md border border-purple-200"></ul>
+   
+</div>
+
+ 
 
             <!-- ✅ Similarity Result Bars -->
-            <div class="mb-4 flex flex-col space-y-2">
-                <!-- Internal Similarity -->
-                <div class="text-sm text-gray-600 flex">
-                    <div>Internal Scan: &nbsp;</div>
-                    <div id="similarity-result" class="text-sm text-gray-600">Waiting for verification...</div>
-                </div>   
-                <div class="w-full bg-gray-200 rounded-full h-3">
-                    <div id="similarity-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <span id="similarity-percent" class="text-xs text-gray-500">0%</span>
+         <div class="flex items-center gap-6 mt-5 mb-2">
+    <!-- Internal Similarity -->
+    <div class="flex items-center gap-3 flex-1">
+        <!-- Label and result -->
+        <div class="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+            <span class="font-bold text-blue-700 text-1xl">Internal Similar Titles:</span>
+            <span id="similarity-result" class="text-sm text-gray-600">Waiting for verification...</span>
+        </div>
 
-                <!-- Web Similarity -->
-                <div class="text-sm text-gray-600 flex pt-4">
-                    <div>Web Scan: &nbsp;</div>
-                    <div id="external-similarity-result" class="text-sm text-gray-600">Waiting for verification...</div>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-3">
-                    <div id="external-similarity-bar" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <span id="external-similarity-percent" class="text-xs text-gray-500">0%</span>
-            </div>
+        <!-- Progress bar -->
+        <div class="flex-1 bg-gray-200 rounded-full h-3">
+            <div id="similarity-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+
+        <!-- Percentage -->
+        <span id="similarity-percent" class="text-xs text-gray-500 whitespace-nowrap">0%</span>
+    </div>
+
+    <!-- Web Similarity -->
+    <div class="flex items-center gap-3 flex-1">
+        <!-- Label and result -->
+        <div class="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+            <span class="font-bold text-blue-700 text-1xl">Web Similar Titles:</span>
+            <span id="external-similarity-result" class="text-sm text-gray-600">Waiting for verification...</span>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="flex-1 bg-gray-200 rounded-full h-3">
+            <div id="external-similarity-bar" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+
+        <!-- Percentage -->
+        <span id="external-similarity-percent" class="text-xs text-gray-500 whitespace-nowrap">0%</span>
+    </div>
+</div>
+
 
              <!-- Similar Titles Lists -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Internal List -->
                 <div>
-                    <h4 class="font-semibold text-blue-600 mb-2">📘 Internal Similar Titles</h4>
                     <ul id="internal-similar-titles" class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-4 rounded-md border border-blue-100 min-h-[100px]">
                         <li class="italic text-gray-400">No similar internal titles found.</li>
                     </ul>
@@ -61,8 +105,7 @@
 
                 <!-- Web List -->
                 <div>
-                    <h4 class="font-semibold text-green-600 mb-2">🌐 Web Similar Titles</h4>
-                    <ul id="web-similar-titles" class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-4 rounded-md border border-green-100 min-h-[100px]">
+                     <ul id="web-similar-titles" class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-4 rounded-md border border-green-100 min-h-[100px]">
                         <li class="italic text-gray-400">No similar web titles found.</li>
                     </ul>
                 </div>
@@ -86,14 +129,23 @@
             <p class="text-blue-700 font-semibold text-lg">Scanning title for similarity...</p>
         </div>
     </div>
+ 
 
-   <script>
-    let passedInternal = false;
-    let passedExternal = false;
-    let isRunning = false;
 
-    const existingTitles = @json(\App\Models\Title::pluck('title')->toArray());
+<script>
+let passedInternal = false;
+let passedExternal = false;
+let isRunning = false;
 
+// NEW:
+let wasRejected = false;   // true if internal≥30 or web≥30
+let autoAITriggered = false;
+
+const existingTitles = @json(\App\Models\Title::pluck('title')->toArray());
+
+
+
+ 
     function updateBars(target, percent, approved, labelWhenWaiting = null) {
         target.bar.style.width = percent + '%';
         target.percent.innerText = percent + '%';
@@ -182,116 +234,247 @@
         return { data: last ?? { max_similarity: 0, approved: true, results: [] }, attempts: maxTries };
     }
 
-    async function startVerification() {
-        if (isRunning) return; // prevent double-click spam
-        isRunning = true;
-        passedInternal = false;
-        passedExternal = false;
-        updateProceedButton();
+   
 
-        const title = document.getElementById('title').value.trim();
-        if (title.length < 5) {
-            alert("Please enter a more descriptive title.");
-            isRunning = false;
-            return;
-        }
+async function startVerification(event){
+  if (isRunning) return;
+  isRunning = true;
+  passedInternal = false;
+  passedExternal = false;
+  wasRejected = false;
+  autoAITriggered = false;
+  updateProceedButton();
+  toggleRejectHint(false);
 
-        // Lock button UI
-        const verifyBtn = event?.target?.closest('button') || document.querySelector('button[onclick="startVerification()"]');
-        if (verifyBtn) {
-            verifyBtn.disabled = true;
-            verifyBtn.classList.add('opacity-60','cursor-not-allowed');
-        }
+  document.getElementById('ai-suggestions').classList.add('hidden');
 
-        showLoading();
+  const title = document.getElementById('title').value.trim();
+  if (title.length < 5){
+    alert("Please enter a more descriptive title.");
+    isRunning = false;
+    return;
+  }
 
-        /* ------- Internal Similarity (Cosine) ------- */
-        const similarities = existingTitles.map(existing => ({
-            title: existing,
-            score: cosineSimilarity(title, existing)
-        }));
+  const verifyBtn = event?.target?.closest('button') || document.getElementById('verify-btn');
+  if (verifyBtn){
+    verifyBtn.disabled = true;
+    verifyBtn.classList.add('opacity-60','cursor-not-allowed');
+  }
 
-        similarities.sort((a, b) => b.score - a.score);
+  showLoading();
 
-        const topMatches = similarities.slice(0, 5);
-        const internalPercent = Math.round(((topMatches[0]?.score) || 0) * 100);
+  // ----- INTERNAL (cosine vs existing) -----
+  const sims = existingTitles.map(t => ({ t, s: cosineSimilarity(title, t) }))
+                             .sort((a,b)=> b.s - a.s)
+                             .slice(0,5);
+  const internalPercent = Math.round(((sims[0]?.s)||0) * 100);
 
-        updateBars({
-            bar: document.getElementById("similarity-bar"),
-            percent: document.getElementById("similarity-percent"),
-            result: document.getElementById("similarity-result")
-        }, internalPercent, internalPercent < 30);
+  updateBars({
+    bar: document.getElementById("similarity-bar"),
+    percent: document.getElementById("similarity-percent"),
+    result: document.getElementById("similarity-result")
+  }, internalPercent, internalPercent < 30);
 
-        // Internal list UI
-        const internalList = document.getElementById("internal-similar-titles");
-        internalList.innerHTML = "";
-        let hasValidInternal = false;
-
-        topMatches.forEach((m, i) => {
-            const pct = Math.round(m.score * 100);
-            if (pct > 0) {
-                const li = document.createElement("li");
-                li.innerHTML = `${i === 0 ? '🔥 ' : ''}${m.title} — ${pct}%`;
-                internalList.appendChild(li);
-                hasValidInternal = true;
-            }
-        });
-
-        if (!hasValidInternal) {
-            internalList.innerHTML = `<li class="italic text-gray-400">No similar internal titles found.</li>`;
-        }
-
-        passedInternal = internalPercent < 30; // gate
-
-        /* ------- Web Similarity with auto-retry ------- */
-        updateBars({
-            bar: document.getElementById("external-similarity-bar"),
-            percent: document.getElementById("external-similarity-percent"),
-            result: document.getElementById("external-similarity-result")
-        }, 0, false, 'Waiting for web results…');
-
-        const { data, attempts } = await fetchWebSimilarityWithRetries(title, 5);
-
-        // Update web bars/lists
-        hideLoading();
-
-        const webPercent = Math.round(Number(data.max_similarity || 0));
-        updateBars({
-            bar: document.getElementById("external-similarity-bar"),
-            percent: document.getElementById("external-similarity-percent"),
-            result: document.getElementById("external-similarity-result")
-        }, webPercent, Boolean(data.approved));
-
-        const webList = document.getElementById("web-similar-titles");
-        webList.innerHTML = "";
-        if (Array.isArray(data.results) && data.results.length > 0) {
-            data.results.forEach((item, index) => {
-                const li = document.createElement("li");
-                li.innerHTML = `${index === 0 ? '🔥 ' : ''}${item.title} — ${item.similarity}%`;
-                webList.appendChild(li);
-            });
-            if (attempts > 1) {
-                // Subtle hint that we retried
-                const hint = document.createElement('div');
-                hint.className = 'text-xs text-gray-500 mt-2';
-                hint.textContent = `Found after ${attempts} attempt(s).`;
-                webList.parentElement.appendChild(hint);
-            }
-        } else {
-            webList.innerHTML = `<li class="italic text-gray-400">No similar web titles found after ${attempts} attempt(s).</li>`;
-        }
-
-        passedExternal = Boolean(data.approved);
-        updateProceedButton();
-
-        // Unlock button UI
-        if (verifyBtn) {
-            verifyBtn.disabled = false;
-            verifyBtn.classList.remove('opacity-60','cursor-not-allowed');
-        }
-        isRunning = false;
+  const internalList = document.getElementById("internal-similar-titles");
+  internalList.innerHTML = "";
+  let anyInternal = false;
+  sims.forEach((m,i)=>{
+    const pct = Math.round(m.s*100);
+    if (pct>0){
+      const li = document.createElement('li');
+      li.innerHTML = `${i===0?'🔥 ':''}${m.t} — ${pct}%`;
+      internalList.appendChild(li);
+      anyInternal = true;
     }
+  });
+  if (!anyInternal){
+    internalList.innerHTML = `<li class="italic text-gray-400">No similar internal titles found.</li>`;
+  }
+  passedInternal = internalPercent < 30;
+
+  // ----- WEB (Semantic Scholar via your endpoint + retries) -----
+  updateBars({
+    bar: document.getElementById("external-similarity-bar"),
+    percent: document.getElementById("external-similarity-percent"),
+    result: document.getElementById("external-similarity-result")
+  }, 0, false, 'Waiting for web results…');
+
+  const { data, attempts } = await fetchWebSimilarityWithRetries(title, 5);
+  hideLoading();
+
+  const webPercent = Math.round(Number(data.max_similarity || 0));
+  updateBars({
+    bar: document.getElementById("external-similarity-bar"),
+    percent: document.getElementById("external-similarity-percent"),
+    result: document.getElementById("external-similarity-result")
+  }, webPercent, Boolean(data.approved));
+
+  const webList = document.getElementById("web-similar-titles");
+  webList.innerHTML = "";
+  if (Array.isArray(data.results) && data.results.length){
+    data.results.forEach((item, idx)=>{
+      const li = document.createElement('li');
+      li.innerHTML = `${idx===0?'🔥 ':''}${item.title} — ${item.similarity}%`;
+      webList.appendChild(li);
+    });
+    if (attempts>1){
+      const hint = document.createElement('div');
+      hint.className = 'text-xs text-gray-500 mt-2';
+      hint.textContent = `Found after ${attempts} attempt(s).`;
+      webList.parentElement.appendChild(hint);
+    }
+  }else{
+    webList.innerHTML = `<li class="italic text-gray-400">No similar web titles found after ${attempts} attempt(s).</li>`;
+  }
+
+  passedExternal = Boolean(data.approved);
+  updateProceedButton();
+
+  // ----- Decide reject/approve & auto-trigger AI if rejected -----
+ 
+wasRejected = !(passedInternal && passedExternal); // rejected if either ≥30
+if (wasRejected){
+  toggleRejectHint(true);
+  // auto‑trigger Gemini once
+  suggestWithGemini(true);
+}else{
+  toggleRejectHint(false);
+}
+
+
+  if (verifyBtn){
+    verifyBtn.disabled = false;
+    verifyBtn.classList.remove('opacity-60','cursor-not-allowed');
+  }
+  isRunning = false;
+}
 </script>
+
+
+
+
+<script>
+const SUGGEST_URL = "{{ route('titles.suggest') }}";
+const CSRF_TOKEN  = "{{ csrf_token() }}";
+
+async function suggestWithGemini(auto=false){
+  const titleEl = document.getElementById('title');
+  const draft = (titleEl.value || '').trim();
+
+  if (!wasRejected && !auto){
+    // safety: only when rejected
+    return;
+  }
+  if (draft.length < 5){
+    return;
+  }
+  if (auto && autoAITriggered) return;
+  autoAITriggered = true;
+
+  // Optional context if you add fields later
+  const context = {
+    domain:      document.querySelector('#domain')?.value || null,
+    problem:     document.querySelector('#problem')?.value || null,
+    population:  document.querySelector('#population')?.value || null,
+    location:    document.querySelector('#location')?.value || null,
+    method:      document.querySelector('#method')?.value || null
+  };
+
+  const payload = { draft_title: draft, existing_titles: existingTitles };
+  if (Object.values(context).some(v => v)) payload.context = context;
+
+  try{
+    aiLoader(true);
+
+    const res = await fetch(SUGGEST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept':'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    aiLoader(false);
+
+    if (!res.ok){
+      console.error(await res.text());
+      // Keep UI quiet; just don’t render anything
+      return;
+    }
+
+    const data = await res.json();
+    const wrap = document.getElementById('ai-suggestions');
+    const list = document.getElementById('ai-suggestions-list');
+    list.innerHTML = '';
+
+    const items = Array.isArray(data.suggestions) ? data.suggestions : [];
+    if (!items.length){
+      list.innerHTML = '<li class="text-sm italic text-gray-500">No suggestions returned. Try revising and verify again.</li>';
+      wrap.classList.remove('hidden');
+      return;
+    }
+
+    items.forEach((s)=>{
+      const li = document.createElement('li');
+      li.className = 'p-2 bg-white rounded-md border hover:border-purple-400 hover:shadow-sm transition cursor-pointer';
+      li.innerHTML = `
+        <div class="text-sm text-gray-800 leading-snug">
+          <div class="font-medium">${escapeHtml(s.title)}</div>
+          ${s.why ? `<div class="text-xs text-gray-600 mt-1">${escapeHtml(s.why)}</div>` : ''}
+        </div>
+      `;
+     li.addEventListener('click', ()=>{
+    document.getElementById('title').value = s.title;
+    li.classList.add('ring-2','ring-purple-400');
+    setTimeout(()=> li.classList.remove('ring-2','ring-purple-400'), 700);
+  });
+
+      list.appendChild(li);
+    });
+
+    wrap.classList.remove('hidden');
+
+  }catch(err){
+    aiLoader(false);
+    console.error(err);
+  }
+}
+
+function escapeHtml(str){
+  return (str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+</script>
+
+
+
+<script>
+function aiLoader(show){
+  const shell = document.getElementById('ai-inline-loader');
+  const bar   = document.getElementById('ai-inline-loader-bar');
+  if (show){
+    shell.classList.remove('hidden');
+    bar.style.width = '0%';
+    // simple looping fill animation
+    let w = 0;
+    bar._timer && clearInterval(bar._timer);
+    bar._timer = setInterval(()=>{
+      w = (w + 12) % 112; // wrap after 100
+      bar.style.width = Math.min(w,100) + '%';
+    }, 180);
+  }else{
+    shell.classList.add('hidden');
+    const t = bar._timer;
+    if (t) clearInterval(t);
+    bar._timer = null;
+    bar.style.width = '0%';
+  }
+}
+
+function toggleRejectHint(on){
+  const hint = document.getElementById('reject-hint');
+  if (on) hint.classList.remove('hidden'); else hint.classList.add('hidden');
+}
+</script>
+
+
 
 </x-userlayout>
  

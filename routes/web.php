@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\Log;
 
 
 
-
+Route::post('/titles/suggest', [DocumentController::class, 'suggestTitlesGemini'])
+     ->name('titles.suggest');
 Route::post('/documents/check-plagiarism', [DocumentController::class, 'checkPlagiarismLive'])->name('documents.checkPlagiarismLive');
 
 

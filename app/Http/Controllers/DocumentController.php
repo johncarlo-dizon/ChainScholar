@@ -533,6 +533,227 @@ private function computePlagiarismScoreForContent(string $rawHtml, Document $doc
     // TITLE VERIFY -----------------------------------------------------------------------------------------
 
 
+
+    
+public function suggestTitlesGemini(Request $request)
+{
+    $request->validate([
+        'draft_title'     => 'required|string|min:5',
+        'existing_titles' => 'array',
+        'context'         => 'array',
+    ]);
+
+    $draft    = trim($request->input('draft_title'));
+    $existing = $request->input('existing_titles', []);
+    $context  = $request->input('context', []);
+
+    $apiKey   = config('services.gemini.key');
+    $model    = config('services.gemini.model', 'gemini-1.5-pro');
+    $endpoint = rtrim(config('services.gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta'), '/');
+
+    if (!$apiKey) {
+        return response()->json(['error' => 'Gemini API key missing'], 500);
+    }
+
+    // Cache per rejected draft
+    $cacheKey = 'gemini_title_enhance_v2:' . md5($draft . json_encode(array_slice($existing, 0, 50)) . json_encode($context));
+    if (Cache::has($cacheKey)) {
+        return response()->json(Cache::get($cacheKey));
+    }
+
+    // === Prompt as "Academic Research Title Enhancement Assistant" ===
+    $rules = implode("\n", [
+        "Act as an Academic Research Title Enhancement Assistant.",
+        "Input is a REJECTED academic title. Task: rewrite to produce improved titles that:",
+        "- Stay relevant and connected to the original topic.",
+        "- Address a clear, significant, and specific problem in the field.",
+        "- Integrate latest trends/innovations/emerging concepts relevant to the field.",
+        "- Are concise, professional, and suitable for academic approval.",
+        "- Sound innovative, impactful, and aligned with modern developments.",
+        "Return STRICT JSON with EXACTLY this schema:",
+        "{ \"suggestions\": [",
+        "  {\"title\":\"...\",\"why\":\"(1–2 sentences explaining the improvement)\"},",
+        "  {\"title\":\"...\",\"why\":\"...\"},",
+        "  {\"title\":\"...\",\"why\":\"...\"}",
+        "] }",
+        "Constraints:",
+        "- Exactly 3 suggestions.",
+        "- Each title ≤ 16 words; avoid colon stacking and buzzword soup.",
+        "- Keep close to the original scope (do not change the topic entirely).",
+    ]);
+
+    $payloadBlock = [
+        "draft_title"  => $draft,
+        "context"      => $context,
+        "avoid_titles" => array_values($existing),
+    ];
+
+    try {
+        $res = Http::timeout(20)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->post("{$endpoint}/models/{$model}:generateContent?key={$apiKey}", [
+                "generationConfig" => [
+                    "temperature" => 0.5,
+                    "topK" => 40,
+                    "topP" => 0.9,
+                    "maxOutputTokens" => 512,
+                    "response_mime_type" => "application/json",
+                ],
+                "contents" => [
+                    [
+                        "role" => "user",
+                        "parts" => [[ "text" => $rules ]]
+                    ],
+                    [
+                        "role" => "user",
+                        "parts" => [[ "text" => json_encode($payloadBlock, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ]]
+                    ],
+                ],
+            ]);
+
+        if (!$res->ok()) {
+            return response()->json(['error' => 'Gemini request failed', 'meta' => $res->json()], 502);
+        }
+
+        $raw = $res->json();
+
+        // ---- Robust JSON extraction ----
+        $jsonStr = data_get($raw, 'candidates.0.content.parts.0.text');
+        if (!$jsonStr) {
+            // Try inlineData
+            $parts = data_get($raw, 'candidates.0.content.parts', []);
+            foreach ($parts as $p) {
+                if (isset($p['inlineData']['mimeType']) && str_contains($p['inlineData']['mimeType'], 'json')) {
+                    $jsonStr = base64_decode($p['inlineData']['data'] ?? '');
+                    break;
+                }
+            }
+        }
+        if (!$jsonStr) {
+            // If blocked/safety etc.
+            return response()->json([
+                'error' => 'Gemini returned no candidates (possibly safety blocked).',
+                'feedback' => data_get($raw, 'promptFeedback', []),
+                'raw' => $raw,
+            ], 500);
+        }
+
+        // Parse and sanitize
+        $parsed = json_decode($jsonStr, true);
+        if (!is_array($parsed) || !isset($parsed['suggestions']) || !is_array($parsed['suggestions'])) {
+            // Attempt to salvage JSON substring
+            if (preg_match('/\{.*\}/s', $jsonStr, $m)) {
+                $parsed = json_decode($m[0], true);
+            }
+        }
+        if (!is_array($parsed) || !isset($parsed['suggestions']) || !is_array($parsed['suggestions'])) {
+            $parsed = ['suggestions' => []];
+        }
+
+        // Normalize; keep exactly 3 items
+        $rawSug = collect($parsed['suggestions'])
+            ->map(function ($s) {
+                return [
+                    'title' => trim((string)($s['title'] ?? '')),
+                    'why'   => trim((string)($s['why'] ?? '')),
+                ];
+            })
+            ->filter(fn ($s) => $s['title'] !== '')
+            ->take(6) // temp buffer; we will re-rank and then take 3
+            ->values();
+
+        // Score each suggestion with internal & web similarity
+        $scored = $this->scoreSuggestions($rawSug->all(), $existing);
+
+        // Keep only those <30 on both, otherwise fallback to lowest combined
+        $approved = array_values(array_filter($scored, fn($x) => $x['internal_pct'] < 30 && $x['web_pct'] < 30));
+        $final = $approved;
+
+        if (count($final) < 3 && count($scored)) {
+            usort($scored, fn($a,$b)=> ($a['internal_pct'] + $a['web_pct']) <=> ($b['internal_pct'] + $b['web_pct']));
+            foreach ($scored as $cand) {
+                if (count($final) >= 3) break;
+                if (!in_array($cand, $final, true)) $final[] = $cand;
+            }
+        }
+
+        // Ensure exactly 3
+        $final = array_slice($final, 0, 3);
+
+        $out = ['suggestions' => $final];
+        Cache::put($cacheKey, $out, now()->addMinutes(30));
+        return response()->json($out);
+
+    } catch (\Throwable $e) {
+        return response()->json(['error' => 'Gemini error', 'message' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Score suggestions with internal cosine similarity and web similarity (Semantic Scholar).
+ * Returns: [{ title, why, internal_pct, web_pct, approved }]
+ */
+private function scoreSuggestions(array $suggestions, array $existingTitles): array
+{
+    // Prepare internal token maps once
+    $existing = array_values(array_filter(array_map('strval', $existingTitles)));
+    $scored = [];
+
+    foreach ($suggestions as $s) {
+        $t = $s['title'];
+
+        // Internal max cosine
+        $internalMax = 0.0;
+        foreach ($existing as $ex) {
+            $c = self::cosineSimilarity($t, $ex);
+            if ($c > $internalMax) $internalMax = $c;
+        }
+        $internalPct = round($internalMax * 100, 2);
+
+        // Web max (call Semantic Scholar once per suggestion)
+        $webPct = $this->computeWebSimilarityPercent($t);
+
+        $scored[] = [
+            'title'        => $t,
+            'why'          => $s['why'],
+            'internal_pct' => $internalPct,
+            'web_pct'      => $webPct,
+            'approved'     => ($internalPct < 30 && $webPct < 30),
+        ];
+    }
+
+    return $scored;
+}
+
+/**
+ * Compute web similarity percent (0–100) using Semantic Scholar (same approach as checkWebTitleSimilarity).
+ */
+private function computeWebSimilarityPercent(string $title): float
+{
+    try {
+        $response = Http::retry(2, 200)
+            ->get('https://api.semanticscholar.org/graph/v1/paper/search', [
+                'query'  => $title,
+                'fields' => 'title',
+                'limit'  => 5,
+            ]);
+
+        if (!$response->ok()) return 0.0;
+        $items = $response->json('data', []);
+        $max = 0.0;
+        foreach ($items as $it) {
+            $webTitle = (string)($it['title'] ?? '');
+            $score = self::cosineSimilarity(strtolower($title), strtolower($webTitle));
+            $pct = round($score * 100, 2);
+            if ($pct > $max) $max = $pct;
+        }
+        return $max;
+    } catch (\Throwable $e) {
+        return 0.0;
+    }
+}
+
+
 public function checkTitleSimilarity(Request $request)
 {
     $inputTitle = $request->input('title');
