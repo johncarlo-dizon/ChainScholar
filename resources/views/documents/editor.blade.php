@@ -59,16 +59,48 @@
 
     <!-- Default Sidebar Panel -->
     <div id="default-sidebar" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between h-full space-y-8">
-        <div class="space-y-4">
+      
+
+    
+
+
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-700">Document Info</h3>
+    </div>
+
+    <div id="sections-outline" class="text-sm text-gray-600 space-y-2">
+        <p class="text-gray-500">Start typing… sections will appear here.</p>
+    </div>
+   <div id="editor-word-count" class="text-sm text-gray-500 mt-0 pt-0">
+       <!-- Word count will be injected here -->
+        </div>
+  
+</div>
+
+
+
+           <div class="space-y-4">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-700">Document Info</h3>
+                <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3>  
+
             </div>
-            <div id="editor-word-count" class="text-sm text-gray-500">
-                <!-- Word count will be injected here -->
+            <div class="space-y-4">
+                <div class="flex flex-col">
+                   
+
+<div id="plagiarism-result" class="text-sm  text-gray-700 hidden"></div>
+              
+                </div>
             </div>
         </div>
 
-        <div class="space-y-4">
+
+
+
+
+
+    <div class="space-y-4">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-gray-700">Actions</h3>
             </div>
@@ -93,29 +125,6 @@
                 </div>
             </div>
         </div>
-
-
-
-           <div class="space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3>  
-
-            </div>
-            <div class="space-y-4">
-                <div class="flex flex-col">
-                   
-
-<div id="plagiarism-result" class="text-sm  text-gray-700 hidden"></div>
-              
-                </div>
-            </div>
-        </div>
-
-
-
-
-
-
 
 
 
@@ -261,7 +270,7 @@ function prepareFinalContent() {
 
 <script>
 // ---------- config ----------
-const THRESHOLD = 30;
+const THRESHOLD = 45;
 const MIN_CHARS_TO_CHECK = 40; // avoid noise when the doc is still empty
 
 // ---------- helpers ----------
@@ -373,9 +382,209 @@ document.addEventListener('DOMContentLoaded', () => {
 // Expose to the Run button
 window.checkPlagiarism = checkPlagiarism;
 </script>
+<script>
+/** ===== Target word counts ===== */
+const SECTION_STANDARDS = {
+  'Abstract': 300,
+  'Introduction': 1000,
+  'Background of the Study': 800,
+  'Statement of the Problem': 500,
+  'Significance of the Study': 400,
+  'Scope and Delimitations': 300,
+  'Review of Related Literature': 2000,
+  'Methodology': 1500,
+  'Results': 1000,
+  'Discussion': 1000,
+  'Conclusion': 300,
+  'Recommendations': 300
+};
+
+/** Canonical names + variants */
+const SECTION_ALIASES = [
+  { key: 'Introduction', patterns: [/^intro(duction)?$/i] },
+  { key: 'Background of the Study', patterns: [/^background( of (the )?study)?$/i] },
+  // Map “General Problem” and “Specific Problems” into ONE key
+  { key: 'Statement of the Problem', patterns: [
+      /^(statement of )?the problem$/i,
+      /^problems?\s*statement$/i,
+      /^general problems?$/i,
+      /^general problem$/i,
+      /^specific problems?$/i
+    ]
+  },
+  { key: 'Significance of the Study', patterns: [/^significance( of (the )?study)?$/i] },
+  { key: 'Scope and Delimitations', patterns: [/^scope( and)? (delimitation|delimitations)$/i] },
+  { key: 'Review of Related Literature', patterns: [/^(review|related (studies|literature))(.*)?$/i, /^rrl$/i] },
+  { key: 'Methodology', patterns: [/^method(s|ology)?$/i, /^research methodology$/i] },
+  { key: 'Results', patterns: [/^results?$/i, /^findings?$/i] },
+  { key: 'Discussion', patterns: [/^discussion$/i, /^analysis$/i] },
+  { key: 'Conclusion', patterns: [/^conclusion(s)?$/i] },
+  { key: 'Recommendations', patterns: [/^recommendation(s)?$/i] },
+  { key: 'Abstract', patterns: [/^abstract$/i] },
+  // helpers
+  { key: 'Chapter', patterns: [/^chapter\s+[ivx\d]+$/i] },
+  { key: 'ChapterSubtitle', patterns: [/^[A-Z][A-Z\s\-:&]+$/] },
+];
+
+function normalizeHeadingLabel(raw) {
+  const text = (raw || '').trim().replace(/\s+/g, ' ');
+  for (const {key, patterns} of SECTION_ALIASES) {
+    if (patterns.some(rx => rx.test(text))) {
+      if (key === 'Chapter' || key === 'ChapterSubtitle') return text;
+      return key;
+    }
+  }
+  return text.replace(/\w\S*/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
+}
+
+/** DOM helpers */
+function isTrueHeading(node){ return node && node.nodeType===1 && /^(H1|H2|H3|H4|H5|H6)$/i.test(node.tagName); }
+function hasCenterAlign(node){ const s=(node.getAttribute('style')||'').toLowerCase(); return s.includes('text-align:center'); }
+function textOnly(node){ return (node?.innerText || '').replace(/\u00a0/g,' ').trim(); }
+
+/** Pseudo headings like <p><strong>Introduction</strong></p> */
+function isPseudoHeading(node){
+  if (!node || node.nodeType!==1 || node.tagName!=='P') return false;
+  const t=textOnly(node);
+  if (!t || t.length>120) return false;
+  const hasStrong=node.querySelector('strong,b')!==null;
+  const looksLikeTitle=/^[A-Z0-9\s\-:()]+$/.test(t) || hasStrong || hasCenterAlign(node);
+  const isKnown=SECTION_ALIASES.some(({patterns})=>patterns.some(rx=>rx.test(t)));
+  return looksLikeTitle && isKnown;
+}
+
+/** Title/front‑matter hints */
+const TITLE_PAGE_HINTS=[/a research presented/i,/in partial fulfillment/i,/institute of/i,/holy cross college/i,/submitted by/i,/sta\.?\s*ana/i,/^_{3,}$/i,/^[—_]+$/i];
+function isFrontMatter(node){
+  const t=textOnly(node);
+  if (!t) return true;
+  if (node.querySelector('img')) return true;
+  if (hasCenterAlign(node)) return true;
+  if (TITLE_PAGE_HINTS.some(rx=>rx.test(t))) return true;
+  if (/^[A-Z0-9\s_.—-]+$/.test(t) && t.length<=80) return true;
+  return false;
+}
+
+/** Count words */
+function countWords(s){ const tokens=s.match(/\b[\p{L}\p{N}’'-]+\b/gu); return tokens?tokens.length:0; }
+
+/** Extract sections from CKEditor DOM */
+function extractSections(){
+  const root=document.querySelector('.ck-content');
+  if (!root) return [];
+  const blocks=Array.from(root.children);
+  const sections=[];
+  let current=null, started=false, i=0;
+
+  function startSection(label){ current={ name: normalizeHeadingLabel(label), words:0 }; sections.push(current); }
+  function addTextFrom(node){ const t=textOnly(node); if (t) current.words+=countWords(t); }
+
+  while(i<blocks.length){
+    const node=blocks[i];
+
+    if (!started){
+      if (isTrueHeading(node) || isPseudoHeading(node)){
+        let title=normalizeHeadingLabel(textOnly(node));
+        if (/^chapter\s+[ivx\d]+$/i.test(title)){
+          const next=blocks[i+1]; const t2=next?textOnly(next):'';
+          if (next && isPseudoHeading(next) && /^[A-Z][A-Z\s\-:&]+$/.test(t2)){
+            title = `${title} — ${t2}`; i++;
+          }
+        }
+        startSection(title); started=true; i++; continue;
+      }
+      if (isFrontMatter(node)){ i++; continue; }
+      startSection('Body'); started=true;
+    }
+
+    if (isTrueHeading(node) || isPseudoHeading(node)){
+      let title=normalizeHeadingLabel(textOnly(node));
+      if (/^chapter\s+[ivx\d]+$/i.test(title)){
+        const next=blocks[i+1]; const t2=next?textOnly(next):'';
+        if (next && isPseudoHeading(next) && /^[A-Z][A-Z\s\-:&]+$/.test(t2)){
+          title = `${title} — ${t2}`; i++;
+        }
+      }
+      startSection(title); i++; continue;
+    }
+
+    addTextFrom(node); i++;
+  }
+
+  return sections.filter(s=>s.words>0);
+}
+
+/** Merge same-named sections (e.g., General + Specific Problems) */
+function combineSameNamedSections(sections){
+  const map=new Map();
+  for (const s of sections){
+    const key=s.name;
+    const prev=map.get(key);
+    if (prev) prev.words += s.words; else map.set(key, {...s});
+  }
+  return Array.from(map.values());
+}
+
+/** Render to sidebar: ONLY sections that have targets → show % only */
+function renderSectionsOutline(){
+  const box = document.getElementById('sections-outline');
+  if (!box) return;
+
+  const HIDE = [/^chapter\s+/i];
+  const raw = extractSections().filter(s => !HIDE.some(rx => rx.test(s.name)));
+  if (!raw.length){
+    box.innerHTML = '<p class="text-gray-500">No sections detected yet.</p>';
+    return;
+  }
+
+  const merged = combineSameNamedSections(raw);
+  const withTargets = merged.filter(s => SECTION_STANDARDS[s.name] != null);
+
+  const items = withTargets.map(s=>{
+    const target = SECTION_STANDARDS[s.name];
+    const pct = Math.min(100, Math.round((s.words / target) * 100));
+    const deg = pct * 3.6; // 100% -> 360deg
+
+    return `
+      <div class="flex items-center justify-between py-1">
+        <div class="flex items-center gap-2">
+          <!-- Circle progress inverted (right-to-left) -->
+          <span class="relative inline-block w-4.5 h-4.5 rounded-full"
+                style="background: conic-gradient(#2563eb ${deg}deg, #e5e7eb 0deg);
+                       transform: rotate(180deg);">
+            <span class="absolute inset-[3px] bg-white rounded-full"></span>
+          </span>
+          <span class="truncate">${s.name}</span>
+        </div>
+        <span class="font-medium">${pct}%</span>
+      </div>`;
+  }).join('');
+
+  box.innerHTML = `
+    <div class="space-y-1">
+      ${items || '<p class="text-gray-500">No targeted sections yet.</p>'}
+    </div>`;
+}
 
 
-
+/** Live updates */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const tick=()=>renderSectionsOutline();
+  const wait=setInterval(()=>{
+    const el=document.querySelector('.ck-content');
+    if (el){
+      clearInterval(wait);
+      tick();
+      let debounce;
+      const mo=new MutationObserver(()=>{
+        clearTimeout(debounce);
+        debounce=setTimeout(tick,300);
+      });
+      mo.observe(el,{subtree:true,childList:true,characterData:true,attributes:true});
+    }
+  },150);
+});
+</script>
 
 
     <style>
@@ -407,3 +616,4 @@ window.checkPlagiarism = checkPlagiarism;
         
     </style>
 </x-userlayout>
+ 
