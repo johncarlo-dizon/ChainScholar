@@ -17,8 +17,32 @@ use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\AdviserController;
 
 
+
+
+
+
+ 
+
+Route::middleware(['auth','student'])->group(function () {
+    Route::get('/titles/awaiting', [TitleController::class, 'showAwaitingTitles'])
+        ->name('titles.awaiting');
+
+    Route::post('/titles/{title}/adviser/change', [TitleController::class, 'changeAdviser'])
+        ->name('titles.adviser.change');
+
+    Route::post('/titles/{title}/adviser/cancel', [TitleController::class, 'cancelAdviserRequest'])
+        ->name('titles.adviser.cancel');
+
+    // Student accepts / declines incoming adviser-initiated requests
+    Route::post('/titles/{title}/incoming/{adviserRequest}/accept', [TitleController::class, 'acceptIncoming'])
+        ->name('titles.incoming.accept');
+
+    Route::post('/titles/{title}/incoming/{adviserRequest}/decline', [TitleController::class, 'declineIncoming'])
+        ->name('titles.incoming.decline');
+});
 
 
 Route::post('/titles/suggest', [DocumentController::class, 'suggestTitlesGemini'])
@@ -36,14 +60,23 @@ Route::get('/dashboard/view/{id}', [DocumentController::class, 'viewResearch'])-
 
 
 
-Route::prefix('admin/titles')->name('admin.titles.')->group(function () {
-    Route::get('/pending', [AdminTitleController::class, 'pendingTitles'])->name('pending');
-    Route::get('/approved', [AdminTitleController::class, 'approvedTitles'])->name('approved');
-    Route::patch('/{id}/approve', [AdminTitleController::class, 'approve'])->name('approve');
-    Route::patch('/return', [AdminTitleController::class, 'return'])->name('return');
-});
-Route::get('/admin/documents/{id}/review', [AdminTitleController::class, 'review'])->name('admin.documents.review');
+Route::middleware(['auth','admin'])
+    ->prefix('admin/titles')
+    ->name('admin.titles.')
+    ->group(function () {
+        // List all submitted titles (read-only)
+        Route::get('/submitted', [AdminTitleController::class, 'submittedTitles'])
+            ->name('submitted');
 
+        // View a submitted (final) document
+        Route::get('/submitted/view/{document}', [AdminTitleController::class, 'viewSubmittedDocument'])
+            ->name('submitted.view');
+    });
+
+// (Optional) temporary compatibility redirect if old links still hit this route:
+Route::get('/admin/documents/{document}/review', function (Document $document) {
+    return redirect()->route('admin.titles.submitted.view', $document);
+})->name('admin.documents.review');
 
 
 
@@ -142,13 +175,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/documents/verify', [TitleController::class, 'verifyAndProceed'])->name('titles.verify.submit');
 
 
-
-
 // Show chapters page after verifying title (step 2)
     Route::get('/titles/{id}/chapters', [TitleController::class, 'showChapters'])->name('titles.chapters');
     Route::get('/open/{id}/chapters', [TitleController::class, 'showChapters'])->name('open.chapters');
-
-
 
 
     Route::resource('documents', DocumentController::class);
@@ -233,3 +262,31 @@ Route::middleware(['auth', 'admin'])->group(function() {
     Route::put('/admin/users/{user}', [UserController::class, 'update'])->name('admin.users.update');
     Route::delete('/admin/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
 });
+
+
+Route::middleware(['auth', 'adviser'])
+    ->prefix('adviser')
+    ->name('adviser.')
+    ->group(function () {
+        Route::get('/', [AdviserController::class, 'index'])->name('index');
+
+        // Browse titles to request
+        Route::get('/titles/browse', [AdviserController::class, 'browse'])->name('titles.browse');
+        Route::post('/titles/{title}/request', [AdviserController::class, 'requestToAdvise'])->name('titles.request');
+
+        // Pending requests addressed to this adviser
+        Route::get('/requests/pending', [AdviserController::class, 'pending'])->name('requests.pending');
+        Route::post('/requests/{adviserRequest}/accept', [AdviserController::class, 'accept'])->name('requests.accept');
+        Route::post('/requests/{adviserRequest}/decline', [AdviserController::class, 'decline'])->name('requests.decline');
+
+
+        Route::get('/advised', [AdviserController::class, 'listAdvisedTitles'])
+            ->name('advised.index');
+        Route::get('/advised/{title}', [AdviserController::class, 'viewAdvisedTitle'])
+            ->name('advised.show');
+        Route::get('/advised/{title}/chapters/{document}', [AdviserController::class, 'showAdvisedChapter'])
+            ->name('advised.chapter.show');
+            Route::post('/advised/{title}/chapters/{document}/note',
+            [AdviserController::class, 'saveChapterNote']
+        )->name('advised.chapter.note.save');
+    });

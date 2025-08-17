@@ -94,7 +94,27 @@
                 </div>
             </div>
         </div>
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-700">Adviser Message</h3>
+        @if(!empty($adviserNote))
+            <span class="text-xs text-gray-500">
+                Updated {{ $adviserNote->updated_at->diffForHumans() }}
+            </span>
+        @endif
+    </div>
 
+    @if(!empty($adviserNote))
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-2">
+           
+            <pre class="whitespace-pre-wrap text-sm text-gray-800">{{ $adviserNote->content }}</pre>
+        </div>
+    @else
+        <div class="rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+            No adviser note yet for this chapter.
+        </div>
+    @endif
+</div>
 
 
 

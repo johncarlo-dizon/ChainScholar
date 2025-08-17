@@ -4,20 +4,24 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class EnsureIsAdmin
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
-    public function handle($request, Closure $next)
+    public function handle(Request $request, Closure $next)
     {
-        if (auth()->user()->position !== 'admin') {
+        $user = $request->user();
+
+        if (!$user) {
+            return redirect()->route('login')->with('error', 'Please sign in first.');
+        }
+
+        if ($user->role !== 'ADMIN') {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
             return redirect('/')->with('error', 'Unauthorized: Admin access required.');
         }
+
         return $next($request);
     }
 }

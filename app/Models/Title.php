@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Title extends Model
 {
     protected $fillable = [
-        'user_id',
+        'owner_id',
         'title',
         'authors',
         'abstract',
@@ -20,19 +20,28 @@ class Title extends Model
         'submitted_at',
         'approved_at',
         'returned_at',
-        'finaldocument_id',
-        'status', // ✅ add this line
+        'verified_at',
+        'adviser_assigned_at',
+        'primary_adviser_id',
+        'final_document_id',
+        'status',
     ];
     protected $casts = [
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
         'returned_at' => 'datetime',
+        'verified_at' => 'datetime',
+        'adviser_assigned_at' => 'datetime',
     ];
     
 
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'owner_id');
     }
 
     public function documents()
@@ -40,9 +49,24 @@ class Title extends Model
         return $this->hasMany(Document::class);
     }
 
+    public function primaryAdviser()
+    {
+        return $this->belongsTo(User::class, 'primary_adviser_id');
+    }
+
+
     public function finalDocument()
     {
-        return $this->belongsTo(Document::class, 'finaldocument_id');
+        return $this->belongsTo(Document::class, 'final_document_id');
     }
-    
+
+    public function adviserRequests()
+    {
+        return $this->hasMany(AdviserRequest::class);
+    }
+    public function adviserNotes()
+    {
+        return $this->hasMany(\App\Models\AdviserNote::class);
+    }
+
 }

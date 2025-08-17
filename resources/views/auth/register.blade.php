@@ -15,7 +15,7 @@
     required
   >
 
-    <label for="email">Email:</label>
+  <label for="email">Email:</label>
   <input 
    class="w-full px-8 py-3 mb-2  rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
     placeholder="Email"
@@ -24,6 +24,25 @@
       value="{{old('email')}}"
     required
   >
+
+<label for="role">Role:</label>
+<select
+  id="role"
+  name="role"
+  required
+  class="w-full px-8 py-3 mb-2 rounded-lg font-medium bg-gray-100 border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
+>
+  <option value="STUDENT" {{ old('role','STUDENT') === 'STUDENT' ? 'selected' : '' }}>Student</option>
+  <option value="ADVISER" {{ old('role') === 'ADVISER' ? 'selected' : '' }}>Adviser</option>
+
+  {{-- Optional: only allow creating ADMIN if a logged-in admin is creating users from this form --}}
+  @auth
+    @if(method_exists(auth()->user(), 'isAdmin') && auth()->user()->isAdmin())
+      <option value="ADMIN" {{ old('role') === 'ADMIN' ? 'selected' : '' }}>Admin</option>
+    @endif
+  @endauth
+</select>
+
 
   <label for="password">Password:</label>
   <input 

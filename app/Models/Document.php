@@ -21,8 +21,17 @@ class Document extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function title()
+    {
+        return $this->belongsTo(Title::class);
+    }
     public function titleRelation()
     {
-        return $this->belongsTo(Title::class, 'title_id');
+        // alias to the real relationship
+        return $this->belongsTo(Title::class, 'title_id')->withDefault();
+    }
+    public function adviserNotes()
+    {
+        return $this->hasMany(\App\Models\AdviserNote::class);
     }
 }

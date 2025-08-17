@@ -12,8 +12,10 @@ return new class extends Migration {
     {
         Schema::create('documents', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id');
-            $table->unsignedBigInteger('title_id');
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('title_id')->constrained('titles')->cascadeOnDelete();
+
+
             $table->string('chapter')->nullable();
             $table->longText('content')->nullable();
             $table->enum('format', ['separate', 'combined'])->default('separate');
@@ -21,8 +23,8 @@ return new class extends Migration {
             $table->decimal('plagiarism_score', 5, 2)->nullable();
             $table->timestamps();
         
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('title_id')->references('id')->on('titles')->onDelete('cascade');
+           
+            $table->index(['title_id', 'chapter']);
         });
         
         

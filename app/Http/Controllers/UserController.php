@@ -36,14 +36,14 @@ class UserController extends Controller
             'name' => 'required|string|max:255|unique:users',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'position' => 'required|string|max:255',
+            'role' => 'required|string|max:255',
         ]);
 
         User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'position' => $request->position,
+            'role' => $request->role,
         ]);
 
 
@@ -63,13 +63,13 @@ class UserController extends Controller
             'name' => 'required|string|max:255|unique:users,name,' . $user->id,
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8|confirmed',
-            'position' => 'required|string|max:255',
+            'role' => 'required|string|max:255',
         ]);
 
         $data = [
             'name' => $request->name,
             'email' => $request->email,
-            'position' => $request->position,
+            'role' => $request->role,
         ];
 
 

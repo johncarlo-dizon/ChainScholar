@@ -25,8 +25,10 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'password',
-        'position',
-        'avatar'
+        'role',        // updated from position → role
+        'avatar',
+        'department',
+        'specialization',
     ];
 
     /**
@@ -66,7 +68,7 @@ class User extends Authenticatable implements MustVerifyEmail
     }
     public function titles()
     {
-        return $this->hasMany(Title::class);
+        return $this->hasMany(Title::class, 'owner_id');
     }
     public function researchPapers()
     {
@@ -77,15 +79,26 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Template::class);
     }
-    public function isAdmin()
+    public function adviserRequests()
     {
-        return $this->position === 'admin';
+        return $this->hasMany(AdviserRequest::class, 'adviser_id');
     }
 
-    public function isUser()
+    public function adviserNotesGiven()
     {
-        return $this->position === 'user';
+        return $this->hasMany(\App\Models\AdviserNote::class, 'adviser_id');
     }
+
+    // Notes addressed to this user as a student
+    public function adviserNotesReceived()
+    {
+        return $this->hasMany(\App\Models\AdviserNote::class, 'student_id');
+    }
+    public function isAdmin() { return $this->role === 'ADMIN'; }
+    public function isStudent() { return $this->role === 'STUDENT'; }
+    public function isAdviser() { return $this->role === 'ADVISER'; }
+
+
 
  
 }

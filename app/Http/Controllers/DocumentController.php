@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Title;
 use Illuminate\Support\Str;
-
+use App\Models\AdviserNote;
+use Illuminate\Support\Facades\DB;
 
 class DocumentController extends Controller
 {
@@ -191,8 +192,8 @@ private function computePlagiarismScoreForContent(string $rawHtml, Document $doc
         $query = $request->input('query');
 
         $approvedTitles = Title::with('user')
-            ->where('status', 'approved')
-            ->where('user_id', '!=', auth()->id())
+            ->where('status', 'submitted')
+            ->where('owner_id', '!=', auth()->id())
             ->get();
 
         $results = [];
@@ -312,42 +313,59 @@ private function computePlagiarismScoreForContent(string $rawHtml, Document $doc
 
     
 
-    public function submitFinal(Request $request, $title_id)
-    {
-        $request->validate([
-            'finaldocument_id' => 'required|exists:documents,id',
-            'authors' => 'required|string',
-            'abstract' => 'required|string',
-            'research_type' => 'required|string',
-            'final_content' => 'nullable|string',
-        ]);
+   public function submitFinal(Request $request, $title_id)
+{
+    $request->validate([
+        'finaldocument_id' => 'required|exists:documents,id',
+        'authors'          => 'required|string',
+        'abstract'         => 'required|string',
+        'research_type'    => 'required|string',
+        'final_content'    => 'nullable|string',
+    ]);
 
-        $document = Document::findOrFail($request->finaldocument_id);
+    $title = Title::findOrFail($title_id);
+    $document = Document::findOrFail($request->finaldocument_id);
 
-        $finalHtml = $request->final_content ?? $document->content;
-
-        $plagPct = $this->computePlagiarismScoreForContent($finalHtml, $document);
-
-        $document->update([
-            'content' => $finalHtml,
-            'plagiarism_score' => $plagPct,
-        ]);
-
-        $title = Title::findOrFail($title_id);
-
-        $title->update([
-            'finaldocument_id' => $request->finaldocument_id,
-            'authors' => $request->authors,
-            'abstract' => $request->abstract,
-            'research_type' => $request->research_type,
-            'status' => 'pending',
-            'submitted_at' => now(),
-        ]);
-
-        return redirect()
-            ->route('titles.index')
-            ->with('success', "Final document submitted! Similarity: {$plagPct}%");
+    // 🔒 Ownership & consistency checks
+    if ((int) $title->owner_id !== (int) auth()->id()) {
+        abort(403, 'You can only submit your own title.');
     }
+    if ((int) $document->user_id !== (int) auth()->id()) {
+        abort(403, 'You can only submit your own document.');
+    }
+    if ((int) $document->title_id !== (int) $title->id) {
+        return back()->with('error', 'Selected document does not belong to this title.');
+    }
+
+    $finalHtml = $request->final_content ?? $document->content;
+    $plagPct   = $this->computePlagiarismScoreForContent($finalHtml, $document);
+
+    DB::transaction(function () use ($document, $title, $finalHtml, $plagPct, $request) {
+        // ✅ Update the chosen chapter/content & similarity
+        $document->update([
+            'content'           => $finalHtml,
+            'plagiarism_score'  => $plagPct,
+        ]);
+
+        // ✅ Mark the Title as submitted (no admin approval stage)
+        $title->update([
+            'final_document_id' => $document->id,   // ← note the new snake_case column
+            'authors'           => $request->authors,
+            'abstract'          => $request->abstract,
+            'research_type'     => $request->research_type,
+            'status'            => 'submitted',     // ← use your new status
+            'submitted_at'      => now(),
+            // Optional: clear any legacy review fields
+            'review_comments'   => null,
+            'approved_at'       => null,
+            'returned_at'       => null,
+        ]);
+    });
+
+    return redirect()
+        ->route('titles.index')
+        ->with('success', "Final document submitted! Similarity: {$plagPct}%");
+}
 
 
 
@@ -396,76 +414,32 @@ private function computePlagiarismScoreForContent(string $rawHtml, Document $doc
         return redirect()->route('documents.edit', $document->id);
     }
 
-
-
     public function edit(Document $document)
     {
         $this->authorize('update', $document);
-       
-        return view('documents.editor', compact('document'));
-    }
 
-  public function undoTemplate(Document $document)
-    {
-        $this->authorize('update', $document);
+        // Prefer the primary adviser's note; otherwise show the latest note for this chapter
+        $title = $document->titleRelation()->select('id', 'primary_adviser_id')->first();
+        $adviserNote = null;
 
-        // Restore previous content (if stored)
-        $restoredContent = session('previousEditorContent', $document->content);
-
-        // Forget both template and previous content
-        session()->forget('templateContent');
-        session()->forget('previousEditorContent');
-
-        // Pass the restored content back as flash session (temporary)
-        return redirect()
-            ->route('documents.edit', $document->id)
-            ->with('templateContent', $restoredContent)
-            ->with('templateUndone', true); // flag for blade
-    }
-
-
-    public function combineCustom(Request $request, $titleId)
-    {
-        $orderedIds = $request->input('ordered_ids');
-        $includedIds = $request->input('included_ids');
-        $customName = $request->input('combined_name');
-
-        if (!$orderedIds || !$includedIds || !$customName) {
-            return back()->with('error', 'Please fill all required fields and select at least one chapter.');
+        if ($title && $title->primary_adviser_id) {
+            $adviserNote = AdviserNote::with('adviser')
+                ->where('document_id', $document->id)
+                ->where('adviser_id', $title->primary_adviser_id)
+                ->first();
+        } else {
+            $adviserNote = AdviserNote::with('adviser')
+                ->where('document_id', $document->id)
+                ->latest('updated_at')
+                ->first();
         }
 
-        // Only keep the ordered IDs that are also in the included list
-        $filteredIds = array_values(array_filter($orderedIds, function ($id) use ($includedIds) {
-            return in_array($id, $includedIds);
-        }));
-
-        if (empty($filteredIds)) {
-            return back()->with('error', 'No chapters selected for combination.');
-        }
-
-        $documents = Document::whereIn('id', $filteredIds)->get()->keyBy('id');
-
-        $combinedContent = '';
-        foreach ($filteredIds as $docId) {
-            if (!isset($documents[$docId])) continue;
-            $doc = $documents[$docId];
-            $combinedContent .=   "\n\n" . $doc->content . "\n\n";
-        }
-
-        $combinedDoc = Document::create([
-            'user_id' => auth()->id(),
-            'title_id' => $titleId,
-            'chapter' => $customName,
-            'content' => $combinedContent,
-            'format' => 'combined',
-            'status' => 'draft',
-        ]);
-
-        return redirect()->route('documents.edit', $combinedDoc->id)
-                        ->with('success', 'Chapters combined successfully!');
+        return view('documents.editor', compact('document', 'adviserNote'));
     }
 
 
+
+   
 
 
 
@@ -521,9 +495,7 @@ private function computePlagiarismScoreForContent(string $rawHtml, Document $doc
 
 
 
-    public function showVerify(){
-        return view('documents.verify');
-    }
+ 
 
 
 
@@ -803,7 +775,7 @@ public function checkWebTitleSimilarity(Request $request)
         ->get('https://api.semanticscholar.org/graph/v1/paper/search', [
             'query' => $inputTitle,
             'fields' => 'title',
-            'limit'  => 5,
+            'limit'  => 2,
         ]);
 
     $items = $response->ok() ? $response->json('data', []) : [];
@@ -891,5 +863,73 @@ private static function magnitude($map)
 
 
       // TITLE VERIFY -----------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+       public function undoTemplate(Document $document)
+    {
+        $this->authorize('update', $document);
+
+        // Restore previous content (if stored)
+        $restoredContent = session('previousEditorContent', $document->content);
+
+        // Forget both template and previous content
+        session()->forget('templateContent');
+        session()->forget('previousEditorContent');
+
+        // Pass the restored content back as flash session (temporary)
+        return redirect()
+            ->route('documents.edit', $document->id)
+            ->with('templateContent', $restoredContent)
+            ->with('templateUndone', true); // flag for blade
+    }
+
+
+    public function combineCustom(Request $request, $titleId)
+    {
+        $orderedIds = $request->input('ordered_ids');
+        $includedIds = $request->input('included_ids');
+        $customName = $request->input('combined_name');
+
+        if (!$orderedIds || !$includedIds || !$customName) {
+            return back()->with('error', 'Please fill all required fields and select at least one chapter.');
+        }
+
+        // Only keep the ordered IDs that are also in the included list
+        $filteredIds = array_values(array_filter($orderedIds, function ($id) use ($includedIds) {
+            return in_array($id, $includedIds);
+        }));
+
+        if (empty($filteredIds)) {
+            return back()->with('error', 'No chapters selected for combination.');
+        }
+
+        $documents = Document::whereIn('id', $filteredIds)->get()->keyBy('id');
+
+        $combinedContent = '';
+        foreach ($filteredIds as $docId) {
+            if (!isset($documents[$docId])) continue;
+            $doc = $documents[$docId];
+            $combinedContent .=   "\n\n" . $doc->content . "\n\n";
+        }
+
+        $combinedDoc = Document::create([
+            'user_id' => auth()->id(),
+            'title_id' => $titleId,
+            'chapter' => $customName,
+            'content' => $combinedContent,
+            'format' => 'combined',
+            'status' => 'draft',
+        ]);
+
+        return redirect()->route('documents.edit', $combinedDoc->id)
+                        ->with('success', 'Chapters combined successfully!');
+    }
+
 
 }

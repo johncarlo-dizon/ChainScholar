@@ -1,7 +1,7 @@
 <x-userlayout>
     <!-- Welcome Section -->
     <div class="bg-blue-600 rounded-lg shadow p-6 mb-6">
-        <h2 class="text-2xl font-semibold text-white mb-2">Welcome to ChainScholar</h2>
+        <h2 class="text-2xl font-semibold text-white mb-2">Welcome to XXXXXXXXXXXXX</h2>
         <p class="text-gray-200">Your secure place and research tool for thesis and scholarly documents.</p>
     </div>
 

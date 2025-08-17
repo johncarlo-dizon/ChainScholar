@@ -11,11 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('titles', function (Blueprint $table) {
-            $table->foreign('finaldocument_id')
-                  ->references('id')->on('documents')
-                  ->onDelete('set null');
+       Schema::table('titles', function (Blueprint $table) {
+            $table->foreign('final_document_id')
+                ->references('id')->on('documents')
+                ->nullOnDelete();
         });
+
     }
 
     /**

@@ -40,7 +40,7 @@
                         </div>
                         <div class="text-sm text-gray-500 space-y-1">
                             <p><span class="font-semibold">Submitted by:</span> {{ $title->user->name }}</p>
-                            <p><span class="font-semibold">Approved on:</span> {{ $title->approved_at->format('F d, Y h:i A') }}</p>
+                            <p><span class="font-semibold">Approved on:</span> {{ $title->submitted_at->format('F d, Y h:i A') }}</p>
                             <p><span class="font-semibold">Research Type:</span> {{ $title->research_type }}</p>
                             <p><span class="font-semibold">Category:</span> {{ $title->category }}</p>
                             <p><span class="font-semibold">Sub-Category:</span> {{ $title->sub_category ?? '—' }}</p>

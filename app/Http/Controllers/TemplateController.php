@@ -20,7 +20,7 @@ class TemplateController extends Controller
 
             // Get templates created by admins OR current user
             $templates = \App\Models\Template::whereHas('user', function ($query) use ($userId) {
-                    $query->where('position', 'admin')
+                    $query->where('role', 'ADMIN')
                         ->orWhere('id', $userId);
                 })
                 ->latest()
@@ -28,7 +28,7 @@ class TemplateController extends Controller
         } else {
             // If not logged in, show only templates created by admins
             $templates = \App\Models\Template::whereHas('user', function ($query) {
-                    $query->where('position', 'admin');
+                    $query->where('role', 'ADMIN');
                 })
                 ->latest()
                 ->get();

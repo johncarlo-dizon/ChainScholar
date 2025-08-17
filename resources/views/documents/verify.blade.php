@@ -111,6 +111,36 @@
                 </div>
             </div>
 
+
+{{-- Adviser chooser (hidden until internal+web pass) --}}
+<div id="adviser-box" class="mt-6 hidden">
+    <label for="adviser_id" class="block mb-2 font-bold text-blue-600">Choose Adviser</label>
+
+    @if(($advisers ?? collect())->count())
+        <select id="adviser_id" name="adviser_id"
+                class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                disabled>
+            <option value="">— Select an adviser —</option>
+            @foreach($advisers as $adv)
+                <option value="{{ $adv->id }}">
+                    {{ $adv->name }}
+                    @if($adv->department) — {{ $adv->department }} @endif
+                    @if($adv->specialization) ({{ $adv->specialization }}) @endif
+                </option>
+            @endforeach
+        </select>
+        <p class="text-xs text-gray-500 mt-1">
+            The adviser will receive your request and can accept/decline.
+        </p>
+    @else
+        <div class="p-3 rounded-md bg-amber-50 border border-amber-200 text-sm text-amber-800">
+            No advisers available yet. Please contact the administrator.
+        </div>
+    @endif
+</div>
+
+
+
             <div class="flex justify-end mt-4">
                 <button id="proceed-btn" type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50" disabled>
                     Proceed to Document
@@ -203,7 +233,7 @@ const existingTitles = @json(\App\Models\Title::pluck('title')->toArray());
 
     async function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-    async function fetchWebSimilarityWithRetries(title, maxTries = 5) {
+    async function fetchWebSimilarityWithRetries(title, maxTries = 2) { // change to 5 AGAIN
         let last = null;
 
         for (let attempt = 1; attempt <= maxTries; attempt++) {
@@ -299,7 +329,7 @@ async function startVerification(event){
     result: document.getElementById("external-similarity-result")
   }, 0, false, 'Waiting for web results…');
 
-  const { data, attempts } = await fetchWebSimilarityWithRetries(title, 5);
+  const { data, attempts } = await fetchWebSimilarityWithRetries(title, 2); // CHANGE TO 5 AGAIN
   hideLoading();
 
   const webPercent = Math.round(Number(data.max_similarity || 0));
@@ -475,6 +505,47 @@ function toggleRejectHint(on){
 </script>
 
 
+<script>
+function showAdviserBox(show){
+  const box = document.getElementById('adviser-box');
+  const sel = document.getElementById('adviser_id');
+  if (!box) return;
+  if (show) {
+    box.classList.remove('hidden');
+    if (sel) {
+      sel.disabled = false;
+      sel.setAttribute('required', 'required');
+    }
+  } else {
+    box.classList.add('hidden');
+    if (sel) {
+      sel.disabled = true;
+      sel.removeAttribute('required');
+      sel.value = '';
+    }
+  }
+}
+
+function updateProceedButton(){
+  const btn = document.getElementById('proceed-btn');
+  const sel = document.getElementById('adviser_id');
+  // Must pass both checks
+  const passed = (passedInternal && passedExternal);
+  // If adviser box is present, also require a selection
+  const adviserOk = sel ? (sel.value && sel.value !== '') : true;
+  // Show/hide adviser box
+  showAdviserBox(passed);
+  // Enable/disable submit
+  btn.disabled = !(passed && adviserOk);
+}
+
+// If user changes adviser, re-check the Proceed button
+document.addEventListener('change', function (e) {
+  if (e.target && e.target.id === 'adviser_id') {
+    updateProceedButton();
+  }
+});
+</script>
 
 </x-userlayout>
  

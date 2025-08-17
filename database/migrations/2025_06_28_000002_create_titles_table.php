@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('titles', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id');
+            $table->foreignId('owner_id')->constrained('users')->cascadeOnDelete();
             $table->string('title');
             $table->string('authors')->nullable();
         
@@ -27,18 +27,30 @@ return new class extends Migration {
             $table->timestamp('submitted_at')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->timestamp('returned_at')->nullable();
-            $table->enum('status', ['draft', 'pending', 'approved', 'returned'])->default('draft');
+            $table->timestamp('verified_at')->nullable();          // after automated/manual verification
+            $table->timestamp('adviser_assigned_at')->nullable();  // when primary adviser is locked
+
+            $table->enum('status', [
+                'draft',
+                'submitted',
+                'verified',
+                'awaiting_adviser',
+                'in_advising',
+                'returned',
+                'archived'
+            ])->default('draft');
 
 
+            $table->foreignId('primary_adviser_id')->nullable()->constrained('users')->nullOnDelete();
 
         
             // Final document ID (add foreign key later)
-            $table->unsignedBigInteger('finaldocument_id')->nullable();
+            $table->unsignedBigInteger('final_document_id')->nullable();
         
             $table->timestamps();
-        
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            // DO NOT define finaldocument_id foreign key here yet!
+         
+            $table->index(['owner_id', 'status']);
+            $table->unique(['owner_id','title']); // avoid duplicate exact titles per owner
         });
         
         
