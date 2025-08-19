@@ -21,7 +21,8 @@ use App\Http\Controllers\AdviserController;
 
 
 
-
+Route::post('/documents/check-plagiarism-detailed', [\App\Http\Controllers\DocumentController::class, 'checkPlagiarismDetailed'])
+    ->name('documents.checkPlagiarismDetailed');
 
 
  

@@ -80,20 +80,22 @@
 
 
 
-           <div class="space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3>  
+         <div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3>
+  </div>
 
-            </div>
-            <div class="space-y-4">
-                <div class="flex flex-col">
-                   
+  <div class="flex gap-3">
+   
 
-<div id="plagiarism-result" class="text-sm  text-gray-700 hidden"></div>
-              
-                </div>
-            </div>
-        </div>
+    <div id="plagiarism-result" class="text-sm text-gray-700 hidden"></div>
+     <button type="button" id="btnViewMatches"
+      class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+      View Matches
+    </button>
+  </div>
+</div>
+
 <div class="space-y-4">
     <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold text-gray-700">Adviser Message</h3>
@@ -240,11 +242,138 @@
     </div>
 
 </div>
+<!-- Offcanvas: Plagiarism Matches -->
+<div id="plagOffcanvas" class="fixed inset-0 z-[999] hidden">
+  <!-- dim -->
+  <div id="plagDim" class="absolute inset-0 bg-black/40"></div>
+
+  <!-- panel -->
+  <div class="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-xl flex flex-col">
+    <div class="p-4 border-b flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Plagiarism Matches (from Chapter 1 onward)</h3>
+      <button id="plagClose" class="p-2 rounded hover:bg-gray-100" aria-label="Close">✕</button>
+    </div>
+
+    <div id="plagBody" class="p-4 overflow-y-auto grow">
+      <!-- loader / results injected here -->
+    </div>
+  </div>
+</div>
 
 
     <!-- CKEditor Scripts -->
     <link rel="stylesheet" href="{{ asset('assets/editor.css') }}">
     <script src="{{ asset('assets/editor.js') }}"></script>
+
+
+
+    <script>
+(function(){
+  const offcanvas = document.getElementById('plagOffcanvas');
+  const dim       = document.getElementById('plagDim');
+  const closeBtn  = document.getElementById('plagClose');
+  const bodyBox   = document.getElementById('plagBody');
+  const btnView   = document.getElementById('btnViewMatches');
+
+  function openOffcanvas(){ offcanvas.classList.remove('hidden'); }
+  function closeOffcanvas(){ offcanvas.classList.add('hidden'); }
+
+  dim?.addEventListener('click', closeOffcanvas);
+  closeBtn?.addEventListener('click', closeOffcanvas);
+
+  btnView?.addEventListener('click', async ()=>{
+    const el = document.querySelector('.ck-content');
+    if(!el){
+      alert('Editor not ready.');
+      return;
+    }
+
+    openOffcanvas();
+    bodyBox.innerHTML = `
+      <div class="flex items-center gap-2 text-gray-600">
+        <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"/></svg>
+        <span>Scanning for detailed matches…</span>
+      </div>
+    `;
+
+    try{
+      const res = await fetch("{{ route('documents.checkPlagiarismDetailed') }}", {
+        method: 'POST',
+        headers: {
+          'Content-Type':'application/json',
+          'X-CSRF-TOKEN':'{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+          content_html: el.innerHTML,          // send HTML for better paragraph context
+          document_id: {{ $document->id }}     // current doc id
+        })
+      });
+
+      const data = await res.json();
+      const matches = Array.isArray(data.matches) ? data.matches : [];
+      const score   = Number(data.score ?? 0);
+
+      if(!matches.length){
+        bodyBox.innerHTML = `
+          <div class="space-y-3">
+            <div class="text-sm text-gray-500">Overall Score: <strong>${score}%</strong></div>
+            <div class="p-4 rounded border bg-gray-50 text-gray-700">No close matches found above the threshold.</div>
+          </div>`;
+        return;
+      }
+
+      const cards = matches.map(m => `
+        <div class="rounded-xl border border-gray-200 overflow-hidden mb-4">
+          <!-- header -->
+          <div class="px-4 py-2 bg-gray-50 flex items-center justify-between">
+            <div class="text-sm text-gray-700">
+              <span class="font-semibold">Similarity:</span> ${m.percent}%
+            </div>
+            <div class="text-xs text-gray-500">${m.source_chapter ?? ''}</div>
+          </div>
+
+          <!-- row 1: YOUR content -->
+          <div class="p-4">
+            <div class="text-xs font-semibold text-gray-500 mb-1">Your content</div>
+            <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${escapeHtml(m.your_excerpt)}</pre>
+          </div>
+
+          <hr class="border-gray-100">
+
+          <!-- row 2: SOURCE -->
+          <div class="p-4">
+            <div class="text-xs font-semibold text-gray-500 mb-1">
+              Source: <span class="text-gray-800">${escapeHtml(m.source_title)}</span>
+            </div>
+            <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${escapeHtml(m.source_excerpt)}</pre>
+          </div>
+        </div>
+      `).join('');
+
+      bodyBox.innerHTML = `
+        <div class="mb-3 text-sm text-gray-600">
+          Overall Max Similarity: <strong>${score}%</strong> • Showing top ${matches.length} matches
+        </div>
+        ${cards}
+      `;
+    }catch(err){
+      bodyBox.innerHTML = `
+        <div class="p-4 rounded border bg-red-50 text-red-700">
+          Error generating matches. Please try again.
+        </div>`;
+    }
+  });
+
+  // simple HTML escaper to keep excerpts safe
+  function escapeHtml(s){
+    return (s ?? '').toString()
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;');
+  }
+})();
+</script>
+
 
     <script>
         window.addEventListener("beforeunload", function () {
@@ -294,114 +423,118 @@ const THRESHOLD = 45;
 const MIN_CHARS_TO_CHECK = 40; // avoid noise when the doc is still empty
 
 // ---------- helpers ----------
-const saveBtn = document.getElementById('saveBtn');
+const saveBtn   = document.getElementById('saveBtn');
 const submitBtn = document.getElementById('submitBtn');
 const resultBox = document.getElementById('plagiarism-result');
 
 function setButtonsDisabled(disabled, reason = '') {
-    [saveBtn, submitBtn].forEach(btn => {
-        if (!btn) return;
-        btn.disabled = disabled;
-        btn.classList.toggle('opacity-50', disabled);
-        btn.classList.toggle('cursor-not-allowed', disabled);
-        btn.classList.toggle('hover:bg-blue-700', !disabled);
-    });
-    if (reason && resultBox) {
-        resultBox.classList.remove('hidden');
-        resultBox.innerHTML = `<span class="text-gray-600">${reason}</span>`;
-    }
+  [saveBtn, submitBtn].forEach(btn => {
+    if (!btn) return;
+    btn.disabled = disabled;
+    btn.classList.toggle('opacity-50', disabled);
+    btn.classList.toggle('cursor-not-allowed', disabled);
+    btn.classList.toggle('hover:bg-blue-700', !disabled);
+  });
+  if (reason && resultBox) {
+    resultBox.classList.remove('hidden');
+    resultBox.innerHTML = `<span class="text-gray-600">${reason}</span>`;
+  }
 }
 
-function getEditorText() {
-    const contentElement = document.querySelector('.ck-content');
-    if (!contentElement) return null;
-    return contentElement.innerText.trim();
+// Use the same source the offcanvas uses (HTML) so cleaning & chapter-skip match
+function getEditorHTML() {
+  const el = document.querySelector('.ck-content');
+  return el ? el.innerHTML.trim() : null;
+}
+// For a quick length gate we can still look at the visible text:
+function getEditorVisibleTextLength() {
+  const el = document.querySelector('.ck-content');
+  return el ? el.innerText.trim().length : 0;
 }
 
 // ---------- run check ----------
 async function checkPlagiarism() {
-    const text = getEditorText();
-    if (text === null) {
-        setButtonsDisabled(true, 'Editor not ready yet…');
-        return;
-    }
-    if (text.length < MIN_CHARS_TO_CHECK) {
-        setButtonsDisabled(true, 'Type more content, then run the checker.');
-        resultBox.classList.remove('hidden');
-        resultBox.innerHTML = `<span class="text-gray-600">Waiting for more content…</span>`;
-        return;
-    }
-
+  const html = getEditorHTML();
+  if (html === null) {
+    setButtonsDisabled(true, 'Editor not ready yet…');
+    return;
+  }
+  if (getEditorVisibleTextLength() < MIN_CHARS_TO_CHECK) {
+    setButtonsDisabled(true, 'Type more content, then run the checker.');
     resultBox.classList.remove('hidden');
-    resultBox.innerHTML = `
-        <div class="flex items-center space-x-2 text-gray-600">
-            <svg class="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-            </svg>
-            <span>Checking for plagiarism...</span>
-        </div>
-    `;
+    resultBox.innerHTML = `<span class="text-gray-600">Waiting for more content…</span>`;
+    return;
+  }
 
-    try {
-        const response = await fetch("{{ route('documents.checkPlagiarismLive') }}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({ 
-                content: text,
-                document_id: {{ $document->id }}
-            })
-        });
+  resultBox.classList.remove('hidden');
+  resultBox.innerHTML = `
+    <div class="flex items-center space-x-2 text-gray-600">
+      <svg class="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+      </svg>
+      <span>Checking for plagiarism...</span>
+    </div>
+  `;
 
-        const data = await response.json();
-        const score = Number(data.score ?? 0);
+  try {
+    const response = await fetch("{{ route('documents.checkPlagiarismLive') }}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+      },
+      body: JSON.stringify({
+        content_html: html,                 // ← IMPORTANT: send HTML (same as offcanvas)
+        document_id: {{ $document->id }}
+      })
+    });
 
-        resultBox.innerHTML = `<span>Plagiarism Score:</span> ${score}%`;
+    const data  = await response.json();
+    const score = Number(data.score ?? 0);
 
-        if (score >= THRESHOLD) {
-            resultBox.innerHTML += `<br><span class="text-red-600">High similarity detected! ⚠️</span>`;
-            setButtonsDisabled(true);
-        } else {
-            resultBox.innerHTML += `<br><span class="text-green-600">Content appears original ✅</span>`;
-            setButtonsDisabled(false);
-        }
-    } catch (error) {
-        setButtonsDisabled(true, 'Error checking plagiarism. Please try again.');
+    resultBox.innerHTML = `<span>Plagiarism Score:</span> ${score}%`;
+
+    if (score >= THRESHOLD) {
+      resultBox.innerHTML += `<br><span class="text-red-600">High similarity detected! ⚠️</span>`;
+      setButtonsDisabled(true);
+    } else {
+      resultBox.innerHTML += `<br><span class="text-green-600">Content appears original ✅</span>`;
+      setButtonsDisabled(false);
     }
+  } catch (error) {
+    setButtonsDisabled(true, 'Error checking plagiarism. Please try again.');
+  }
 }
 
 // ---------- init: disable on load, then auto-run when editor is ready ----------
 document.addEventListener('DOMContentLoaded', () => {
-    setButtonsDisabled(true, 'Run the plagiarism checker to enable Save & Submit.');
+  setButtonsDisabled(true, 'Run the plagiarism checker to enable Save & Submit.');
 
-    // Wait for CKEditor .ck-content to exist, then auto-run once
-    const waitForEditor = setInterval(() => {
-        const el = document.querySelector('.ck-content');
-        if (el) {
-            clearInterval(waitForEditor);
-            // Auto-run once the editor is ready
-            setTimeout(checkPlagiarism, 300);
+  // Wait for CKEditor .ck-content to exist, then auto-run once
+  const waitForEditor = setInterval(() => {
+    const el = document.querySelector('.ck-content');
+    if (el) {
+      clearInterval(waitForEditor);
+      setTimeout(checkPlagiarism, 300);
 
-            // Re-disable when user types; debounce re-check
-            let debounce;
-            const observer = new MutationObserver(() => {
-                setButtonsDisabled(true, 'Content changed. Please run the checker again.');
-                clearTimeout(debounce);
-                // Optional: auto re-check after user stops typing for 1s
-                // comment out the next line if you want manual "Run" only
-                debounce = setTimeout(checkPlagiarism, 1000);
-            });
-            observer.observe(el, { subtree: true, characterData: true, childList: true });
-        }
-    }, 150);
+      // Re-disable when user types; debounce re-check
+      let debounce;
+      const observer = new MutationObserver(() => {
+        setButtonsDisabled(true, 'Content changed. Please run the checker again.');
+        clearTimeout(debounce);
+        // Auto re-check after user stops typing for 1s
+        debounce = setTimeout(checkPlagiarism, 1000);
+      });
+      observer.observe(el, { subtree: true, characterData: true, childList: true });
+    }
+  }, 150);
 });
 
 // Expose to the Run button
 window.checkPlagiarism = checkPlagiarism;
 </script>
+
 <script>
 /** ===== Target word counts ===== */
 const SECTION_STANDARDS = {

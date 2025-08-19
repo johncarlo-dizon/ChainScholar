@@ -20,164 +20,216 @@ class DocumentController extends Controller
     use AuthorizesRequests;
 
 
-    // PLAG START --------------------------------------
+// ===================== PLAG START =====================
 
-    public function checkPlagiarismLive(Request $request)
-    {
-    $rawContent = $request->input('content');
-    $documentId = $request->input('document_id'); // Pass this from JS
-    $document = Document::findOrFail($documentId);
+/** Windowing & scoring knobs */
+private const PLAG_WINDOW_WORDS       = 50;   // sliding window size
+private const PLAG_STRIDE_WORDS       = 25;   // step size between windows
+private const PLAG_MIN_CHUNK_WORDS    = 12;   // ignore tiny chunks
+private const PLAG_MATCH_THRESHOLD    = 0.60; // 60% cosine → "match"
+private const PLAG_TOP_MATCHES        = 30;   // cap returned matches
+private const PLAG_OVERALL_MULTIPLIER = 100;  // to percent
 
-    $submittedText = $this->plagCleanText($rawContent);
+/**
+ * Quick score (used by sidebar). Uses same windowed metric as offcanvas.
+ */
+public function checkPlagiarismLive(Request $request)
+{
+    $document = Document::findOrFail((int) $request->input('document_id'));
+    $raw      = $request->input('content_html') ?: $request->input('content', '');
+    $scorePct = $this->plagMaxChunkSimilarity($raw, $document);
 
-    $submittedVector = $this->plagTermFreqMap(
-        $this->plagTokenize(
-            $this->plagNormalizeText($submittedText)
-        )
-    );
-    $submittedMagnitude = $this->plagMagnitude($submittedVector);
+    return response()->json(['score' => $scorePct]);
+}
 
-    $maxScore = 0;
+/**
+ * Detailed matches for the offcanvas.
+ */
+public function checkPlagiarismDetailed(Request $request)
+{
+    $document   = Document::findOrFail((int) $request->input('document_id'));
+    $html       = $request->input('content_html', '');
+    $txt        = $this->plagStartAfterChapterOne($this->plagCleanText($html));
+    $yourChunks = $this->plagMakeChunks($txt);
 
-    // ✅ Compare with ALL other documents except the same title_id
-    $documents = Document::where('title_id', '!=', $document->title_id)
-        ->pluck('content');
+    // Reuse the same cached candidate chunks as the quick score
+    $candidateChunks = $this->plagBuildCandidateChunks($document);
 
-    foreach ($documents as $content) {
-        $cleaned = $this->plagCleanText($content);
-        $comparedVector = $this->plagTermFreqMap(
-            $this->plagTokenize(
-                $this->plagNormalizeText($cleaned)
-            )
-        );
-        $dot = $this->plagDotProduct($submittedVector, $comparedVector);
-        $mag = $this->plagMagnitude($comparedVector) * $submittedMagnitude;
-        $score = $mag == 0 ? 0 : $dot / $mag;
+    $matches    = [];
+    $overallMax = 0.0;
 
-        if ($score > $maxScore) {
-            $maxScore = $score;
+    foreach ($yourChunks as $yc) {
+        $yVec = $yc['vec']; $yMag = $yc['mag'];
+        if ($yMag == 0) continue;
+
+        foreach ($candidateChunks as $cc) {
+            $den = $yMag * $cc['mag']; if ($den == 0) continue;
+            $sim = $this->plagDotProduct($yVec, $cc['vec']) / $den;
+
+            if ($sim > $overallMax) $overallMax = $sim;
+
+            if ($sim >= self::PLAG_MATCH_THRESHOLD) {
+                $matches[] = [
+                    'percent'        => round($sim * self::PLAG_OVERALL_MULTIPLIER, 2),
+                    'your_excerpt'   => $yc['text'],
+                    'source_excerpt' => $cc['text'],
+                    'source_title'   => $cc['source_title'],
+                    'source_chapter' => $cc['source_chapter'],
+                    'document_id'    => $cc['document_id'],
+                ];
+            }
         }
     }
 
+    usort($matches, fn($a,$b)=>$b['percent'] <=> $a['percent']);
+    $matches = array_slice($matches, 0, self::PLAG_TOP_MATCHES);
+
     return response()->json([
-        'score' => round($maxScore * 100, 2)
+        'score'   => round($overallMax * self::PLAG_OVERALL_MULTIPLIER, 2),
+        'matches' => $matches,
+        'meta'    => [
+            'threshold'  => self::PLAG_MATCH_THRESHOLD * 100,
+            'window'     => self::PLAG_WINDOW_WORDS,
+            'stride'     => self::PLAG_STRIDE_WORDS,
+            'candidates' => count($candidateChunks),
+        ],
     ]);
+}
+
+/** Build sliding-window chunks */
+protected function plagMakeChunks(string $text): array
+{
+    $words = preg_split('/\s+/u', trim($text));
+    $words = array_values(array_filter($words, fn($w)=>$w!==''));
+
+    $chunks = []; $n = count($words);
+    if ($n < self::PLAG_MIN_CHUNK_WORDS) return [];
+
+    for ($i=0; $i<$n; $i+=self::PLAG_STRIDE_WORDS) {
+        $slice = array_slice($words, $i, self::PLAG_WINDOW_WORDS);
+        if (count($slice) < self::PLAG_MIN_CHUNK_WORDS) break;
+
+        $chunkText = implode(' ', $slice);
+        $vec = $this->plagTermFreqMap($this->plagTokenize($this->plagNormalizeText($chunkText)));
+        $mag = $this->plagMagnitude($vec);
+
+        $chunks[] = ['text'=>$chunkText, 'vec'=>$vec, 'mag'=>$mag];
+    }
+    return $chunks;
+}
+
+/** Start comparisons only AFTER "Chapter 1/Chapter I/Chapter One"; fallback early "Introduction" */
+protected function plagStartAfterChapterOne(string $text): string
+{
+    $t = ltrim($text);
+
+    // "Chapter 1 / I / One" (case-insensitive, unicode)
+    if (preg_match('/\bchapter\s*(?:1|i|one)\b/iu', $t, $m, PREG_OFFSET_CAPTURE)) {
+        $pos = $m[0][1];
+        return ltrim(mb_substr($t, $pos));
     }
 
+    // Early "Introduction" within first 25% of content
+    if (preg_match('/\bintroduction\b/iu', $t, $m2, PREG_OFFSET_CAPTURE)) {
+        $pos = $m2[0][1];
+        if ($pos < (int)(mb_strlen($t) * 0.25)) return ltrim(mb_substr($t, $pos));
+    }
 
+    return $t;
+}
 
-    protected function plagCleanText($html)
-    {
-    // Remove all base64 images
-    $html = preg_replace('/<img[^>]+src="data:image\/[^"]+"[^>]*>/i', '', $html);
-
-    // Remove CKEditor resizers and widget blocks
-    $html = preg_replace('/<div class="ck[^"]*"[^>]*>.*?<\/div>/si', '', $html);
-
-    // Strip tags and decode HTML entities
+/** Clean HTML → text */
+protected function plagCleanText($html)
+{
+    $html = preg_replace('/<img[^>]+src="data:image\/[^"]+"[^>]*>/i', '', $html);              // drop base64 imgs
+    $html = preg_replace('/<div class="ck[^"]*"[^>]*>.*?<\/div>/si', '', $html);               // drop ck widgets
     $text = strip_tags($html);
-    $text = html_entity_decode($text);
-
-    // Normalize whitespace
-    $text = preg_replace('/\s+/', ' ', $text);
-
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace('/\s+/u', ' ', $text);
     return trim($text);
 }
 
+/** Normalize → tokenize → TF */
+protected function plagNormalizeText($text)
+{
+    $text = mb_strtolower($text, 'UTF-8');
+    $text = preg_replace('/[^\p{L}\p{N}\s]/u', '', $text);
 
+    $stop = ['the','is','at','which','on','a','an','of','to','in','and','with','for','as','by','are'];
+    $words = explode(' ', $text);
+    $filtered = array_filter($words, fn($w)=>$w!=='' && !in_array($w, $stop, true));
 
-    protected function plagNormalizeText($text)
-    {
-        $text = mb_strtolower($text, 'UTF-8'); // Lowercase
-        $text = preg_replace('/[^\p{L}\p{N}\s]/u', '', $text); // Remove punctuation
+    return implode(' ', $filtered);
+}
+protected function plagTokenize($text){ return array_filter(explode(' ', $text)); }
+protected function plagTermFreqMap($tokens){
+    $f=[]; foreach($tokens as $t){ $t=trim($t); if($t==='')continue; $f[$t]=($f[$t]??0)+1; } return $f;
+}
+protected function plagMagnitude($vector){ $s=0.0; foreach($vector as $v){ $s+=$v*$v; } return sqrt($s); }
+protected function plagDotProduct($a,$b){ $d=0.0; foreach($a as $k=>$v){ if(isset($b[$k])) $d+=$v*$b[$k]; } return $d; }
 
-        $stopWords = ['the', 'is', 'at', 'which', 'on', 'a', 'an', 'of', 'to', 'in', 'and', 'with', 'for', 'as', 'by', 'are'];
-        $words = explode(' ', $text);
-        $filtered = array_filter($words, fn($word) => !in_array($word, $stopWords));
+/**
+ * Build & cache candidate chunks from all other documents (exclude same title_id).
+ * Cache key is derived from the current doc's title_id so both endpoints hit the same set.
+ * Requires: Document model has `title()` relation.
+ */
+private function plagBuildCandidateChunks(Document $document): array
+{
+    $cacheKey = 'plag:cchunks:exclude_title:' . $document->title_id;
 
-        return implode(' ', $filtered);
-    }
+    return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($document) {
+        $cands = Document::where('title_id', '!=', $document->title_id)
+            ->with('title:id,title')
+            ->get(['id','title_id','chapter','content']);
 
-    protected function plagTokenize($text)
-    {
-        return array_filter(explode(' ', $text));
-    }
-
-    protected function plagTermFreqMap($tokens)
-    {
-        $freqMap = [];
-        foreach ($tokens as $token) {
-            $token = trim($token);
-            if ($token === '') continue;
-            $freqMap[$token] = ($freqMap[$token] ?? 0) + 1;
-        }
-        return $freqMap;
-    }
-
-    protected function plagMagnitude($vector)
-    {
-        $sum = 0;
-        foreach ($vector as $val) {
-            $sum += $val ** 2;
-        }
-        return sqrt($sum);
-    }
-
-    protected function plagDotProduct($vec1, $vec2)
-    {
-        $dot = 0;
-        foreach ($vec1 as $key => $val) {
-            if (isset($vec2[$key])) {
-                $dot += $val * $vec2[$key];
+        $out = [];
+        foreach ($cands as $d) {
+            $srcText = $this->plagStartAfterChapterOne($this->plagCleanText($d->content));
+            foreach ($this->plagMakeChunks($srcText) as $chunk) {
+                $out[] = [
+                    'document_id'    => $d->id,
+                    'source_title'   => optional($d->title)->title ?? 'Untitled',
+                    'source_chapter' => $d->chapter ?? 'Unknown Chapter',
+                    'text'           => $chunk['text'],
+                    'vec'            => $chunk['vec'],
+                    'mag'            => $chunk['mag'],
+                ];
             }
         }
-        return $dot;
-    }
-
-
-private function computePlagiarismScoreForContent(string $rawHtml, Document $document): float
-{
-    $submittedText = $this->plagCleanText($rawHtml);
-
-    $submittedVector = $this->plagTermFreqMap(
-        $this->plagTokenize(
-            $this->plagNormalizeText($submittedText)
-        )
-    );
-    $submittedMagnitude = $this->plagMagnitude($submittedVector);
-
-    if ($submittedMagnitude == 0) {
-        return 0.0;
-    }
-
-    // Compare with ALL other documents except the same title_id
-    $candidates = Document::where('title_id', '!=', $document->title_id)
-        ->pluck('content');
-
-    $maxScore = 0.0;
-
-    foreach ($candidates as $content) {
-        $cleaned = $this->plagCleanText($content);
-        $comparedVector = $this->plagTermFreqMap(
-            $this->plagTokenize(
-                $this->plagNormalizeText($cleaned)
-            )
-        );
-
-        $dot = $this->plagDotProduct($submittedVector, $comparedVector);
-        $mag = $this->plagMagnitude($comparedVector) * $submittedMagnitude;
-        $score = $mag == 0 ? 0 : $dot / $mag;
-
-        if ($score > $maxScore) $maxScore = $score;
-    }
-
-    return round($maxScore * 100, 2); // return as percentage
+        return $out;
+    });
 }
 
+/** Max local similarity between your chunks and candidate chunks (percent) */
+private function plagMaxChunkSimilarity(string $rawHtmlOrText, Document $document): float
+{
+    $text = $this->plagStartAfterChapterOne($this->plagCleanText($rawHtmlOrText));
+    $yourChunks = $this->plagMakeChunks($text);
+    if (empty($yourChunks)) return 0.0;
 
+    $cChunks = $this->plagBuildCandidateChunks($document);
+    if (empty($cChunks)) return 0.0;
 
+    $overallMax = 0.0;
+    foreach ($yourChunks as $yc) {
+        $yVec = $yc['vec']; $yMag = $yc['mag']; if ($yMag==0) continue;
+        foreach ($cChunks as $cc) {
+            $den = $yMag * $cc['mag']; if ($den==0) continue;
+            $sim = $this->plagDotProduct($yVec, $cc['vec']) / $den;
+            if ($sim > $overallMax) $overallMax = $sim;
+        }
+    }
+    return round($overallMax * 100, 2);
+}
 
-    // PLAG END -----------------------------------------
+/** Compatibility wrapper */
+private function computePlagiarismScoreForContent(string $rawHtmlOrText, Document $document): float
+{
+    return $this->plagMaxChunkSimilarity($rawHtmlOrText, $document);
+}
+
+// ===================== PLAG END =====================
+
 
 
 
