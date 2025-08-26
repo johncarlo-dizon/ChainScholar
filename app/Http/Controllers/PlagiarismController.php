@@ -6,31 +6,32 @@ use App\Models\Document;
 use App\Services\PlagiarismService;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
 class PlagiarismController extends Controller
 {
-    public function __construct(private PlagiarismService $plag) {}
-    use AuthorizesRequests;  
+    use AuthorizesRequests;
 
-    // POST /documents/check-plagiarism
+    public function __construct(private PlagiarismService $plag) {}
+
     public function checkPlagiarismLive(Request $request)
     {
-        $document = Document::findOrFail((int) $request->input('document_id'));
-        $this->authorize('view', $document); // ← add this
-        $raw = $request->input('content_html') ?: $request->input('content', '');
-        $scorePct = $this->plag->quickScore($raw, $document);
+        $document = Document::findOrFail((int)$request->input('document_id'));
+        $this->authorize('view', $document);
 
-        return response()->json(['score' => $scorePct]);
+        $raw = $request->input('content_html') ?: $request->input('content', '');
+        $score = $this->plag->quickScore($raw, $document);
+
+        return response()->json(['score' => $score]);
     }
 
-    // POST /documents/check-plagiarism-detailed
     public function checkPlagiarismDetailed(Request $request)
     {
-        $document = Document::findOrFail((int) $request->input('document_id'));
-        $this->authorize('view', $document); // ← add this
-        $html = $request->input('content_html', '');
-        $min  = (int) $request->input('min_percent', 0);
-        $data = $this->plag->detailedMatches($html, $document, $min);
+        $document = Document::findOrFail((int)$request->input('document_id'));
+        $this->authorize('view', $document);
 
-        return response()->json($data);
+        $html = (string)$request->input('content_html', '');
+        $min  = (int)$request->input('min_percent', 0);
+
+        return response()->json($this->plag->detailedMatches($html, $document, $min));
     }
 }
