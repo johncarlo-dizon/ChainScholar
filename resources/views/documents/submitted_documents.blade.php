@@ -88,25 +88,20 @@
                                     </td>
                                     <td class="px-6 py-4 text-sm space-x-2">
                                         @if($title->finalDocument)
-                                            <a href="{{ route('documents.view', $title->finaldocument_id) }}"
+                                           <a href="{{ route('documents.view', ['id' => $title->finalDocument->id]) }}"
                                                class="inline-flex items-center px-3 py-1.5 border border-blue-600 text-blue-600 rounded hover:bg-blue-50">
                                                 View Document
                                             </a>
                                         @endif
 
-                                        @if($title->status === 'returned' && $title->review_comments)
-                                            <button onclick="openCommentModal(`{{ addslashes($title->review_comments) }}`)"
-                                                    class="inline-flex items-center px-3 py-1.5 border border-yellow-600 text-yellow-600 rounded hover:bg-yellow-50">
-                                                Open Comment
-                                            </button>
-                                        @endif
+                                   
 
                                         <form method="POST" action="{{ route('titles.cancel', $title->id) }}" class="inline">
                                             @csrf
                                             @method('PATCH')
                                             <button type="submit"
                                                 class="inline-flex items-center px-3 py-1.5 border border-red-600 text-red-600 rounded hover:bg-red-50">
-                                                Cancel {{ $title->status === 'approved' ? 'Approval' : 'Submission' }}
+                                                Cancel Submission
                                             </button>
                                         </form>
                                     </td>

@@ -142,7 +142,7 @@
 
                     <a href="javascript:void(0);" onclick="toggleSubmitForm()"
                        class="text-sm text-blue-500 transition hover:text-blue-700">
-                        Submit Document for Approval
+                       Upload Research
                     </a>
                 </div>
             </div>
@@ -186,7 +186,7 @@
         <label class="block text-gray-700 font-medium mb-1">Authors <span class="text-sm text-gray-500">(comma-separated)</span></label>
         <input type="text" name="authors" required
             class="w-full border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-            placeholder="e.g., Juan Dela Cruz, Maria Santos">
+            placeholder="e.g., Juan Dela Cruz, Maria Santos"      value="{{ $title->authors ?? '' }}">
     </div>
 
 
@@ -317,7 +317,7 @@
         bodyBox.innerHTML = `
           <div class="space-y-3">
             <div class="text-sm text-gray-500">Overall Score: <strong>${score}%</strong></div>
-            <div class="p-4 rounded border bg-gray-50 text-gray-700">No close matches found above the threshold.</div>
+            <div class="p-4 rounded border bg-gray-50 text-gray-700">No matches found for the current settings.</div>
           </div>`;
         return;
       }
@@ -375,6 +375,20 @@
 </script>
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <script>
         window.addEventListener("beforeunload", function () {
             fetch("{{ route('clear.template.session') }}");
@@ -421,7 +435,8 @@ function prepareFinalContent() {
 // ---------- config ----------
 const THRESHOLD = 45;
 const MIN_CHARS_TO_CHECK = 40; // avoid noise when the doc is still empty
-
+const DISPLAY_MIN = 0;
+const BLOCK_THRESHOLD = 45;  
 // ---------- helpers ----------
 const saveBtn   = document.getElementById('saveBtn');
 const submitBtn = document.getElementById('submitBtn');
@@ -486,7 +501,8 @@ async function checkPlagiarism() {
       },
       body: JSON.stringify({
         content_html: html,                 // ← IMPORTANT: send HTML (same as offcanvas)
-        document_id: {{ $document->id }}
+        document_id: {{ $document->id }},
+        min_percent: DISPLAY_MIN 
       })
     });
 
@@ -495,7 +511,7 @@ async function checkPlagiarism() {
 
     resultBox.innerHTML = `<span>Plagiarism Score:</span> ${score}%`;
 
-    if (score >= THRESHOLD) {
+    if (score >= BLOCK_THRESHOLD) {
       resultBox.innerHTML += `<br><span class="text-red-600">High similarity detected! ⚠️</span>`;
       setButtonsDisabled(true);
     } else {

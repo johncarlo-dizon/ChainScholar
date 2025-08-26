@@ -57,7 +57,7 @@
  
 
             <!-- ✅ Similarity Result Bars -->
-         <div class="flex items-center gap-6 mt-5 mb-2">
+     <div class="flex items-center gap-6 mt-5 mb-2">
     <!-- Internal Similarity -->
     <div class="flex items-center gap-3 flex-1">
         <!-- Label and result -->
@@ -137,6 +137,22 @@
             No advisers available yet. Please contact the administrator.
         </div>
     @endif
+</div>
+
+
+<div id="authors-box" class="mt-4 hidden">
+  <label for="authors" class="block mb-2 font-bold text-blue-600">Authors</label>
+  <input 
+      type="text" 
+      name="authors" 
+      id="authors"
+      class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+      placeholder="Enter author name(s), e.g., Last, First; Last, First"
+      disabled
+  >
+  <p class="text-xs text-gray-500 mt-1">
+    Separate multiple authors with commas or semicolons.
+  </p>
 </div>
 
 
@@ -506,42 +522,64 @@ function toggleRejectHint(on){
 
 
 <script>
-function showAdviserBox(show){
-  const box = document.getElementById('adviser-box');
-  const sel = document.getElementById('adviser_id');
-  if (!box) return;
+// Toggle BOTH Adviser + Authors when passed
+function showApprovalFields(show){
+  // Adviser
+  const advBox = document.getElementById('adviser-box');
+  const advSel = document.getElementById('adviser_id');
+
+  // Authors
+  const authBox = document.getElementById('authors-box');
+  const authInp = document.getElementById('authors');
+
   if (show) {
-    box.classList.remove('hidden');
-    if (sel) {
-      sel.disabled = false;
-      sel.setAttribute('required', 'required');
+    advBox?.classList.remove('hidden');
+    if (advSel) {
+      advSel.disabled = false;
+      advSel.setAttribute('required', 'required');
+    }
+
+    authBox?.classList.remove('hidden');
+    if (authInp) {
+      authInp.disabled = false;
+      authInp.setAttribute('required', 'required');
+      // Optional prefill:
+      // authInp.value ||= @json(auth()->user()->name ?? '');
     }
   } else {
-    box.classList.add('hidden');
-    if (sel) {
-      sel.disabled = true;
-      sel.removeAttribute('required');
-      sel.value = '';
+    advBox?.classList.add('hidden');
+    if (advSel) {
+      advSel.disabled = true;
+      advSel.removeAttribute('required');
+      advSel.value = '';
+    }
+
+    authBox?.classList.add('hidden');
+    if (authInp) {
+      authInp.disabled = true;
+      authInp.removeAttribute('required');
+      authInp.value = '';
     }
   }
 }
 
 function updateProceedButton(){
-  const btn = document.getElementById('proceed-btn');
-  const sel = document.getElementById('adviser_id');
-  // Must pass both checks
+  const btn  = document.getElementById('proceed-btn');
+  const adv  = document.getElementById('adviser_id');
+  const auth = document.getElementById('authors');
+
   const passed = (passedInternal && passedExternal);
-  // If adviser box is present, also require a selection
-  const adviserOk = sel ? (sel.value && sel.value !== '') : true;
-  // Show/hide adviser box
-  showAdviserBox(passed);
-  // Enable/disable submit
-  btn.disabled = !(passed && adviserOk);
+  showApprovalFields(passed);
+
+  const adviserOk = adv ? (adv.value && adv.value !== '') : true;
+  const authorsOk = auth ? (auth.value && auth.value.trim().length > 0) : true;
+
+  btn.disabled = !(passed && adviserOk && authorsOk);
 }
 
-// If user changes adviser, re-check the Proceed button
-document.addEventListener('change', function (e) {
-  if (e.target && e.target.id === 'adviser_id') {
+// Re-evaluate when user tweaks adviser/authors
+document.addEventListener('input', (e) => {
+  if (e.target && (e.target.id === 'adviser_id' || e.target.id === 'authors')) {
     updateProceedButton();
   }
 });

@@ -9,10 +9,11 @@ use Illuminate\Support\Facades\Auth;
 class SubmittedDocumentController extends Controller
 {
     // Show all documents submitted by the logged-in user
+
     public function index()
     {
         $submittedDocuments = SubmittedDocument::where('user_id', Auth::id())
-                                ->orderBy('submitted_at', 'desc')
+                                ->orderBy('submitted', 'desc')
                                 ->get();
 
         return view('documents.submitted_documents', compact('submittedDocuments'));

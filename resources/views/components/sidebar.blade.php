@@ -130,13 +130,7 @@
                         Templates
                     </a>
                 </li>
-
-                <li>
-                    <a href="{{route('show.verify')}}" class="hidden flex items-center p-2 rounded-lg transition text-sm  {{ request()->routeIs('show.verify') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                        <i data-feather="check" class="mr-3 w-4 h-4 "></i>
-                        Verify
-                    </a>
-                </li>
+ 
                 @endif
 
 

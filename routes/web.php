@@ -12,17 +12,31 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ResearchPaperController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TitleController;
+use App\Http\Controllers\TitleVerificationController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\AdviserController;
+use App\Http\Controllers\PlagiarismController;
+use App\Models\Document;
 
 
 
-Route::post('/documents/check-plagiarism-detailed', [\App\Http\Controllers\DocumentController::class, 'checkPlagiarismDetailed'])
-    ->name('documents.checkPlagiarismDetailed');
+//TITLE VERIFY
+Route::middleware(['auth'])->group(function () {
+    Route::post('/check-title-similarity', [TitleVerificationController::class, 'checkTitleSimilarity'])
+        ->name('documents.check-similarity');
+    Route::post('/check-title-web', [TitleVerificationController::class, 'checkWebTitleSimilarity'])
+        ->name('documents.check-web');
+    Route::post('/titles/suggest', [TitleVerificationController::class, 'suggestTitlesGemini'])
+        ->name('titles.suggest');
+});
+
+ 
+
+
 
 
  
@@ -46,11 +60,10 @@ Route::middleware(['auth','student'])->group(function () {
 });
 
 
-Route::post('/titles/suggest', [DocumentController::class, 'suggestTitlesGemini'])
-     ->name('titles.suggest');
-Route::post('/documents/check-plagiarism', [DocumentController::class, 'checkPlagiarismLive'])->name('documents.checkPlagiarismLive');
 
-
+Route::post('/documents/check-plagiarism', [PlagiarismController::class, 'checkPlagiarismLive'])->name('documents.checkPlagiarismLive');
+Route::post('/documents/check-plagiarism-detailed', [PlagiarismController::class, 'checkPlagiarismDetailed'])
+    ->name('documents.checkPlagiarismDetailed');
 
 
 Route::get('/dashboard', [DocumentController::class, 'showSearchDashboard'])->name('dashboard');
@@ -136,10 +149,6 @@ Route::get('/get-template-content/{id}', function ($id) {
  
 
 
-//TITLE VERIFY
-Route::post('/check-title-similarity', [DocumentController::class, 'checkTitleSimilarity'])->name('documents.check-similarity');
-Route::post('/check-title-web', [DocumentController::class, 'checkWebTitleSimilarity'])->name('documents.check-web');
-
 
 
 
@@ -186,7 +195,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/templates/{template}/use', [TemplateController::class, 'useTemplate'])->name('templates.use');
     Route::post('/upload-image', [DocumentController::class, 'uploadImage'])
         ->name('upload.image');
-    Route::get('show/verify' , [DocumentController::class, 'showVerify'])->name('show.verify');
 
 });
 

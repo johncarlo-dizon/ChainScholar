@@ -27,6 +27,7 @@ class TitleController extends Controller
     {
     $data = $request->validate([
         'title'       => 'required|string|max:255',
+        'authors'    => 'required|string|max:255', 
         'adviser_id'  => 'required|exists:users,id',
     ]);
 
@@ -46,6 +47,7 @@ class TitleController extends Controller
         $title = Title::create([
             'owner_id'     => auth()->id(),    // ← new schema column (owner_id)
             'title'        => $data['title'],
+            'authors'      => $data['authors'],   // ✅ new field
             'status'       => 'awaiting_adviser',
             'submitted_at' => now(),
             'verified_at'  => now(),
