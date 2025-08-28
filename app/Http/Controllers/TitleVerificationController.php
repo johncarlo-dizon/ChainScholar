@@ -10,227 +10,278 @@ use Illuminate\Support\Facades\Http;
 
 class TitleVerificationController extends Controller
 {
-    /**
-     * POST /titles/suggest
-     * Uses Gemini to suggest improved titles and scores each against
-     * internal titles and the web (Semantic Scholar).
-     */
-    public function suggestTitlesGemini(Request $request)
-    {
-        $request->validate([
-            'draft_title'     => 'required|string|min:5',
-            'existing_titles' => 'array',
-            'context'         => 'array',
-        ]);
+   
+   
+public function checkTitleSimilarity(Request $request)
+{
+    $inputTitle     = trim((string) $request->input('title', ''));
+    $excludeTitleId = $request->input('exclude_title_id'); // optional
+    $limit          = (int)($request->input('limit', 10));
 
-        $draft    = trim($request->input('draft_title'));
-        $existing = $request->input('existing_titles', []);
-        $context  = $request->input('context', []);
+    // Tunables — start slightly looser; tighten after confirming results
+    $SIM_THRESHOLD       = 0.25; // keep if >= 25%
+    $SOFT_THRESHOLD      = 0.18; // allow slightly lower if overlap strong
+    $MIN_KEYWORD_OVERLAP = 1;    // shared tokens after stopwords
+    $MAX_LIKE_TOKENS     = 6;    // number of tokens to OR-like in SQL
 
-        $apiKey   = config('services.gemini.key');
-        $model    = config('services.gemini.model', 'gemini-1.5-pro');
-        $endpoint = rtrim(config('services.gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta'), '/');
-
-        if (!$apiKey) {
-            return response()->json(['error' => 'Gemini API key missing'], 500);
-        }
-
-        $cacheKey = 'gemini_title_enhance_v2:' . md5($draft . json_encode(array_slice($existing, 0, 50)) . json_encode($context));
-        if (Cache::has($cacheKey)) {
-            return response()->json(Cache::get($cacheKey));
-        }
-
-        $rules = implode("\n", [
-            "Act as an Academic Research Title Enhancement Assistant.",
-            "Input is a REJECTED academic title. Task: rewrite to produce improved titles that:",
-            "- Stay relevant and connected to the original topic.",
-            "- Address a clear, significant, and specific problem in the field.",
-            "- Integrate latest trends/innovations/emerging concepts relevant to the field.",
-            "- Are concise, professional, and suitable for academic approval.",
-            "- Sound innovative, impactful, and aligned with modern developments.",
-            "Return STRICT JSON with EXACTLY this schema:",
-            "{ \"suggestions\": [",
-            "  {\"title\":\"...\",\"why\":\"(1–2 sentences explaining the improvement)\"},",
-            "  {\"title\":\"...\",\"why\":\"...\"},",
-            "  {\"title\":\"...\",\"why\":\"...\"}",
-            "] }",
-            "Constraints:",
-            "- Exactly 3 suggestions.",
-            "- Each title ≤ 16 words; avoid colon stacking and buzzword soup.",
-            "- Keep close to the original scope (do not change the topic entirely).",
-        ]);
-
-        $payloadBlock = [
-            "draft_title"  => $draft,
-            "context"      => $context,
-            "avoid_titles" => array_values($existing),
-        ];
-
-        try {
-            $res = Http::timeout(20)
-                ->withHeaders(['Content-Type' => 'application/json'])
-                ->post("{$endpoint}/models/{$model}:generateContent?key={$apiKey}", [
-                    "generationConfig" => [
-                        "temperature" => 0.5,
-                        "topK" => 40,
-                        "topP" => 0.9,
-                        "maxOutputTokens" => 512,
-                        "response_mime_type" => "application/json",
-                    ],
-                    "contents" => [
-                        [ "role" => "user", "parts" => [[ "text" => $rules ]] ],
-                        [ "role" => "user", "parts" => [[ "text" => json_encode($payloadBlock, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ]] ],
-                    ],
-                ]);
-
-            if (!$res->ok()) {
-                return response()->json(['error' => 'Gemini request failed', 'meta' => $res->json()], 502);
-            }
-
-            $raw    = $res->json();
-            $jsonStr = data_get($raw, 'candidates.0.content.parts.0.text');
-            if (!$jsonStr) {
-                $parts = data_get($raw, 'candidates.0.content.parts', []);
-                foreach ($parts as $p) {
-                    if (isset($p['inlineData']['mimeType']) && str_contains($p['inlineData']['mimeType'], 'json')) {
-                        $jsonStr = base64_decode($p['inlineData']['data'] ?? '');
-                        break;
-                    }
-                }
-            }
-            if (!$jsonStr) {
-                return response()->json([
-                    'error' => 'Gemini returned no candidates (possibly safety blocked).',
-                    'feedback' => data_get($raw, 'promptFeedback', []),
-                    'raw' => $raw,
-                ], 500);
-            }
-
-            $parsed = json_decode($jsonStr, true);
-            if (!is_array($parsed) || !isset($parsed['suggestions'])) {
-                if (preg_match('/\{.*\}/s', $jsonStr, $m)) {
-                    $parsed = json_decode($m[0], true);
-                }
-            }
-            if (!is_array($parsed) || !isset($parsed['suggestions']) || !is_array($parsed['suggestions'])) {
-                $parsed = ['suggestions' => []];
-            }
-
-            $rawSug = collect($parsed['suggestions'])
-                ->map(fn ($s) => ['title' => trim((string)($s['title'] ?? '')), 'why' => trim((string)($s['why'] ?? ''))])
-                ->filter(fn ($s) => $s['title'] !== '')
-                ->take(6)
-                ->values();
-
-            $scored   = $this->scoreSuggestions($rawSug->all(), $existing);
-            $approved = array_values(array_filter($scored, fn($x) => $x['internal_pct'] < 30 && $x['web_pct'] < 30));
-            $final    = $approved;
-
-            if (count($final) < 3 && count($scored)) {
-                usort($scored, fn($a,$b)=> ($a['internal_pct'] + $a['web_pct']) <=> ($b['internal_pct'] + $b['web_pct']));
-                foreach ($scored as $cand) {
-                    if (count($final) >= 3) break;
-                    if (!in_array($cand, $final, true)) $final[] = $cand;
-                }
-            }
-
-            $final = array_slice($final, 0, 3);
-            $out   = ['suggestions' => $final];
-
-            Cache::put($cacheKey, $out, now()->addMinutes(30));
-            return response()->json($out);
-
-        } catch (\Throwable $e) {
-            return response()->json(['error' => 'Gemini error', 'message' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * POST /titles/check-internal
-     * Internal similarity against existing titles in DB.
-     *
-     * TIP: Your old code compared against Document titles.
-     * If you truly want document titles, switch Title::all() to Document::all()
-     * and map to the correct field.
-     */
-    public function checkTitleSimilarity(Request $request)
-    {
-        $inputTitle = (string) $request->input('title', '');
-        $excludeTitleId = $request->input('exclude_title_id'); // optional
-
-        // Compare against existing Titles (recommended)
-        $titles = Title::query()
-            ->when($excludeTitleId, fn($q) => $q->where('id', '!=', $excludeTitleId))
-            ->pluck('title')
-            ->all();
-
-        $similarities = [];
-        foreach ($titles as $existing) {
-            $score = self::cosineSimilarity($inputTitle, $existing);
-            $similarities[] = [
-                'existing_title' => $existing,
-                'similarity'     => round($score * 100, 2),
-            ];
-        }
-
-        usort($similarities, fn($a,$b) => $b['similarity'] <=> $a['similarity']);
-        $maxSimilarity = $similarities[0]['similarity'] ?? 0;
-
+    if ($inputTitle === '') {
         return response()->json([
-            'max_similarity' => $maxSimilarity,
-            'similarities'   => $similarities,
-            'approved'       => $maxSimilarity < 30,
+            'max_similarity' => 0,
+            'approved'       => true,
+            'results'        => [],
         ]);
     }
+
+    // 1) Extract keywords from the input (longer first)
+    $tokens = self::tokenize(mb_strtolower($inputTitle));
+    usort($tokens, fn($a,$b) => strlen($b) <=> strlen($a));
+    $likeTokens = array_slice(array_values(array_unique($tokens)), 0, $MAX_LIKE_TOKENS);
+
+    // 2) Prefilter in DB (avoid scanning everything)
+    $rows = Title::query()
+        ->when($excludeTitleId, fn($q) => $q->where('id', '!=', $excludeTitleId))
+        // If your data reliably uses these, you can re-enable:
+        // ->when(auth()->check(), fn($q) => $q->where('owner_id', '!=', auth()->id()))
+        // ->where('status', 'submitted')
+        ->when(!empty($likeTokens), function ($q) use ($likeTokens) {
+            $q->where(function ($qq) use ($likeTokens) {
+                foreach ($likeTokens as $t) {
+                    $qq->orWhere('title', 'like', "%{$t}%");
+                }
+            });
+        })
+        ->select('id', 'title', 'authors', 'submitted_at')
+        ->get();
+
+    // If LIKE prefilter yields nothing (short titles, etc.), fall back
+    if ($rows->isEmpty()) {
+        $rows = Title::query()
+            ->when($excludeTitleId, fn($q) => $q->where('id', '!=', $excludeTitleId))
+            ->select('id', 'title', 'authors', 'submitted_at')
+            ->get();
+    }
+
+    // Helper: keyword overlap count
+    $kwSet = array_fill_keys(self::tokenize($inputTitle), true);
+    $overlapCount = function (string $candidate) use ($kwSet): int {
+        $cand = self::tokenize($candidate);
+        $cnt = 0; foreach ($cand as $w) if (isset($kwSet[$w])) $cnt++;
+        return $cnt;
+    };
+
+    // 3) Score + filter
+    $results = [];
+    foreach ($rows as $row) {
+        $candTitle = (string) $row->title;
+
+        $sim = self::cosineSimilarity(
+            mb_strtolower($inputTitle),
+            mb_strtolower($candTitle)
+        );
+        $overlap = $overlapCount($candTitle);
+
+        // Keep only relevant ones
+        if ($sim < $SIM_THRESHOLD && !($sim >= $SOFT_THRESHOLD && $overlap >= $MIN_KEYWORD_OVERLAP)) {
+            continue;
+        }
+
+        // authors stored like "Last, First; Last, First"
+        $authorsRaw = (string)($row->authors ?? '');
+        $authors = array_values(array_filter(preg_split('/[;,]+/', $authorsRaw) ?: []));
+        $authors = array_map('trim', $authors);
+
+        $year = null;
+        if (!empty($row->submitted_at)) {
+            try { $year = (int) \Carbon\Carbon::parse($row->submitted_at)->year; } catch (\Throwable $e) {}
+        }
+
+        $results[] = [
+            'id'         => (int)$row->id,
+            'title'      => $candTitle,
+            'authors'    => $authors,
+            'year'       => $year,
+            'similarity' => round($sim * 100, 2),
+            'overlap'    => $overlap,
+        ];
+    }
+
+    // 4) Sort by similarity, then by overlap
+    usort($results, function ($a, $b) {
+        if ($a['similarity'] === $b['similarity']) {
+            return $b['overlap'] <=> $a['overlap'];
+        }
+        return $b['similarity'] <=> $a['similarity'];
+    });
+
+    // 5) Trim + respond
+    $results = array_slice($results, 0, $limit);
+    $max = $results[0]['similarity'] ?? 0;
+
+    return response()->json([
+        'max_similarity' => $max,
+        'approved'       => $max < 30, // your pass/fail rule
+        'results'        => $results,
+    ]);
+}
+
+
+
+
+
 
     /**
      * POST /titles/check-web
      * Web similarity using Semantic Scholar.
      */
-    public function checkWebTitleSimilarity(Request $request)
-    {
-        $inputTitle = strtolower($request->input('title', ''));
-        $attempt    = (int) $request->input('attempt', 1);
-
-        $cacheKey = 'web_similarity_' . md5($inputTitle);
-
-        if ($attempt === 1 && Cache::has($cacheKey)) {
-            return response()->json(Cache::get($cacheKey));
-        }
-
-        $response = Http::retry(2, 200)->get('https://api.semanticscholar.org/graph/v1/paper/search', [
-            'query'  => $inputTitle,
-            'fields' => 'title',
-            'limit'  => 2,
+  public function checkWebTitleSimilarity(Request $request)
+{
+    $inputTitle = trim((string) $request->input('title', ''));
+    if ($inputTitle === '') {
+        return response()->json([
+            'max_similarity' => 0,
+            'approved'       => true,
+            'results'        => [],
         ]);
-
-        $items = $response->ok() ? $response->json('data', []) : [];
-        $similarities = [];
-
-        foreach ($items as $item) {
-            $webTitle = strtolower($item['title'] ?? '');
-            $score    = self::cosineSimilarity($inputTitle, $webTitle);
-            $similarities[] = [
-                'title'      => $item['title'] ?? '',
-                'similarity' => round($score * 100, 2),
-            ];
-        }
-
-        usort($similarities, fn($a,$b) => $b['similarity'] <=> $a['similarity']);
-        $max = $similarities[0]['similarity'] ?? 0;
-
-        $data = [
-            'max_similarity' => $max,
-            'approved'       => $max < 30,
-            'results'        => $similarities,
-        ];
-
-        if (!empty($similarities)) {
-            Cache::put($cacheKey, $data, now()->addMinutes(60));
-        }
-
-        return response()->json($data);
     }
+
+    $cacheKey = 'web_sim_openalex_crossref:' . md5($inputTitle);
+    if (Cache::has($cacheKey) && (int)$request->input('attempt', 1) === 1) {
+        return response()->json(Cache::get($cacheKey));
+    }
+
+    // ---- Fetch from OpenAlex ----
+    // Docs: https://api.openalex.org/works?search=...
+    $openAlex = [];
+    try {
+        $oaRes = Http::timeout(12)
+            ->get('https://api.openalex.org/works', [
+                'search' => $inputTitle,
+                'per_page' => 5,
+            ]);
+
+        if ($oaRes->ok()) {
+            $data = $oaRes->json('results', []);
+            foreach ($data as $w) {
+                $title  = (string)($w['title'] ?? '');
+                if ($title === '') continue;
+
+                $year   = $w['publication_year'] ?? ($w['from_publication_date'] ?? null);
+                $auths  = [];
+                foreach (($w['authorships'] ?? []) as $au) {
+                    $name = $au['author']['display_name'] ?? null;
+                    if ($name) $auths[] = $name;
+                }
+
+                // Prefer the best available URL
+                $link = $w['primary_location']['source']['host_organization_url'] ?? null;
+                $link = $w['primary_location']['landing_page_url'] ?? $link;
+                $link = $w['primary_location']['pdf_url'] ?? $link;
+                $link = $w['primary_location']['source']['homepage_url'] ?? $link;
+                $link = $link ?: ($w['doi'] ?? null);
+                if ($link && str_starts_with($link, '10.')) {
+                    $link = 'https://doi.org/' . $link; // normalize DOIs
+                }
+
+                $sim = self::cosineSimilarity(mb_strtolower($inputTitle), mb_strtolower($title));
+
+                $openAlex[] = [
+                    'source'     => 'openalex',
+                    'title'      => $title,
+                    'authors'    => $auths,
+                    'year'       => $year ? (int)$year : null,
+                    'link'       => $link,
+                    'similarity' => round($sim * 100, 2),
+                ];
+            }
+        }
+    } catch (\Throwable $e) {
+        // ignore, fall through to crossref
+    }
+
+    // ---- Fetch from Crossref ----
+    // Docs: https://api.crossref.org/works?query.title=...
+    $crossref = [];
+    try {
+        $crRes = Http::timeout(12)
+            ->withHeaders(['User-Agent' => 'ChainScholar/1.0 (mailto:youremail@example.com)'])
+            ->get('https://api.crossref.org/works', [
+                'query.title' => $inputTitle,
+                'rows'        => 5,
+                'select'      => 'title,author,issued,URL,DOI',
+            ]);
+
+        if ($crRes->ok()) {
+            $items = $crRes->json('message.items', []);
+            foreach ($items as $it) {
+                $titleArr = $it['title'] ?? [];
+                $title    = is_array($titleArr) ? (string)($titleArr[0] ?? '') : (string)$titleArr;
+                if ($title === '') continue;
+
+                $auths = [];
+                foreach (($it['author'] ?? []) as $au) {
+                    $parts = [];
+                    if (!empty($au['given']))  $parts[] = $au['given'];
+                    if (!empty($au['family'])) $parts[] = $au['family'];
+                    if ($parts) $auths[] = implode(' ', $parts);
+                }
+
+                $year = null;
+                if (!empty($it['issued']['date-parts'][0][0])) {
+                    $year = (int)$it['issued']['date-parts'][0][0];
+                }
+
+                $link = $it['URL'] ?? null;
+                if (empty($link) && !empty($it['DOI'])) {
+                    $link = 'https://doi.org/' . $it['DOI'];
+                }
+
+                $sim = self::cosineSimilarity(mb_strtolower($inputTitle), mb_strtolower($title));
+
+                $crossref[] = [
+                    'source'     => 'crossref',
+                    'title'      => $title,
+                    'authors'    => $auths,
+                    'year'       => $year,
+                    'link'       => $link,
+                    'similarity' => round($sim * 100, 2),
+                ];
+            }
+        }
+    } catch (\Throwable $e) {
+        // ignore
+    }
+
+    // Merge, sort, unique by title
+    $merged = array_merge($openAlex, $crossref);
+    // Drop empties and normalize
+    $merged = array_values(array_filter($merged, fn($r) => !empty($r['title'])));
+
+    // Unique by normalized title (case-insensitive)
+    $seen = [];
+    $unique = [];
+    foreach ($merged as $r) {
+        $k = mb_strtolower($r['title']);
+        if (isset($seen[$k])) continue;
+        $seen[$k] = true;
+        $unique[] = $r;
+    }
+
+    usort($unique, fn($a,$b) => $b['similarity'] <=> $a['similarity']);
+
+    $max = $unique[0]['similarity'] ?? 0;
+    $out = [
+        'max_similarity' => $max,
+        'approved'       => $max < 30, // keep your 30% threshold
+        'results'        => $unique,
+    ];
+
+    // cache if we got anything
+    if (!empty($unique)) {
+        Cache::put($cacheKey, $out, now()->addMinutes(60));
+    }
+
+    return response()->json($out);
+}
 
     /** ---------- Scoring helpers (internal + web) ---------- */
 
@@ -341,4 +392,8 @@ class TitleVerificationController extends Controller
         foreach ($map as $v) $sum += $v * $v;
         return sqrt($sum);
     }
+
+
+ 
+
 }

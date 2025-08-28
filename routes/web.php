@@ -30,12 +30,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('documents.check-similarity');
     Route::post('/check-title-web', [TitleVerificationController::class, 'checkWebTitleSimilarity'])
         ->name('documents.check-web');
-    Route::post('/titles/suggest', [TitleVerificationController::class, 'suggestTitlesGemini'])
-        ->name('titles.suggest');
 });
 
  
-
 
 
 
