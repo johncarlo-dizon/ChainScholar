@@ -494,3 +494,100 @@
     });
 </script>
 
+<script>
+/**
+ * CKEditor z-index fix when mobile drawer is open.
+ * - Injects a <style> with !important z-index overrides while drawer is visible on small screens
+ * - Cleans up on close, resize to ≥ md, or navigation
+ */
+
+(function () {
+  const STYLE_ID = 'ck-zfix-style';
+  const SIDEBAR_ID = 'appSidebar';
+  const OPEN_BTN_ID = 'sidebarToggle';
+  const CLOSE_BTN_ID = 'sidebarClose';
+  const OVERLAY_ID = 'sidebarOverlay';
+
+  const mdDown = () => window.matchMedia('(max-width: 767.98px)').matches;
+  const sidebar = document.getElementById(SIDEBAR_ID);
+  const openBtn = document.getElementById(OPEN_BTN_ID);
+  const closeBtn = document.getElementById(CLOSE_BTN_ID);
+  const overlay = document.getElementById(OVERLAY_ID);
+
+  // The actual CSS override (keep z-index lower than your drawer/overlay).
+  const STYLE_CSS = `
+/* ↓ Force CKEditor surfaces below the drawer on small screens */
+@media (max-width: 767.98px) {
+  .ck.ck-reset_all,
+  .ck.ck-editor__top,
+  .ck.ck-toolbar,
+  .ck.ck-dropdown__panel,
+  .ck.ck-balloon-panel,
+  .ck.ck-panel,
+  .ck-editor__editable,
+  .ck.ck-body-wrapper {
+    z-index: 20 !important;
+  }
+}
+`;
+
+  function injectStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    const tag = document.createElement('style');
+    tag.id = STYLE_ID;
+    tag.type = 'text/css';
+    tag.appendChild(document.createTextNode(STYLE_CSS));
+    document.head.appendChild(tag);
+  }
+
+  function removeStyle() {
+    const tag = document.getElementById(STYLE_ID);
+    if (tag) tag.remove();
+  }
+
+  function sidebarIsOpen() {
+    // Open == drawer DOES NOT have -translate-x-full
+    return sidebar && !sidebar.classList.contains('-translate-x-full');
+  }
+
+  function maybeApplyFix() {
+    if (mdDown() && sidebarIsOpen()) {
+      injectStyle();
+    } else {
+      removeStyle();
+    }
+  }
+
+  // Hook into your existing open/close flows
+  openBtn?.addEventListener('click', () => {
+    // The class toggle happens in your openSidebar(); defer slightly
+    setTimeout(maybeApplyFix, 0);
+  });
+
+  closeBtn?.addEventListener('click', () => {
+    setTimeout(maybeApplyFix, 0);
+  });
+
+  overlay?.addEventListener('click', () => {
+    setTimeout(maybeApplyFix, 0);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') setTimeout(maybeApplyFix, 0);
+  });
+
+  // In case classes change via transition or programmatically
+  const mo = new MutationObserver(() => maybeApplyFix());
+  if (sidebar) mo.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+
+  // Remove fix if user rotates or resizes to desktop
+  window.addEventListener('resize', maybeApplyFix);
+
+  // Safety: cleanup on page show (bfcache restores)
+  window.addEventListener('pageshow', maybeApplyFix);
+
+  // Initialize once on load
+  maybeApplyFix();
+})();
+</script>
+
