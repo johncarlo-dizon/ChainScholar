@@ -148,24 +148,54 @@ Route::get('/get-template-content/{id}', function ($id) {
 
 
 
+Route::middleware('auth')->group(function () { 
+    // LIST older notifications for the sidebar loader
+    Route::get('/notifications/list', function (\Illuminate\Http\Request $request) {
+        $after = (int) $request->query('after', 0); // last id currently shown (optional)
+        $limit = min((int)$request->query('limit', 10), 30); // hard cap
 
+        $q = \App\Models\Notification::where('user_id', auth()->id());
 
-//NOTIF
-Route::post('/notifications/read/{id}', function ($id) {
-    $notif = \App\Models\Notification::where('id', $id)
-              ->where('user_id', auth()->id())
-              ->firstOrFail();
+        if ($after > 0) {
+            // fetch OLDER (smaller id) than the last item the client has
+            $q->where('id', '<', $after);
+        }
 
-    $notif->update([
-        'is_read' => true,
-        'read_at' => now(),
-    ]);
+        $items = $q->orderByDesc('id')
+                ->limit($limit)
+                ->get(['id','title','message','is_read','created_at']);
 
-    return response()->json(['success' => true]);
-});
+        return response()->json([
+            'items' => $items->map(fn($n) => [
+                'id'        => $n->id,
+                'title'     => $n->title,
+                'message'   => $n->message,
+                'is_read'   => (bool)$n->is_read,
+                'created_at'=> $n->created_at->diffForHumans(),
+            ]),
+        ]);
+    })->name('notifications.list');
 
+    // Your existing mark-as-read route (unchanged)
+    Route::post('/notifications/read/{id}', function ($id) {
+        $notif = \App\Models\Notification::where('id', $id)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
+
+        if (!$notif->is_read) {
+            $notif->update([
+                'is_read' => true,
+                'read_at' => now(),
+            ]);
+        }
+
+        return response()->json(['success' => true]);
+    })->name('notifications.read');
+
+ });
  
-
+ 
+ 
 
 
  

@@ -1,3 +1,4 @@
+<!--documents.index-->
 <x-userlayout>
     <div class="bg-blue-600 rounded-lg shadow p-6">
         <h2 class="text-3xl font-semibold mb-4 text-white">📝 My Draft Titles</h2>

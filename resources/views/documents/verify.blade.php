@@ -68,18 +68,18 @@
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Internal List -->
           <div class="max-h-100 overflow-y-auto  rounded-md">
-  <ul id="internal-similar-titles" 
-      class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-4 min-h-[100px]">
-    <li class="italic text-gray-400">No similar internal titles found.</li>
-  </ul>
-</div>
-            <!-- Web List -->
-         <div class="max-h-100 overflow-y-auto   rounded-md">
-  <ul id="web-similar-titles" 
-      class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-4 min-h-[100px]">
-    <li class="italic text-gray-400">No similar web titles found.</li>
-  </ul>
-</div>
+            <ul id="internal-similar-titles" 
+                class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-4 min-h-[100px]">
+              <li class="italic text-gray-400">No similar internal titles found.</li>
+            </ul>
+          </div>
+                      <!-- Web List -->
+                  <div class="max-h-100 overflow-y-auto   rounded-md">
+            <ul id="web-similar-titles" 
+                class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-4 min-h-[100px]">
+              <li class="italic text-gray-400">No similar web titles found.</li>
+            </ul>
+          </div>
           </div>
 
           {{-- Adviser chooser (hidden until internal+web pass) --}}
