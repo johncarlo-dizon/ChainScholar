@@ -29,7 +29,6 @@ public function __construct(private PlagiarismService $plag) {}
 
         $approvedTitles = Title::with('user')
             ->where('status', 'submitted')
-            ->where('owner_id', '!=', auth()->id())
             ->get();
 
         $results = [];

@@ -38,7 +38,7 @@
                 <button type="submit"
                         class="ml-auto bg-blue-600 hover:bg-blue-700 text-white rounded-r-2xl px-5 py-3 transition flex items-center gap-2">
                     <span class="hidden sm:inline">Search</span>
-                    <i data-feather="arrow-right" class="w-5 h-5"></i>
+                    <i data-feather="search" class="w-5 h-5"></i>
                 </button>
             </div>
         </form>

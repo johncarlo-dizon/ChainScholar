@@ -91,14 +91,14 @@
                         <li>
                             <a href="{{ route('templates.index') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('templates.index','templates.create','templates.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="file-text" class="mr-3 w-4 h-4"></i>
+                                <i data-feather="layers" class="mr-3 w-4 h-4"></i>
                                 Templates
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.titles.submitted') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.submitted','admin.titles.submitted.view','admin.documents.review') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="file-text" class="w-4 h-4 mr-3"></i>
+                                <i data-feather="inbox" class="w-4 h-4 mr-3"></i>
                                 Submitted Titles
                             </a>
                         </li>
@@ -108,21 +108,21 @@
                         <li>
                             <a href="{{ route('dashboard') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="home" class="w-4 h-4 mr-3"></i>
+                                <i data-feather="layout" class="w-4 h-4 mr-3"></i>
                                 Dashboard
                             </a>
                         </li>
                         <li>
                             <a href="{{route('titles.verify')}}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.create','templates.use','titles.verify','titles.chapters') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="edit-3" class="mr-3 w-4 h-4"></i>
+                                <i data-feather="file-plus" class="mr-3 w-4 h-4"></i>
                                 Create
                             </a>
                         </li>
                         <li>
                             <a href="{{route('titles.awaiting')}}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('titles.awaiting') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="folder" class="mr-3 w-4 h-4"></i>
+                                <i data-feather="clock" class="mr-3 w-4 h-4"></i>
                                 Awaiting Titles
                             </a>
                         </li>
@@ -136,14 +136,14 @@
                         <li>
                             <a href="{{route('documents.submitted')}}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.submitted','documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="folder" class="mr-3 w-4 h-4"></i>
+                                <i data-feather="send" class="mr-3 w-4 h-4"></i>
                                 Submitted Documents
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('research-papers.create') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.*') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="file-text" class="mr-3 w-4 h-4"></i>
+                                <i data-feather="book-open" class="mr-3 w-4 h-4"></i>
                                 Research Papers
                             </a>
                         </li>
@@ -161,14 +161,14 @@
                         <li>
                             <a href="{{ route('adviser.index') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="home" class="w-4 h-4 mr-3"></i>
+                                <i data-feather="layout" class="w-4 h-4 mr-3"></i>
                                 Dashboard
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('adviser.advised.index') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.advised.*') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="book-open" class="w-4 h-4 mr-3"></i>
+                                <i data-feather="bookmark" class="w-4 h-4 mr-3"></i>
                                 My Advised Titles
                             </a>
                         </li>
@@ -182,7 +182,7 @@
                         <li>
                             <a href="{{ route('adviser.requests.pending') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.requests.pending') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="inbox" class="w-4 h-4 mr-3"></i>
+                                <i data-feather="alert-circle" class="w-4 h-4 mr-3"></i>
                                 Pending Requests
                             </a>
                         </li>
