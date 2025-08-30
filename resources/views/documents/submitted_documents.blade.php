@@ -86,10 +86,10 @@
                                     <td class="px-6 py-4 text-sm text-gray-500">
                                         {{ $title->submitted_at?->format('M d, Y h:i A') ?? '—' }}
                                     </td>
-                                    <td class="px-6 py-4 text-sm space-x-2">
+                                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium"> 
                                         @if($title->finalDocument)
                                            <a href="{{ route('documents.view', ['id' => $title->finalDocument->id]) }}"
-                                               class="inline-flex items-center px-3 py-1.5 border border-blue-600 text-blue-600 rounded hover:bg-blue-50">
+                                            class="text-indigo-600 hover:text-indigo-900 mr-3">
                                                 View Document
                                             </a>
                                         @endif
@@ -100,7 +100,7 @@
                                             @csrf
                                             @method('PATCH')
                                             <button type="submit"
-                                                class="inline-flex items-center px-3 py-1.5 border border-red-600 text-red-600 rounded hover:bg-red-50">
+                                                class="text-red-600 hover:text-red-900 mr-3">
                                                 Cancel Submission
                                             </button>
                                         </form>

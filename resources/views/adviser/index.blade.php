@@ -28,7 +28,7 @@
             <h3 class="font-semibold mb-3">Incoming Pending Requests</h3>
             <ul class="space-y-3">
                 @forelse($incomingRequests as $r)
-                    <li class="border rounded-lg p-3">
+                    <li class="shadow rounded-lg p-3">
                         <div class="font-medium">{{ $r->title->title }}</div>
                         <div class="text-sm text-gray-500">Owner: {{ $r->title->owner->name }}</div>
                         <div class="mt-2 flex gap-2">
@@ -52,7 +52,7 @@
             <h3 class="font-semibold mb-3">My Pending Sent Requests</h3>
             <ul class="space-y-3">
                 @forelse($myPendingSent as $r)
-                    <li class="border rounded-lg p-3">
+                    <li class="shadow rounded-lg p-3">
                         <div class="font-medium">{{ $r->title->title }}</div>
                         <div class="text-sm text-gray-500">Owner: {{ $r->title->owner->name }}</div>
                         <span class="inline-block text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">Pending</span>

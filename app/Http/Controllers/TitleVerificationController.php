@@ -353,20 +353,58 @@ public function checkTitleSimilarity(Request $request)
         return $mag == 0 ? 0.0 : $dot / $mag;
     }
 
-    private static function tokenize($text)
-    {
-        $stopWords = [
-            'a','an','and','are','as','at','be','by','for','from','has','he','in','is','it','its',
-            'of','on','that','the','to','was','were','will','with', // generic
-            // academic filler
-            'study','research','paper','report','project','capstone','case','review','investigation',
-            'analysis','approach','effect','impact','model','method','methods','design','development',
-            'evaluation','implementation','system','application','framework','prototype','solution',
-            'tool','tools','technology','technologies','process','exploration','assessment'
-        ];
-        $words = preg_split('/\W+/', strtolower($text));
-        return array_values(array_filter($words, fn($w) => !in_array($w, $stopWords, true) && strlen($w) > 1));
-    }
+        private static function tokenize($text)
+        {
+            // Normalize
+            $text = mb_strtolower((string)$text, 'UTF-8');
+            // Replace non-letter/number with space (keeps Unicode letters/numbers)
+            $text = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $text);
+
+            // Base generic stopwords (yours)
+            $genericStop = [
+                'a','an','and','are','as','at','be','by','for','from','has','he','in','is','it','its',
+                'of','on','that','the','to','was','were','will','with',
+                // academic filler
+                'study','research','paper','report','project','capstone','case','review','investigation',
+                'analysis','approach','effect','impact','model','method','methods','design','development',
+                'evaluation','implementation','system','application','framework','prototype','solution',
+                'tool','tools','technology','technologies','process','exploration','assessment'
+            ];
+
+            // Domain/common demographic/context terms that cause false positives
+            // (You can extend this list as you see similar “always present” words.)
+            $domainStop = [
+                'senior','high','school','shs','student','students','learner','learners','pupil','pupils',
+                'class','classes','section','sections','grade','grades','level','levels',
+                'teacher','teachers','adviser','advisor','advisers','advisors',
+                'academic','academics','education','educational','institution','institutions',
+                'philippine','philippines','local','community',
+                // time/context
+                'year','years','semester','semesters','term','terms'
+            ];
+
+            // Merge & index for O(1) lookups
+            $stop = array_fill_keys(array_unique(array_merge($genericStop, $domainStop)), true);
+
+            // Split on whitespace
+            $words = preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY);
+
+            // Filter:
+            // - remove stopwords
+            // - remove very short tokens (<=2)
+            // - remove pure numbers
+            $out = [];
+            foreach ($words as $w) {
+                if (isset($stop[$w])) continue;
+                if (mb_strlen($w, 'UTF-8') <= 2) continue;
+                if (preg_match('/^\d+$/', $w)) continue;
+                $out[] = $w;
+            }
+
+            return array_values($out);
+        }
+
+
 
     private static function termFreqMap($tokens)
     {

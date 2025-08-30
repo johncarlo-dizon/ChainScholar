@@ -84,9 +84,7 @@
                                     @csrf
                                     <input type="hidden" name="adviser_id" id="adviser_id_hidden_{{ $t->id }}">
                                     <button type="submit" class="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700">
-                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                                            <path d="M4 12h16M12 4v16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                                        </svg>
+                                       
                                         Change
                                     </button>
                                 </form>
@@ -98,9 +96,7 @@
                                             data-title="Withdraw Request"
                                             data-message="Withdraw your current adviser request for “{{ $t->title }}”?"
                                             data-form="withdrawForm-{{ $t->id }}">
-                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                                            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                                        </svg>
+                                      
                                         Withdraw
                                     </button>
                                 </form>

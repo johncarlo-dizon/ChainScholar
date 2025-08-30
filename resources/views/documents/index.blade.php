@@ -37,15 +37,15 @@
                                 <tr>
                                     <td class="px-6 py-4 text-sm text-gray-900">{{ $title->title }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-500">{{ $title->updated_at->format('M d, Y H:i') }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900 space-x-2">
+                                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium"> 
                                         <a href="{{ route('open.chapters', $title->id) }}"
-                                           class="inline-flex items-center px-3 py-1.5 border border-green-600 text-green-600 rounded hover:bg-green-50">
+                                          class="text-indigo-600 hover:text-indigo-900 mr-3">
                                             Open
                                         </a>
 
                                         <button type="button"
                                             onclick="showModal({{ $title->id }})"
-                                            class="inline-flex items-center px-3 py-1.5 border border-red-600 text-red-600 rounded hover:bg-red-50 transition">
+                                            class="text-red-600 hover:text-red-900" >
                                             Delete
                                         </button>
                                     </td>

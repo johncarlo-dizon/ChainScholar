@@ -43,14 +43,14 @@
     @else
         <div class="grid gap-3 mb-5">
             @foreach ($title->documents as $doc)
-                <div class="bg-white p-4 rounded-lg shadow flex justify-between items-center hover:shadow-md transition">
+                <div class="bg-white px-4 py-1 rounded-lg shadow flex justify-between items-center hover:shadow-md transition">
                     <div class="flex items-center space-x-3">
                         <i data-feather="file-text" class="text-blue-500 w-5 h-5"></i>
                         <span class="text-sm font-semibold text-gray-800">{{ $doc->chapter }}</span>
                     </div>
-                    <div class="flex gap-4">
+                    <div class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <a href="{{ route('documents.edit', $doc->id) }}"
-                            class="inline-flex items-center px-3 py-1.5 border border-green-600 text-green-600 rounded hover:bg-green-50">
+                            class="inline-flex items-center px-3 py-1.5 border border-indigo-600 text-indigo-600 rounded hover:bg-green-50">
                             <i data-feather="edit-3" class="w-4 h-4 mr-2"></i> Edit
                         </a>
                         <button onclick="openDeleteModal({{ $doc->id }}, '{{ $doc->chapter }}')"

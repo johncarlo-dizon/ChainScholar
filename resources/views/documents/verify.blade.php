@@ -1,148 +1,148 @@
-<x-userlayout> 
-  <div class="bg-blue-600 rounded-lg shadow p-6">
-      <h2 class="text-3xl font-semibold mb-4 text-white">Verify Title</h2>
+<x-userlayout>
+  <div class="bg-blue-600 rounded-lg shadow p-4 sm:p-6">
+    <h2 class="text-2xl sm:text-3xl font-semibold text-white">Verify Title</h2>
   </div>
 
-  <div class="container mx-auto px-4 py-8 bg-white mt-7 shadow rounded-xl">
-      <form method="POST" action="{{ route('titles.verify.submit') }}">
-          @csrf
+  <div class="container mx-auto px-3 sm:px-4 py-6 sm:py-8 bg-white mt-5 sm:mt-7 shadow rounded-xl">
+    <form method="POST" action="{{ route('titles.verify.submit') }}">
+      @csrf
 
-          <div class="mb-6">
-              <label for="title" class="block mb-2 font-bold text-blue-600">Document Title</label>
-              <input 
-                  type="text" 
-                  name="title" 
-                  id="title"
-                  class="w-full border border-gray-300 rounded-md px-4 py-3 text-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  placeholder="Enter title to verify"
-                  required
-              >
+      <div class="mb-5 sm:mb-6">
+        <label for="title" class="block mb-2 font-bold text-blue-600 text-sm sm:text-base">Document Title</label>
+        <input 
+          type="text" 
+          name="title" 
+          id="title"
+          class="w-full border border-gray-300 rounded-md px-3 sm:px-4 py-2.5 sm:py-3 text-base sm:text-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
+          placeholder="Enter title to verify"
+          required
+        >
+      </div>
+
+      <!-- Verify Button + Loader (stack on mobile) -->
+      <div class="mb-4 sm:mb-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <button type="button"
+                onclick="startVerification(event)"
+                id="verify-btn"
+                class="w-full sm:w-auto px-4 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 active:scale-[.99]">
+          Verify Title
+        </button>
+
+        <!-- inline loader -->
+        <div id="ai-inline-loader" class="hidden w-full sm:w-40 h-2 rounded bg-gray-200 overflow-hidden">
+          <div id="ai-inline-loader-bar" class="h-2 w-0 bg-purple-600 transition-all duration-300"></div>
+        </div>
+
+        <span id="reject-hint" class="text-sm text-rose-600 hidden sm:ml-2">Title Rejected</span>
+      </div>
+
+      <!-- Similarity Result Bars (stack on mobile) -->
+   <div class="flex flex-col xl:flex-row items-stretch gap-3 sm:gap-4 mt-3 sm:mt-5 mb-2 min-w-0">
+
+        <!-- Internal -->
+        <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+          <div class="flex items-center gap-2 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+            <span class="font-bold text-blue-700">Internal Similar Titles:</span>
+            <span id="similarity-result" class="truncate">Waiting for verification...</span>
           </div>
-
-          <!-- Verify Button -->
-          <div class="mb-3 flex items-center gap-3">
-            <button type="button"
-                    onclick="startVerification(event)"
-                    id="verify-btn"
-                    class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">
-              Verify Title
-            </button>
-
-            <!-- You may keep/remove this loader UI; it’s harmless -->
-            <div id="ai-inline-loader" class="hidden w-40 h-2 rounded bg-gray-200 overflow-hidden">
-              <div id="ai-inline-loader-bar" class="h-2 w-0 bg-purple-600 transition-all duration-300"></div>
-            </div>
-
-            <span id="reject-hint" class="text-sm text-rose-600 hidden">Title Rejected</span>
+          <div class="flex-1 bg-gray-200 rounded-full h-3">
+            <div id="similarity-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
           </div>
+          <span id="similarity-percent" class="text-[11px] sm:text-xs text-gray-500 whitespace-nowrap">0%</span>
+        </div>
 
-          <!-- Similarity Result Bars -->
-          <div class="flex items-center gap-6 mt-5 mb-2">
+        <!-- Web -->
+        <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+          <div class="flex items-center gap-2 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+            <span class="font-bold text-blue-700">Web Similar Titles:</span>
+            <span id="external-similarity-result" class="truncate">Waiting for verification...</span>
+          </div>
+          <div class="flex-1 bg-gray-200 rounded-full h-3">
+            <div id="external-similarity-bar" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+          <span id="external-similarity-percent" class="text-[11px] sm:text-xs text-gray-500 whitespace-nowrap">0%</span>
+        </div>
+      </div>
 
-            <!-- Internal -->
-            <div class="flex items-center gap-3 flex-1">
-              <div class="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-                <span class="font-bold text-blue-700 text-1xl">Internal Similar Titles:</span>
-                <span id="similarity-result" class="text-sm text-gray-600">Waiting for verification...</span>
-              </div>
-              <div class="flex-1 bg-gray-200 rounded-full h-3">
-                <div id="similarity-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
-              </div>
-              <span id="similarity-percent" class="text-xs text-gray-500 whitespace-nowrap">0%</span>
-            </div>
+      <!-- Similar Titles Lists (independent scroll; grid becomes 1 col on mobile) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <!-- Internal List -->
+        <div class="rounded-md border border-gray-200">
+          <ul id="internal-similar-titles" 
+              class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-3 sm:p-4 min-h-[160px] max-h-[45vh] lg:max-h-[28rem] overflow-y-auto">
+            <li class="italic text-gray-400">No similar internal titles found.</li>
+          </ul>
+        </div>
+        <!-- Web List -->
+        <div class="rounded-md border border-gray-200">
+          <ul id="web-similar-titles" 
+              class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-3 sm:p-4 min-h-[160px] max-h-[45vh] lg:max-h-[28rem] overflow-y-auto">
+            <li class="italic text-gray-400">No similar web titles found.</li>
+          </ul>
+        </div>
+      </div>
 
-            <!-- Web -->
-            <div class="flex items-center gap-3 flex-1">
-              <div class="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-                <span class="font-bold text-blue-700 text-1xl">Web Similar Titles:</span>
-                <span id="external-similarity-result" class="text-sm text-gray-600">Waiting for verification...</span>
-              </div>
-              <div class="flex-1 bg-gray-200 rounded-full h-3">
-                <div id="external-similarity-bar" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
-              </div>
-              <span id="external-similarity-percent" class="text-xs text-gray-500 whitespace-nowrap">0%</span>
-            </div>
+      {{-- Adviser chooser (hidden until internal+web pass) --}}
+      <div id="adviser-box" class="mt-6 hidden">
+        <label for="adviser_id" class="block mb-2 font-bold text-blue-600 text-sm sm:text-base">Choose Adviser</label>
+        @if(($advisers ?? collect())->count())
+          <select id="adviser_id" name="adviser_id"
+                  class="w-full border border-gray-300 rounded-md px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  disabled>
+            <option value="">— Select an adviser —</option>
+            @foreach($advisers as $adv)
+              <option value="{{ $adv->id }}">
+                {{ $adv->name }}
+                @if($adv->department) — {{ $adv->department }} @endif
+                @if($adv->specialization) ({{ $adv->specialization }}) @endif
+              </option>
+            @endforeach
+          </select>
+          <p class="text-xs text-gray-500 mt-1">
+            The adviser will receive your request and can accept/decline.
+          </p>
+        @else
+          <div class="p-3 rounded-md bg-amber-50 border border-amber-200 text-sm text-amber-800">
+            No advisers available yet. Please contact the administrator.
           </div>
+        @endif
+      </div>
 
-          <!-- Similar Titles Lists -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Internal List -->
-          <div class="max-h-100 overflow-y-auto  rounded-md">
-            <ul id="internal-similar-titles" 
-                class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-4 min-h-[100px]">
-              <li class="italic text-gray-400">No similar internal titles found.</li>
-            </ul>
-          </div>
-                      <!-- Web List -->
-                  <div class="max-h-100 overflow-y-auto   rounded-md">
-            <ul id="web-similar-titles" 
-                class="list-inside list-disc space-y-1 text-sm text-gray-700 bg-gray-50 p-4 min-h-[100px]">
-              <li class="italic text-gray-400">No similar web titles found.</li>
-            </ul>
-          </div>
-          </div>
+      <div id="authors-box" class="mt-4 hidden">
+        <label for="authors" class="block mb-2 font-bold text-blue-600 text-sm sm:text-base">Authors</label>
+        <input 
+          type="text" 
+          name="authors" 
+          id="authors"
+          class="w-full border border-gray-300 rounded-md px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+          placeholder="Enter author name(s), e.g., Last, First; Last, First"
+          disabled
+        >
+        <p class="text-xs text-gray-500 mt-1">
+          Separate multiple authors with commas or semicolons.
+        </p>
+      </div>
 
-          {{-- Adviser chooser (hidden until internal+web pass) --}}
-          <div id="adviser-box" class="mt-6 hidden">
-            <label for="adviser_id" class="block mb-2 font-bold text-blue-600">Choose Adviser</label>
-            @if(($advisers ?? collect())->count())
-              <select id="adviser_id" name="adviser_id"
-                      class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      disabled>
-                <option value="">— Select an adviser —</option>
-                @foreach($advisers as $adv)
-                  <option value="{{ $adv->id }}">
-                    {{ $adv->name }}
-                    @if($adv->department) — {{ $adv->department }} @endif
-                    @if($adv->specialization) ({{ $adv->specialization }}) @endif
-                  </option>
-                @endforeach
-              </select>
-              <p class="text-xs text-gray-500 mt-1">
-                The adviser will receive your request and can accept/decline.
-              </p>
-            @else
-              <div class="p-3 rounded-md bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                No advisers available yet. Please contact the administrator.
-              </div>
-            @endif
-          </div>
-
-          <div id="authors-box" class="mt-4 hidden">
-            <label for="authors" class="block mb-2 font-bold text-blue-600">Authors</label>
-            <input 
-              type="text" 
-              name="authors" 
-              id="authors"
-              class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-              placeholder="Enter author name(s), e.g., Last, First; Last, First"
-              disabled
-            >
-            <p class="text-xs text-gray-500 mt-1">
-              Separate multiple authors with commas or semicolons.
-            </p>
-          </div>
-
-          <div class="flex justify-end mt-4">
-            <button id="proceed-btn" type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50" disabled>
-              Proceed to Document
-            </button>
-          </div>
-      </form>
+      <div class="flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-0 mt-5">
+        <button id="proceed-btn" type="submit" class="w-full sm:w-auto px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50" disabled>
+          Proceed to Document
+        </button>
+      </div>
+    </form>
   </div>
 
   <!-- Loading Overlay -->
-  <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-70 flex items-center justify-center z-50 hidden">
-    <div class="text-center">
-      <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+  <div id="loading-overlay" class="fixed inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center z-50 hidden">
+    <div class="text-center px-6">
+      <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
       </svg>
-      <p class="text-blue-700 font-semibold text-lg">Scanning title for similarity...</p>
+      <p class="text-blue-700 font-semibold text-base sm:text-lg">Scanning title for similarity...</p>
     </div>
   </div>
 
-  {{-- ===== Minimal JS (no Coach features) ===== --}}
+  {{-- ===== Minimal JS (kept as-is; fixed one closing tag) ===== --}}
   <script>
   // Helpers
   function escapeHtml(str){
@@ -157,7 +157,7 @@
   function updateBars(target, percent, approved, labelWhenWaiting = null) {
     target.bar.style.width = percent + '%';
     target.percent.innerText = percent + '%';
-    target.result.innerText = labelWhenWaiting ?? `Similarity: ${percent}% — ${approved ? 'Title is acceptable.' : 'Title might be rejected.'}`;
+    target.result.innerText = labelWhenWaiting ?? `Similarity: ${percent}% — ${approved ? 'Approved.' : 'Rejected.'}`;
     target.result.classList.toggle('text-green-600', approved);
     target.result.classList.toggle('text-red-600', !approved);
   }
@@ -346,7 +346,7 @@
               <span class="inline-block px-1.5 py-0.5 rounded bg-gray-100 border text-gray-700">Similarity: ${sim}</span>
               ${link}
             </div>
-          </dSiv>
+          </div>
         `;
         webList.appendChild(li);
       });
