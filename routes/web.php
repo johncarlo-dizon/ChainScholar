@@ -25,6 +25,23 @@ use App\Http\Controllers\PdfPlagiarismController;
 
 
 
+
+
+// PDF ADMIN AND USER DASH
+Route::middleware(['auth'])->group(function () {
+    Route::get('/my-research-papers', [ResearchPaperController::class, 'viewStudentPdf'])
+        ->name('research-papers.student-index');
+});
+
+// Admin routes
+Route::middleware(['auth', 'admin'])->group(function () {
+    Route::get('/admin/research-papers', [ResearchPaperController::class, 'viewAdminPdf'])
+        ->name('research-papers.admin-index');
+    Route::delete('/admin/research-papers/{researchPaper}', [ResearchPaperController::class, 'destroyAdminPdf'])
+        ->name('research-papers.destroy');
+});
+
+
 //PDF PLAG  
 Route::post('/research-papers/check-plagiarism', [PdfPlagiarismController::class, 'checkPdfPlagiarismLive'])
     ->name('research-papers.check-plagiarism');

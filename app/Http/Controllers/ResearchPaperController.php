@@ -13,9 +13,128 @@ use App\Services\PdfPlagiarismService;
 
 class ResearchPaperController extends Controller
 {
+
+
+
+    // app/Http/Controllers/ResearchPaperController.php
+
+    public function viewStudentPdf(Request $request)
+    {
+        $user = auth()->user();
+        
+        $papers = ResearchPaper::where('user_id', $user->id)
+            ->when($request->search, function($query, $search) {
+                return $query->where(function($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('authors', 'like', "%{$search}%")
+                    ->orWhere('abstract', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->department, function($query, $department) {
+                return $query->where('department', $department);
+            })
+            ->when($request->program, function($query, $program) {
+                return $query->where('program', $program);
+            })
+            ->when($request->year, function($query, $year) {
+                return $query->where('year', $year);
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+
+        $departments = ResearchPaper::where('user_id', $user->id)
+            ->distinct('department')
+            ->pluck('department');
+            
+        $programs = ResearchPaper::where('user_id', $user->id)
+            ->distinct('program')
+            ->pluck('program');
+            
+        $years = ResearchPaper::where('user_id', $user->id)
+            ->distinct('year')
+            ->pluck('year')
+            ->sort();
+
+        return view('research-papers.student-index', compact('papers', 'departments', 'programs', 'years'));
+    }
+
+    public function viewAdminPdf(Request $request)
+    {
+        $papers = ResearchPaper::with('user')
+            ->when($request->search, function($query, $search) {
+                return $query->where(function($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('authors', 'like', "%{$search}%")
+                    ->orWhere('abstract', 'like', "%{$search}%")
+                    ->orWhereHas('user', function($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                    });
+                });
+            })
+            ->when($request->department, function($query, $department) {
+                return $query->where('department', $department);
+            })
+            ->when($request->program, function($query, $program) {
+                return $query->where('program', $program);
+            })
+            ->when($request->year, function($query, $year) {
+                return $query->where('year', $year);
+            })
+            ->when($request->user, function($query, $userId) {
+                return $query->where('user_id', $userId);
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+
+        $departments = ResearchPaper::distinct('department')
+            ->pluck('department');
+            
+        $programs = ResearchPaper::distinct('program')
+            ->pluck('program');
+            
+        $years = ResearchPaper::distinct('year')
+            ->pluck('year')
+            ->sort();
+            
+        $users = \App\Models\User::whereHas('researchPapers')
+            ->get(['id', 'name', 'email']);
+
+        return view('research-papers.admin-index', compact('papers', 'departments', 'programs', 'years', 'users'));
+    }
+
+
+
+    // app/Http/Controllers/ResearchPaperController.php
+
+    public function destroyAdminPdf(ResearchPaper $researchPaper)
+    {
+        // Check if the user is authorized to delete (admin only)
+        if (auth()->user()->role !== 'ADMIN') {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Delete the file from storage
+        if (Storage::disk('public')->exists($researchPaper->file_path)) {
+            Storage::disk('public')->delete($researchPaper->file_path);
+        }
+
+        // Delete the record from database
+        $researchPaper->delete();
+
+        return redirect()->route('research-papers.admin-index')
+            ->with('success', 'Research paper deleted successfully.');
+    }
+
+
+
+
+    //------------------------------------------------------
     public function create()
     {
-        return view('pdfconverter.index');
+        return view('research-papers.index');
     }
 
     public function store(Request $request, PdfPlagiarismService $pdfPlag)

@@ -140,13 +140,8 @@
                                 Submitted Documents
                             </a>
                         </li>
-                        <li>
-                            <a href="{{ route('research-papers.create') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.*') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="book-open" class="mr-3 w-4 h-4"></i>
-                                Research Papers
-                            </a>
-                        </li>
+                   
+
                         <li>
                             <a href="{{route('templates.index')}}"
                                class="hidden flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('templates.index','templates.create','templates.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
@@ -191,11 +186,46 @@
             </ul>
         </div>
 
+
+        <hr class="mx-auto w-[90%] border-gray-200">
+          <nav class="p-4">
+            <ul class="space-y-2">
+       
+                        <li>
+                            <a href="{{ route('research-papers.create') }}"
+                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                                <i data-feather="upload" class="mr-3 w-4 h-4"></i>
+                                Upload Pdf
+                            </a>
+                        </li>
+                             @if(auth()->user()->role === 'ADMIN')
+            {{-- ... existing admin links ... --}}
+                <li>
+                    <a href="{{ route('research-papers.admin-index') }}"
+                    class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.admin-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                        <i data-feather="book-open" class="w-4 h-4 mr-3"></i>
+                        Research Papers
+                    </a>
+                </li>
+            @endif
+                        <li>
+                            <a href="{{ route('research-papers.student-index') }}"
+                            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.student-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                                <i data-feather="file-text" class="mr-3 w-4 h-4"></i>
+                                My Research Papers
+                            </a>
+                        </li>
+
+                   </ul>
+        </nav>
+
         <hr class="mx-auto w-[90%] border-gray-200">
 
         <!-- Secondary nav -->
         <nav class="p-4">
             <ul class="space-y-2">
+
+               
                 <li>
                     <a href="#"
                        class="flex hidden items-center p-2 text-gray-700 text-sm hover:bg-indigo-50 rounded-lg transition">
