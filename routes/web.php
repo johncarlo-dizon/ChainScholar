@@ -21,6 +21,29 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\AdviserController;
 use App\Http\Controllers\PlagiarismController;
 use App\Models\Document;
+use App\Http\Controllers\PdfPlagiarismController;
+
+
+
+//PDF PLAG  
+Route::post('/research-papers/check-plagiarism', [PdfPlagiarismController::class, 'checkPdfPlagiarismLive'])
+    ->name('research-papers.check-plagiarism');
+
+Route::post('/research-papers/check-plagiarism-detailed', [PdfPlagiarismController::class, 'checkPdfPlagiarismDetailed'])
+    ->name('research-papers.check-plagiarism-detailed');
+
+    
+Route::middleware(['auth'])->group(function () {
+    Route::get('/submit-research', [ResearchPaperController::class, 'create'])
+        ->name('research-papers.create');
+    Route::post('/submit-research', [ResearchPaperController::class, 'store'])
+        ->name('research-papers.store');
+    Route::get('/check-filename', [ResearchPaperController::class, 'checkFilename'])
+        ->name('research-papers.check-filename');
+});
+
+
+
 
 
 
@@ -109,16 +132,6 @@ Route::post('/documents/submit/{title_id}', [DocumentController::class, 'submitF
 
 
 
-
-
-Route::middleware(['auth'])->group(function () {
-    Route::get('/submit-research', [ResearchPaperController::class, 'create'])
-        ->name('research-papers.create');
-    Route::post('/submit-research', [ResearchPaperController::class, 'store'])
-        ->name('research-papers.store');
-    Route::get('/check-filename', [ResearchPaperController::class, 'checkFilename'])
-        ->name('research-papers.check-filename');
-});
 
 
 
