@@ -43,12 +43,13 @@
             </div>
             
             <div class="mb-4">
-                <label for="position" class="block text-gray-600 text-sm font-bold mb-2">Position</label>
-                <select name="position" id="position" required
+                <label for="role" class="block text-gray-600 text-sm font-bold mb-2">Role</label>
+                <select name="role" id="role" required
                     class="shadow appearance-none border border-white rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                     <option value="" disabled selected>Select position</option>
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
+                    <option value="STUDENT">Student</option>
+                    <option value="ADVISER">Adviser</option>
+                    <option value="ADMIN">Admin</option>
                 </select>
             </div>
             

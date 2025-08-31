@@ -7,16 +7,62 @@
       
         </div>
 
-      <div class="flex justify-end">
-      <a href="{{ route('admin.users.create') }}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                Add New User
-      </a>
-      </div>
+   
 
 
     <div class="bg-white rounded-lg shadow p-6 mt-3">
      
+     {{-- Filter Bar --}}
+<form method="GET" action="{{ route('admin.users.index') }}" class="mb-4">
+  <div class="flex flex-col md:flex-row md:items-end gap-3">
+    <div class="w-full md:w-1/2">
+      <label class="block text-sm font-medium text-gray-700 mb-1" for="q">Search</label>
+      <input
+        type="text"
+        id="q"
+        name="q"
+        value="{{ $filters['q'] ?? '' }}"
+        placeholder="Search by name, email, or ID…"
+        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
+      >
+    </div>
+
+    <div class="w-full md:w-1/4">
+      <label class="block text-sm font-medium text-gray-700 mb-1" for="role">Role</label>
+      <select
+        id="role"
+        name="role"
+        class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+      >
+        @php $selectedRole = $filters['role'] ?? ''; @endphp
+        <option value="">All</option>
+        <option value="ALL" {{ $selectedRole === 'ALL' ? 'selected' : '' }}>All</option>
+        @foreach($roles as $r)
+          <option value="{{ $r }}" {{ $selectedRole === $r ? 'selected' : '' }}>
+            {{ $r }}
+          </option>
+        @endforeach
+      </select>
+    </div>
+
+    <div class="flex gap-2">
+      <button
+        type="submit"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+      >Apply</button>
+
      
+    </div>
+</form>
+
+       <div class="flex justify-end">
+      <a href="{{ route('admin.users.create') }}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                Add New User
+      </a>
+      </div>
+  </div>
+
+
 
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
@@ -37,7 +83,7 @@
                         <td class="px-6 py-4 whitespace-nowrap">{{ $user->email }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {{ $user->position }}
+                                {{ $user->role }}
                             </span>
                         </td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm font-medium"> 
@@ -85,12 +131,21 @@
 
                     </tr>
                     @endforeach
+                    @if ($users->isEmpty())
+  <tr>
+    <td colspan="5" class="px-6 py-6 text-center text-gray-500">
+      No users found. Try adjusting your search or role filter.
+    </td>
+  </tr>
+@endif
+
                 </tbody>
             </table>
  
 
         </div>
-        {{ $users->links() }}
+{{ $users->appends(request()->query())->links() }}
+
 
     </div>
 

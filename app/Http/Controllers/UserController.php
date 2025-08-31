@@ -9,13 +9,55 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
     // Display all users
-    public function index()
-{
-    $users = User::where('id', '!=', auth()->id()) // exclude current user
-                 ->paginate(perPage: 6); // pagination, 10 per page
+    // app/Http/Controllers/UserController.php
 
-    return view('admin.users.index', compact('users'));
+public function index(Request $request)
+{
+    $q    = trim((string) $request->input('q', ''));
+    $role = (string) $request->input('role', '');
+
+    // Build query
+    $query = User::query()
+        ->where('id', '!=', auth()->id()); // exclude current user
+
+    // Text search: id / name / email
+    if ($q !== '') {
+        $query->where(function ($sub) use ($q) {
+            $sub->where('name', 'like', "%{$q}%")
+                ->orWhere('email', 'like', "%{$q}%");
+
+            // If q is numeric, also allow exact ID match
+            if (ctype_digit($q)) {
+                $sub->orWhere('id', (int) $q);
+            }
+        });
     }
+
+    // Role filter (skip if blank or 'ALL')
+    if ($role !== '' && strtoupper($role) !== 'ALL') {
+        $query->where('role', $role);
+    }
+
+    $users = $query
+        ->orderByDesc('id')
+        ->paginate(perPage: 5)                 // keep your page size
+        ->appends($request->query()); // keep filters in pagination links
+
+    // Get distinct roles for dropdown
+    $roles = User::query()
+        ->select('role')
+        ->whereNotNull('role')
+        ->distinct()
+        ->orderBy('role')
+        ->pluck('role');
+
+    return view('admin.users.index', [
+        'users'   => $users,
+        'roles'   => $roles,
+        'filters' => ['q' => $q, 'role' => $role],
+    ]);
+}
+
 
     // Show create user form
     public function create()
