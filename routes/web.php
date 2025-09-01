@@ -22,8 +22,24 @@ use App\Http\Controllers\AdviserController;
 use App\Http\Controllers\PlagiarismController;
 use App\Models\Document;
 use App\Http\Controllers\PdfPlagiarismController;
+use App\Http\Controllers\AnnouncementController;
+use App\Http\Middleware\EnsureIsAdmin;
 
 
+
+//ANNOUNCEMENT
+Route::middleware(['auth'])->group(function () {
+    Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
+
+    Route::middleware([EnsureIsAdmin::class])->group(function () {
+        Route::get('/announcements/create', [AnnouncementController::class, 'create'])->name('announcements.create');
+        Route::post('/announcements', [AnnouncementController::class, 'store'])->name('announcements.store');
+        Route::get('/announcements/{announcement}/edit', [AnnouncementController::class, 'edit'])->name('announcements.edit');
+        Route::put('/announcements/{announcement}', [AnnouncementController::class, 'update'])->name('announcements.update');
+        Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
+        Route::get('/announcements/manage', [AnnouncementController::class, 'manage'])->name('announcements.manage');
+    });
+});
 
 
 

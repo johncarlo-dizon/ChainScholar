@@ -6,10 +6,15 @@
     $roleMap = ['ADMIN' => 'Admin', 'ADVISER' => 'Adviser', 'STUDENT' => 'Student'];
     $roleLabel = $roleMap[$user->role ?? ''] ?? 'User';
 
-    // Safe fallbacks so the badge/panel won’t error if not provided
+    // Safe fallbacks so the badge/panel won't error if not provided
     $unreadCount = $unreadCount ?? 0;
     $notifications = $notifications ?? collect();
+    
+    // Announcements data
+    $announcementsCount = $announcementsCount ?? 0;
+    $recentAnnouncements = $recentAnnouncements ?? collect();
 @endphp
+
 
 <!-- ===== Responsive Sidebar (mobile drawer + desktop sticky) ===== -->
 <!-- Mobile toggle button (shows only < md) -->
@@ -219,11 +224,71 @@
                    </ul>
         </nav>
 
+
+
+
+
+ <hr class="mx-auto w-[90%] border-gray-200">
+ 
+<!-- Announcements Section -->
+<nav class="p-4">
+    <div class="flex items-center justify-between mb-2 hidden">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Announcements</h3>
+    </div>
+    <ul class="space-y-2">
+        <!-- View Announcements -->
+        <li>
+            <a href="{{ route('announcements.index') }}"
+               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
+                View Announcements
+                @if($announcementsCount > 0)
+                    <span class="ml-auto inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-indigo-500 rounded-full">
+                        {{ $announcementsCount }}
+                    </span>
+                @endif
+            </a>
+        </li>
+        
+        <!-- Admin-only create announcement link -->
+        @if(auth()->check() && auth()->user()->isAdmin())
+            <li>
+                <a href="{{ route('announcements.create') }}"
+                   class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <i data-feather="plus-circle" class="mr-3 w-4 h-4"></i>
+                    Create Announcement
+                </a>
+            </li>
+            @if(auth()->check() && auth()->user()->isAdmin())
+                <li>
+                    <a href="{{ route('announcements.manage') }}"
+                    class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.manage','announcements.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                        <i data-feather="settings" class="mr-3 w-4 h-4"></i>
+                        Manage Announcements
+                    </a>
+                </li>
+            @endif
+        @endif
+        
+    </ul>
+</nav>
+
+
+
         <hr class="mx-auto w-[90%] border-gray-200">
+
+       
 
         <!-- Secondary nav -->
         <nav class="p-4">
             <ul class="space-y-2">
+
+
+
+
+            
+    
+               
 
                
                 <li>
