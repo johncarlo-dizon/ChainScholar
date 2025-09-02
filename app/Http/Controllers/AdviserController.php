@@ -279,32 +279,41 @@ class AdviserController extends Controller
         ]);
     }
 
-public function saveChapterNote(Request $request, Title $title, Document $document)
-{
-    abort_if($title->primary_adviser_id !== $request->user()->id, 403);
-    abort_if($document->title_id !== $title->id, 404);
+    public function saveChapterNote(Request $request, Title $title, Document $document)
+    {
+        abort_if($title->primary_adviser_id !== $request->user()->id, 403);
+        abort_if($document->title_id !== $title->id, 404);
 
-    $data = $request->validate([
-        'message' => 'required|string',
-    ]);
+        $data = $request->validate([
+            'message' => 'required|string',
+        ]);
 
-    $adviser = $request->user();
+        $adviser = $request->user();
 
-    // One note per (adviser x document) — create or update
-    $note = AdviserNote::firstOrNew(
-        [
-            'document_id' => $document->id,
-            'adviser_id'  => $adviser->id,
-        ],
-        [
-            'title_id'    => $title->id,
-            'student_id'  => $document->user_id,
-        ]
-    );
+        // One note per (adviser x document) — create or update
+        $note = AdviserNote::firstOrNew(
+            [
+                'document_id' => $document->id,
+                'adviser_id'  => $adviser->id,
+            ],
+            [
+                'title_id'    => $title->id,
+                'student_id'  => $document->user_id,
+            ]
+        );
 
-    $note->content = $data['message'];
-    $note->save();
+        $note->content = $data['message'];
+        $note->save();
 
-    return back()->with('success', $note->wasRecentlyCreated ? 'Note created.' : 'Note updated.');
-}
+
+      \App\Models\Notification::create([
+        'user_id' => $document->user_id,   // student who owns the document
+        'title'   => $adviser->name . ' added a note',
+        'message' =>   $document->chapter. 
+                     ' | ' .  $title->title,
+        'is_read' => false,
+        ]);
+
+        return back()->with('success', $note->wasRecentlyCreated ? 'Note created.' : 'Note updated.');
+    }
 }

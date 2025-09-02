@@ -260,7 +260,7 @@ public function __construct(private PlagiarismService $plag) {}
 
     // Load the fields you actually need, including 'authors'
     $title = $document->titleRelation()
-        ->select('id', 'primary_adviser_id', 'authors')
+        ->select('id', 'title', 'primary_adviser_id', 'authors')
         ->first();
 
     $adviserNote = null;

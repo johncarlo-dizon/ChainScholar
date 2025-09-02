@@ -2,8 +2,9 @@
 <x-userlayout>
     <div class="bg-blue-600 rounded-lg shadow p-6 max-w-8xl container">
         <h2 class="text-3xl text-white font-semibold mb-4">
-            {{ isset($document) ? 'Edit' : 'New' }} Document — {{ $document->chapter ?? 'Untitled Chapter' }}
+     {{ $document->chapter ?? 'Untitled Chapter' }} 
         </h2>
+        <p class="text-sm-5 text-gray-300 mt-1">    {{$title->title }}</p>
     </div>
 
     <div class="container mx-auto px-4 py-8">

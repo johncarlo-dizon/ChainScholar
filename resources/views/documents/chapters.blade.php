@@ -3,7 +3,7 @@
 <!-- HEADER -->
 <div class="bg-blue-600 rounded-lg shadow p-6">
     <h2 class="text-3xl font-semibold mb-4 text-white">
-        📚 Chapters for: <span class="text-gray-100">"{{ $title->title }}"</span>
+         <span class="text-gray-100">{{ $title->title }}</span>
     </h2>
     <p class="text-sm text-gray-300 mt-1">Manage and edit your research chapters below.</p>
 </div>
