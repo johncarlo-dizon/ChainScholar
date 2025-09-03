@@ -262,6 +262,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/titles/{id}/chapters', [TitleController::class, 'showChapters'])->name('titles.chapters');
     Route::get('/open/{id}/chapters', [TitleController::class, 'showChapters'])->name('open.chapters');
 
+   Route::post('/student/title/{title}/document/{document}/note',
+        [D::class, 'saveChapterNote']
+    )->name('student.chapter.note.save');
+
 
     Route::resource('documents', DocumentController::class);
     Route::resource('templates', TemplateController::class);
