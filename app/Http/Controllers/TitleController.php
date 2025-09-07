@@ -121,15 +121,24 @@ class TitleController extends Controller
 
     public function destroy($id)
     {
-    $title = Title::with('documents')->where('user_id', auth()->id())->findOrFail($id);
+        // If you have policies:
+        // $title = Title::findOrFail($id);
+        // $this->authorize('delete', $title);
 
-    // Delete related chapters/documents
-    $title->documents()->delete();
-    
-    // Delete title
-    $title->delete();
+        // If you’re scoping by the logged-in owner:
+        $title = Title::where('owner_id', auth()->id())
+            ->whereKey($id)       // same as ->where('id', $id)
+            ->firstOrFail();
 
-    return redirect()->route('titles.index')->with('status', 'Title and its chapters deleted successfully.');
+        DB::transaction(function () use ($title) {
+            // delete related rows first if you don't have FK ON DELETE CASCADE
+            $title->adviserNotes()->delete();
+            $title->adviserRequests()->delete();
+            $title->documents()->delete();
+            $title->delete();
+        });
+
+        return back()->with('success', 'Title and its contents were deleted successfully.');
     }
 
 

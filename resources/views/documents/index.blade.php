@@ -43,11 +43,12 @@
                                             Open
                                         </a>
 
-                                        <button type="button"
-                                            onclick="showModal({{ $title->id }})"
-                                            class="text-red-600 hover:text-red-900" >
-                                            Delete
-                                        </button>
+                                 <button type="button"
+    onclick="showTitleModal({{ $title->id }})"
+    class="text-red-600 hover:text-red-900">
+    Delete
+</button>
+
                                     </td>
                                 </tr>
                             @endforeach
@@ -58,40 +59,55 @@
         </div>
     </div>
 
-    <!-- Delete Modal -->
-    <div id="delete-modal" class="fixed inset-0 hidden items-center justify-center z-50">
-        <div id="modal-overlay" class="absolute inset-0 backdrop-blur-sm bg-transparent"></div>
-        <div class="relative bg-white rounded-lg shadow-lg p-6 max-w-lg w-full mx-4 z-10">
-            <p class="text-lg font-semibold mb-5 text-gray-900">Are you sure you want to delete this title and all its chapters?</p>
-            <div class="flex justify-end space-x-3">
-                <button id="cancel-btn" class="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100">Cancel</button>
-                <form id="delete-form" method="POST">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
-                </form>
-            </div>
-        </div>
-    </div>
+ 
+<!-- Delete Title Modal -->
+<div id="delete-title-modal"
+     class="fixed inset-0 hidden items-center justify-center z-50"
+     data-url-template="{{ route('titles.destroy', ['id' => '__ID__']) }}">
+  <div id="delete-title-overlay" class="absolute inset-0 backdrop-blur-sm bg-transparent"></div>
+  <div class="relative bg-white rounded-lg shadow-lg p-6 max-w-lg w-full mx-4 z-10">
+      <p class="text-lg font-semibold mb-5 text-gray-900">
+          Are you sure you want to delete this title and all its chapters?
+      </p>
+      <div class="flex justify-end space-x-3">
+          <button id="delete-title-cancel"
+                  class="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100">
+              Cancel
+          </button>
+          <form id="delete-title-form" method="POST">
+              @csrf
+              @method('DELETE')
+              <button type="submit"
+                      class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                  Delete
+              </button>
+          </form>
+      </div>
+  </div>
+</div>
 
-    <script>
-        const modal = document.getElementById('delete-modal');
-        const overlay = document.getElementById('modal-overlay');
-        const cancelBtn = document.getElementById('cancel-btn');
-        const deleteForm = document.getElementById('delete-form');
+<script>
+  const modalTitle      = document.getElementById('delete-title-modal');
+  const overlayTitle    = document.getElementById('delete-title-overlay');
+  const cancelBtnTitle  = document.getElementById('delete-title-cancel');
+  const deleteFormTitle = document.getElementById('delete-title-form');
 
-        function showModal(titleId) {
-            deleteForm.action = `/titles/${titleId}`;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
+  function showTitleModal(titleId) {
+    const template = modalTitle.dataset.urlTemplate; // e.g. "/titles/__ID__"
+    deleteFormTitle.action = template.replace('__ID__', titleId);
 
-        function hideModal() {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
+    modalTitle.classList.remove('hidden');
+    modalTitle.classList.add('flex');
+  }
 
-        cancelBtn.addEventListener('click', hideModal);
-        overlay.addEventListener('click', hideModal);
-    </script>
+  function hideTitleModal() {
+    modalTitle.classList.add('hidden');
+    modalTitle.classList.remove('flex');
+  }
+
+  cancelBtnTitle.addEventListener('click', hideTitleModal);
+  overlayTitle.addEventListener('click', hideTitleModal);
+</script>
+
+
 </x-userlayout>
