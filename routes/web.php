@@ -26,6 +26,13 @@ use App\Http\Controllers\AnnouncementController;
 use App\Http\Middleware\EnsureIsAdmin;
 
 
+//AI SUGGEST
+Route::post('/titles/ai-feedback', [TitleVerificationController::class, 'aiFeedback'])
+    ->name('titles.ai-feedback')
+    ->middleware('auth');
+
+
+
 //STUDENT NOTE
 Route::middleware(['auth'])->group(function () {
 

@@ -39,12 +39,14 @@ return [
         'api_key' => env('GOOGLE_API_KEY'),
         'cse_id' => env('GOOGLE_CSE_ID'),
     ],
-     'gemini' => [
-        'key'      => env('GEMINI_API_KEY'),
-        // Safe defaults even if you forget to set them in .env
-        'model'    => env('GEMINI_MODEL', 'gemini-1.5-flash'),
-        'endpoint' => env('GEMINI_ENDPOINT', 'https://generativelanguage.googleapis.com/v1beta'),
+  
+    // ...
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+        'timeout' => (int) env('OPENAI_TIMEOUT', 18),
     ],
+ 
 
 
 ];

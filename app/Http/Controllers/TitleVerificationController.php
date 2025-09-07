@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Str;
 class TitleVerificationController extends Controller
 {
     // ===== Tunables (you can tweak) =====
@@ -536,5 +536,94 @@ class TitleVerificationController extends Controller
         $freq = [];
         foreach ($tokens as $t) $freq[$t] = ($freq[$t] ?? 0) + 1;
         return $freq;
+    }
+
+
+
+    public function aiFeedback(Request $request)
+    {
+        $data = $request->validate([
+            'title'              => 'required|string|min:5',
+            'internal_percent'   => 'nullable|numeric',
+            'web_percent'        => 'nullable|numeric',
+            'internal_examples'  => 'nullable|array',
+            'web_examples'       => 'nullable|array',
+            'rules'              => 'nullable|array', // thresholds you use (optional)
+        ]);
+
+        $model   = config('services.openai.model', 'gpt-4o-mini');
+        $timeout = (int) config('services.openai.timeout', 18);
+        $apiKey  = config('services.openai.key');
+
+        if (!$apiKey) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Missing OpenAI API key. Set OPENAI_API_KEY in .env'
+            ], 500);
+        }
+
+        // Compact context for the model (keeps tokens low)
+        $context = [
+            'title'            => $data['title'],
+            'internal_percent' => (float) ($data['internal_percent'] ?? 0),
+            'web_percent'      => (float) ($data['web_percent'] ?? 0),
+            'rules'            => $data['rules'] ?? ['reject_if_percent>=30'],
+            // send only top 3 items for each list to reduce tokens
+            'internal_examples'=> array_slice($data['internal_examples'] ?? [], 0, 3),
+            'web_examples'     => array_slice($data['web_examples'] ?? [], 0, 3),
+        ];
+
+        $system = <<<TXT
+    You are an academic research title reviewer. When a title is rejected by similarity rules,
+    explain concisely WHY (3 bullets) and HOW TO IMPROVE (3 bullets). Be specific, concrete, and
+    avoid generic advice. Keep each bullet under 20 words. Output strict JSON only.
+    Keys: reasons[], suggestions[], improved_samples[] (3 short improved title ideas).
+    TXT;
+
+        $user = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        try {
+            // Using Chat Completions (stable + simple)
+            $resp = Http::timeout($timeout)
+                ->withToken($apiKey)
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => $model,
+                    'temperature' => 0.3,
+                    'response_format' => ['type' => 'json_object'],
+                    'messages' => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user', 'content' => $user],
+                    ],
+                ]);
+
+            if (!$resp->ok()) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'OpenAI request failed',
+                    'details' => $resp->json(),
+                ], 502);
+            }
+
+            $content = data_get($resp->json(), 'choices.0.message.content', '{}');
+            $json    = json_decode($content, true);
+
+            // Guard rails if the model returns something unexpected
+            $reasons      = array_values(array_filter($json['reasons'] ?? []));
+            $suggestions  = array_values(array_filter($json['suggestions'] ?? []));
+            $samples      = array_values(array_filter($json['improved_samples'] ?? []));
+
+            return response()->json([
+                'ok' => true,
+                'reasons' => array_slice($reasons, 0, 3),
+                'suggestions' => array_slice($suggestions, 0, 3),
+                'improved_samples' => array_slice($samples, 0, 3),
+            ]);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'AI feedback error: '.$e->getMessage(),
+            ], 500);
+        }
     }
 }
