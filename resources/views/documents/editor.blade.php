@@ -335,7 +335,7 @@
  
                         onclick="prepareFinalContent()"
                class="flex-1 text-center ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-sm focus:ring-2 focus:ring-blue-300">
-                    Submit Final Document
+                    Upload Research
                 </button>
             </div>
            </div>
@@ -356,7 +356,7 @@
 
   <!-- panel -->
   <div class="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-xl flex flex-col">
-    <div class="p-4 border-b flex items-center justify-between">
+    <div class="border-b border-gray-100 px-4 py-3 flex items-center justify-between">
       <h3 class="text-lg font-semibold">Plagiarism Matches (from Chapter 1 onward)</h3>
       <button id="plagClose" class="p-2 rounded hover:bg-gray-100" aria-label="Close">✕</button>
     </div>
@@ -430,7 +430,7 @@
       }
 
       const cards = matches.map(m => `
-        <div class="rounded-xl border border-gray-200 overflow-hidden mb-4">
+        <div class="shadow overflow-hidden mb-4">
           <!-- header -->
           <div class="px-4 py-2 bg-gray-50 flex items-center justify-between">
             <div class="text-sm text-gray-700">
