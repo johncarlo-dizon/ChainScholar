@@ -428,7 +428,7 @@
         bodyBox.innerHTML = `
           <div class="space-y-3">
             <div class="text-sm text-gray-500">Overall Score: <strong>${score}%</strong></div>
-            <div class="p-4 rounded border bg-gray-50 text-gray-700">No matches found for the current settings.</div>
+            <div class="p-4 rounded shadow bg-gray-50 text-gray-700">No matches found for the current settings.</div>
           </div>`;
         return;
       }
