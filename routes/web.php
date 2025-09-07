@@ -26,6 +26,14 @@ use App\Http\Controllers\AnnouncementController;
 use App\Http\Middleware\EnsureIsAdmin;
 
 
+//STUDENT NOTE
+Route::middleware(['auth'])->group(function () {
+
+Route::post('/student/notes/{title}/{document}', [\App\Http\Controllers\StudentNoteController::class, 'save'])
+    ->name('student.notes.save');
+
+});
+
 
 //ANNOUNCEMENT
 Route::middleware(['auth'])->group(function () {

@@ -84,16 +84,17 @@
          <div class="space-y-4">
   <div class="flex items-center justify-between">
     <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3>
+       <button type="button" id="btnViewMatches"
+      class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+      View Matches
+    </button>
   </div>
 
   <div class="flex gap-3">
    
 
     <div id="plagiarism-result" class="text-sm text-gray-700 hidden"></div>
-     <button type="button" id="btnViewMatches"
-      class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
-      View Matches
-    </button>
+  
   </div>
 </div>
 
@@ -118,6 +119,111 @@
         </div>
     @endif
 </div>
+
+@php
+  $myNote = \App\Models\StudentNote::where('title_id', $title->id)
+            ->where('document_id', $document->id)
+            ->where('student_id', auth()->id())
+            ->first();
+@endphp
+
+<div id="studentNotePanel"
+     data-save-url="{{ route('student.notes.save', [$title, $document]) }}"
+     data-has-note="{{ $myNote ? '1' : '0' }}"
+     class="space-y-3">
+
+  <div class="flex items-center justify-between">
+    <h3 class="text-lg font-semibold text-gray-700">Message Your Adviser</h3>
+    @if($myNote)
+      <span id="studentNoteUpdatedAt" class="text-xs text-gray-500">
+        Updated {{ $myNote->updated_at->diffForHumans() }}
+      </span>
+    @else
+      <span id="studentNoteUpdatedAt" class="text-xs text-gray-500 hidden"></span>
+    @endif
+  </div>
+
+  <textarea id="studentNoteTextarea" rows="4"
+    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+    placeholder="(Optional) Type your note…">{{ old('message', $myNote->content ?? '') }}</textarea>
+
+  <div class="flex items-center gap-3">
+    <button type="button" id="studentNoteSaveBtn"
+      class="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
+      {{ $myNote ? 'Update Message' : 'Send Message' }}
+    </button>
+    <span id="studentNoteStatus" class="text-sm text-gray-500"></span>
+  </div>
+</div>
+
+<script>
+(() => {
+  const panel   = document.getElementById('studentNotePanel');
+  if (!panel) return;
+
+  const url     = panel.dataset.saveUrl;
+  const ta      = document.getElementById('studentNoteTextarea');
+  const btn     = document.getElementById('studentNoteSaveBtn');
+  const status  = document.getElementById('studentNoteStatus');
+  const updated = document.getElementById('studentNoteUpdatedAt');
+  let   hasNote = panel.dataset.hasNote === '1';
+
+  const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+
+  function setStatus(msg, tone='muted'){
+    status.textContent = msg || '';
+    status.classList.remove('text-emerald-600','text-rose-600','text-gray-500');
+    status.classList.add(tone === 'ok' ? 'text-emerald-600' : tone === 'err' ? 'text-rose-600' : 'text-gray-500');
+  }
+
+  async function saveNote(){
+    const message = (ta.value || '').trim(); // empty allowed (means clear)
+    btn.disabled = true;
+    btn.classList.add('opacity-50','cursor-not-allowed');
+    setStatus(message ? 'Saving…' : (hasNote ? 'Removing…' : 'Nothing to save…'));
+
+    try{
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      let data = {};
+      try { data = await res.json(); } catch {}
+
+      if (!res.ok || data.ok === false) {
+        throw new Error(data?.message || 'Save failed.');
+      }
+
+      // statuses: created | updated | deleted | noop
+      if (data.status === 'deleted' || data.status === 'noop') {
+        hasNote = false;
+        btn.textContent = 'Send Message';
+        updated?.classList.add('hidden');
+        setStatus(data.status === 'deleted' ? 'Message cleared.' : 'No changes.', 'ok');
+      } else {
+        hasNote = true;
+        btn.textContent = 'Update Message';
+        if (updated){
+          updated.textContent = 'Updated just now';
+          updated.classList.remove('hidden');
+        }
+        setStatus('Saved.', 'ok');
+      }
+    }catch(e){
+      setStatus(e.message || 'Error. Try again.', 'err');
+    }finally{
+      btn.disabled = false;
+      btn.classList.remove('opacity-50','cursor-not-allowed');
+      setTimeout(() => setStatus(''), 1500);
+    }
+  }
+
+  btn.addEventListener('click', saveNote);
+})();
+</script>
+
 
 
 
@@ -244,7 +350,7 @@
 
 </div>
 <!-- Offcanvas: Plagiarism Matches -->
-<div id="plagOffcanvas" class="fixed inset-0 z-[999] hidden">
+<div id="plagOffcanvas" class="fixed inset-0 z-[9999] hidden">
   <!-- dim -->
   <div id="plagDim" class="absolute inset-0 bg-black/40"></div>
 

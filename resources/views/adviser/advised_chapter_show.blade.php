@@ -76,27 +76,85 @@
                         </div>
                     </div>
 
-                   <div class="space-y-4">
-    <h3 class="text-lg font-semibold text-gray-700">Your Message to Student</h3>
 
-    @if(!empty($existingNote))
-        <div class="text-xs text-gray-500">
-            Last updated: {{ $existingNote->updated_at->format('M d, Y h:ia') }}
+
+
+@php
+  $studentNote = \App\Models\StudentNote::with('student')
+      ->where('title_id', $title->id)
+      ->where('document_id', $document->id)
+      ->first();
+@endphp
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-700">Student’s Message</h3>
+        @if($studentNote)
+            <span class="text-xs text-gray-500">
+                Updated {{ $studentNote->updated_at->diffForHumans() }}
+            </span>
+        @endif
+    </div>
+
+    @if($studentNote)
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-2">
+            <pre class="whitespace-pre-wrap text-sm text-gray-800">{{ $studentNote->content }}</pre>
+        </div>
+    @else
+        <div class="rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+            No student note yet for this chapter.
         </div>
     @endif
-
-    <form method="POST" action="{{ route('adviser.advised.chapter.note.save', [$title, $document]) }}" class="space-y-3">
-        @csrf
-        <textarea name="message" rows="5" required
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="Write your feedback here…">{{ old('message', $existingNote->content ?? '') }}</textarea>
-
-        <button type="submit"
-                class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700">
-            Send Message
-        </button>
-    </form>
 </div>
+
+
+
+
+
+
+       <div id="adviserNotePanel" class="space-y-3">
+  <div class="flex items-center justify-between">
+    <h3 class="text-lg font-semibold text-gray-700">Message the Student</h3>
+
+    @if(!empty($existingNote))
+      <span id="adviserNoteUpdatedAt" class="text-xs text-gray-500">
+        Updated {{ $existingNote->updated_at->diffForHumans() }}
+      </span>
+    @else
+      <span id="adviserNoteUpdatedAt" class="text-xs text-gray-500 hidden"></span>
+    @endif
+  </div>
+
+  <form method="POST" action="{{ route('adviser.advised.chapter.note.save', [$title, $document]) }}" class="space-y-3">
+    @csrf
+
+    <textarea
+      name="message"
+      rows="4"
+      required
+      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+      placeholder="(Optional) Type your note…">{{ old('message', $existingNote->content ?? '') }}</textarea>
+
+    <div class="flex items-center gap-3">
+      <button type="submit"
+              class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700">
+        {{ !empty($existingNote) ? 'Update Message' : 'Send Message' }}
+      </button>
+
+      @if(session('status'))
+        <span id="adviserNoteStatus" class="text-sm text-gray-500">{{ session('status') }}</span>
+      @else
+        <span id="adviserNoteStatus" class="text-sm text-gray-500"></span>
+      @endif
+    </div>
+  </form>
+</div>
+
+
+
+
+
+
+
 
                     <!-- Back action only -->
                     <div class="pt-2 border-t border-gray-200">
