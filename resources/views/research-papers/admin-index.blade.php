@@ -187,9 +187,9 @@
 
     <!-- Modal card -->
     <div class="relative mx-auto my-8 w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
-        <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center justify-between border-b border-gray-200 pb-3">
             <h3 class="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
-            <button type="button" class="text-gray-500 hover:text-gray-700" data-close-delete>&times;</button>
+
         </div>
 
         <div class="mt-4 space-y-3">
@@ -230,9 +230,8 @@
     <div class="absolute inset-0 backdrop-blur-sm bg-transparent" data-close-modal></div>
 
     <div class="relative mx-auto my-8 w-full max-w-2xl bg-white rounded-xl shadow-lg p-6">
-        <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
             <h3 class="text-lg font-semibold text-gray-900">Research Paper Details</h3>
-            <button type="button" class="text-gray-500 hover:text-gray-700" data-close-modal>&times;</button>
         </div>
 
         <div class="mt-4 space-y-4 text-sm">
