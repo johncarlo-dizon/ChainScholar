@@ -31,3 +31,23 @@ fix the manage part also the delete modal part
 
 
 future fix policy for the sidebars ---------- important note
+
+
+
+
+
+
+
+
+
+modal design
+
+
+ No alert(), must use modal UI.
+ Blurred overlay, rounded-xl card, same design language as my details modal.
+ Title, description, and warning message inside.
+ Dynamic form action (set via data-action) and optional item title (set via data-title).
+ Hidden form with @csrf and @method('DELETE').
+ Cancel button + Delete button.
+ Delete button shows a spinner and disables itself on submit.
+ Script should be delegated (works across pagination), handle open/close, lock scroll, ESC key, and overlay click.”
