@@ -119,15 +119,17 @@
                                     <i data-lucide="info" class="w-5 h-5"></i>
                                 </button>
 
-                                <!-- Delete -->
-                                <form action="{{ route('research-papers.destroy', $paper->id) }}" method="POST" class="inline-block"
-                                    onsubmit="return confirm('Are you sure you want to delete this research paper?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:text-red-900" title="Delete">
-                                        <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                    </button>
-                                </form>
+                         <!-- Delete -->
+                                <button
+                                    type="button"
+                                    class="text-red-600 hover:text-red-900 btn-delete"
+                                    title="Delete"
+                                    data-action="{{ route('research-user-papers.destroy', $paper->id) }}"
+                                    data-title="{{ e(Str::limit($paper->title, 80)) }}"
+                                >
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                </button>
+
                             </td>
                         </tr>
                     @empty
@@ -146,6 +148,57 @@
             {{ $papers->links() }}
         </div>
     </div>
+
+
+
+
+    <!-- Delete Confirmation Modal (same design language) -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden">
+    <!-- Blur overlay -->
+    <div class="absolute inset-0 backdrop-blur-sm bg-transparent" data-close-delete></div>
+
+    <!-- Modal content -->
+    <div class="relative mx-auto my-8 w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
+        <div class="flex items-center justify-between border-b pb-3">
+            <h3 class="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
+            <button type="button" class="text-gray-500 hover:text-gray-700" data-close-delete>&times;</button>
+        </div>
+
+        <div class="mt-4 space-y-3">
+            <p class="text-sm text-gray-600">
+                You’re about to delete:
+            </p>
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p id="del-title" class="text-sm font-medium text-gray-900"></p>
+            </div>
+
+            <div class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                This action is irreversible. The file and its metadata will be permanently removed.
+            </div>
+        </div>
+
+        <div class="mt-6 flex items-center justify-end gap-3">
+            <button type="button" class="rounded-lg border px-4 py-2 hover:bg-gray-50" data-close-delete>
+                Cancel
+            </button>
+
+            <!-- Hidden form submitted by JS -->
+            <form id="deleteForm" method="POST">
+                @csrf
+                @method('DELETE')
+                <button id="confirmDeleteBtn" type="submit"
+                        class="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50">
+                    <svg id="confirmDeleteSpinner" class="mr-2 hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+                        <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+                    </svg>
+                    Delete
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 
     <!-- Modal (same design as admin) -->
     <div id="detailsModal" class="fixed inset-0 z-50 hidden">
@@ -232,4 +285,63 @@
 
         closeBtns.forEach(btn => btn.addEventListener("click", () => modal.classList.add("hidden")));
     </script>
+
+
+    <style>
+  /* Base targetable modal (hidden by default) */
+  .tgt-modal { display: none; }
+  /* When the hash matches the modal's id, show it */
+  .tgt-modal:target { 
+    display: flex; 
+  }
+</style>
+
+
+
+
+<script>
+    // DELETE MODAL
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteForm  = document.getElementById('deleteForm');
+    const delTitleEl  = document.getElementById('del-title');
+    const confirmBtn  = document.getElementById('confirmDeleteBtn');
+    const spinnerEl   = document.getElementById('confirmDeleteSpinner');
+
+    // Open modal with data
+    document.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const action = btn.dataset.action;
+            const title  = btn.dataset.title || 'This research paper';
+
+            deleteForm.setAttribute('action', action);
+            delTitleEl.textContent = title;
+
+            deleteModal.classList.remove('hidden');
+            document.documentElement.classList.add('overflow-hidden'); // lock scroll
+        });
+    });
+
+    // Close handlers (overlay & top-right & Cancel)
+    deleteModal.querySelectorAll('[data-close-delete]').forEach(el => {
+        el.addEventListener('click', () => {
+            deleteModal.classList.add('hidden');
+            document.documentElement.classList.remove('overflow-hidden');
+        });
+    });
+
+    // Optional: ESC key to close
+    document.addEventListener('keydown', (e) => {
+        if (!deleteModal.classList.contains('hidden') && e.key === 'Escape') {
+            deleteModal.classList.add('hidden');
+            document.documentElement.classList.remove('overflow-hidden');
+        }
+    });
+
+    // Submit UX: disable button + show spinner to prevent double-submit
+    deleteForm.addEventListener('submit', () => {
+        confirmBtn.disabled = true;
+        spinnerEl.classList.remove('hidden');
+    });
+</script>
+
 </x-userlayout>

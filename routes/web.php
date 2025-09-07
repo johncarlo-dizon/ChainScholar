@@ -66,6 +66,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
 });
 
 
+
+
+
+
+
+
 //PDF PLAG  
 Route::post('/research-papers/check-plagiarism', [PdfPlagiarismController::class, 'checkPdfPlagiarismLive'])
     ->name('research-papers.check-plagiarism');
@@ -81,6 +87,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('research-papers.store');
     Route::get('/check-filename', [ResearchPaperController::class, 'checkFilename'])
         ->name('research-papers.check-filename');
+    Route::delete('/destroy-research/{researchPaper}', [ResearchPaperController::class, 'destroyUserPdf'])
+        ->name('research-user-papers.destroy');
 });
 
 

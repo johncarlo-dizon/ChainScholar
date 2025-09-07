@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Smalot\PdfParser\Parser as PdfParser;
 use Illuminate\Support\Facades\Storage;
 use App\Services\PdfPlagiarismService;
+use Illuminate\Support\Facades\Cache;
+ 
 
 class ResearchPaperController extends Controller
 {
@@ -130,6 +132,23 @@ class ResearchPaperController extends Controller
 
 
 
+    public function destroyUserPdf(ResearchPaper $researchPaper)
+    {
+     
+        // Delete the file from storage
+        if (Storage::disk('public')->exists($researchPaper->file_path)) {
+            Storage::disk('public')->delete($researchPaper->file_path);
+        }
+
+        // Delete the record from database
+        $researchPaper->delete();
+
+        return redirect()->route('research-papers.student-index')
+            ->with('success', 'Research paper deleted successfully.');
+    }
+
+
+
 
     //------------------------------------------------------
     public function create()
@@ -137,71 +156,134 @@ class ResearchPaperController extends Controller
         return view('research-papers.index');
     }
 
+
+
+ private function normalizeForHash(string $text): string
+    {
+        // Collapse whitespace
+        $t = preg_replace('/\s+/u', ' ', trim($text));
+        // Remove soft hyphen and join hyphenated line-breaks
+        $t = str_replace("\u{00AD}", '', $t);
+        $t = preg_replace("/-\s+/", '', $t);
+        // Unify curly apostrophes → straight
+        $t = preg_replace('/[’]/u', "'", $t);
+        // Lowercase
+        $t = mb_strtolower($t, 'UTF-8');
+        return $t;
+    }
+
+    /**
+     * Store a submitted research paper:
+     * - Server-extract PDF text
+     * - Gate with plagiarism score (pre-save)
+     * - Save file + DB record (including text_hash)
+     * - Bust caches so it participates in checks immediately
+     */
     public function store(Request $request, PdfPlagiarismService $pdfPlag)
     {
         $request->validate([
-            'title' => 'required|string|max:255',
-            'year' => 'required|integer|min:1900|max:2099',
-            'authors' => 'required|string|max:255',
-            'department' => 'required|string',
-            'program' => 'required|string',
-            'abstract' => 'required|string',
-            'fileToUpload' => 'required|file|mimes:pdf|max:10240',
+            'title'        => 'required|string|max:255',
+            'year'         => 'required|integer|min:1900|max:2099',
+            'authors'      => 'required|string|max:255',
+            'department'   => 'required|string',
+            'program'      => 'required|string',
+            'abstract'     => 'required|string',
+            'fileToUpload' => 'required|file|mimes:pdf|max:10240', // 10 MB
         ]);
 
-        // Prevent duplicate filename for this user
+        $user = $request->user();
+
+        // Prevent duplicate filename for THIS user (UI also checks, but enforce server-side)
         $originalFilename = $request->file('fileToUpload')->getClientOriginalName();
-        if (auth()->user()->researchPapers()
-                          ->where('filename', $originalFilename)
-                          ->exists()) {
-            return back()->with('error', 'You already have a file with this name. Please rename your file.')
-                         ->withInput();
+        $hasSameName = $user->researchPapers()
+            ->where('filename', $originalFilename)
+            ->exists();
+
+        if ($hasSameName) {
+            return back()
+                ->with('error', 'You already have a file with this name. Please rename your file.')
+                ->withInput();
         }
 
-        // ---- NEW: Parse PDF text first (no save yet)
+        // ---- 1) Parse PDF text (server-side) BEFORE any save
         $extractedText = '';
         try {
             $pdfParser = new PdfParser();
-            $pdf = $pdfParser->parseFile($request->file('fileToUpload')->path());
-            $extractedText = (string)$pdf->getText();
-        } catch (\Exception $e) {
-            \Log::error('PDF text extraction failed: ' . $e->getMessage());
+            $pdf       = $pdfParser->parseFile($request->file('fileToUpload')->path());
+            $extractedText = (string) $pdf->getText();
+        } catch (\Throwable $e) {
+            Log::error('PDF text extraction failed: ' . $e->getMessage());
+            // We still proceed, but plagiarism gate will likely return 0 if text is empty.
         }
 
-        // ---- NEW: Run plagiarism check BEFORE saving the file/record
-        $BLOCK_THRESHOLD = 45; // align with your CKEditor flow
-        $score = $pdfPlag->quickScoreFromText($extractedText);
+        // ---- 2) Plagiarism gate BEFORE saving (align with your UI threshold)
+        $BLOCK_THRESHOLD = 45; // same as in your Blade script
+        $score = 0.0;
+        try {
+            $score = $pdfPlag->quickScoreFromText($extractedText ?? '');
+        } catch (\Throwable $e) {
+            Log::warning('Plagiarism quickScore error: ' . $e->getMessage());
+        }
 
         if ($score >= $BLOCK_THRESHOLD) {
-            // Optional: fetch a couple of top matches for context
-            $detail = $pdfPlag->detailedMatchesFromText($extractedText, 0);
-            $top = $detail['aggregate'][0] ?? null;
-            $msg = 'High similarity detected ('.$score.'%).';
-            if ($top) {
-                $msg .= ' Top source: "'.e($top['source_title']).'" ('.$top['source_type'].', '.$top['max_percent'].'%).';
+            // Optional context for the user (top aggregated match)
+            $msg = "High similarity detected ({$score}%).";
+            try {
+                $detail = $pdfPlag->detailedMatchesFromText($extractedText ?? '', 0);
+                $top    = $detail['aggregate'][0] ?? null;
+                if ($top) {
+                    $srcTitle = e($top['source_title'] ?? 'Unknown');
+                    $srcType  = e($top['source_type'] ?? 'Corpus');
+                    $srcPct   = $top['max_percent'] ?? '—';
+                    $msg     .= " Top source: \"{$srcTitle}\" ({$srcType}, {$srcPct}%).";
+                }
+            } catch (\Throwable $e) {
+                Log::info('Detailed matches failed (non-fatal): ' . $e->getMessage());
             }
 
-            return back()->with('error', $msg . ' Please revise your paper and try again.')
-                         ->withInput();
+            return back()
+                ->with('error', $msg . ' Please revise your paper and try again.')
+                ->withInput();
         }
 
-        // ---- Only now: store file
-        $filePath = $request->file('fileToUpload')->store('research_papers', 'public');
+        // ---- 3) Store the file (now that it passed the gate)
+        // Keep storage unique even if user filenames collide later.
+        $path = $request->file('fileToUpload')->store('research_papers', 'public');
+        if (!$path) {
+            return back()
+                ->with('error', 'Failed to store the uploaded file. Please try again.')
+                ->withInput();
+        }
 
-        // Create record (save the parsed text for future corpus)
-        auth()->user()->researchPapers()->create([
-            'title'          => $request->title,
-            'year'           => $request->year,
-            'authors'        => $request->authors,
-            'department'     => $request->department,
-            'program'        => $request->program,
-            'abstract'       => $request->abstract,
+        // ---- 4) Compute normalized text hash (for exact-duplicate detection)
+        $textHash = null;
+        if (!empty($extractedText)) {
+            $normalized = $this->normalizeForHash($extractedText);
+            if ($normalized !== '') {
+                $textHash = hash('sha256', $normalized);
+            }
+        }
+
+        // ---- 5) Create DB record (and include extracted_text + text_hash)
+        $paper = $user->researchPapers()->create([
+            'title'          => $request->string('title'),
+            'year'           => (int) $request->input('year'),
+            'authors'        => $request->string('authors'),
+            'department'     => $request->string('department'),
+            'program'        => $request->string('program'),
+            'abstract'       => $request->string('abstract'),
             'filename'       => $originalFilename,
-            'extracted_text' => $extractedText,
-            'file_path'      => $filePath,
+            'file_path'      => $path,
+            'extracted_text' => $extractedText ?: null,
+            'text_hash'      => $textHash,
         ]);
 
-        return redirect()->route('research-papers.create')
+        // ---- 6) Bust caches so this paper is immediately included in the corpus
+        Cache::forget('plag:candidates:pdf:v1');
+        Cache::forget('plag:stats:pdf:v1');
+
+        return redirect()
+            ->route('research-papers.create')
             ->with('success', 'Research paper uploaded successfully!');
     }
 

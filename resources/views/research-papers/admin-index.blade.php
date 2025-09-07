@@ -143,15 +143,17 @@
         <i data-feather="info" class="w-5 h-5"></i>
     </button>
 
-    <!-- Delete -->
-    <form action="{{ route('research-papers.destroy', $paper->id) }}" method="POST" class="inline-block"
-          onsubmit="return confirm('Are you sure you want to delete this research paper?')">
-        @csrf
-        @method('DELETE')
-        <button type="submit" class="text-red-600 hover:text-red-900" title="Delete">
-            <i data-feather="trash-2" class="w-5 h-5"></i>
-        </button>
-    </form>
+    <!-- Delete (opens modal) -->
+    <button
+        type="button"
+        class="text-red-600 hover:text-red-900 btn-delete"
+        title="Delete"
+        data-action="{{ route('research-papers.destroy', $paper->id) }}"
+        data-title="{{ e(Str::limit($paper->title, 80)) }}"
+    >
+        <i data-feather="trash-2" class="w-5 h-5"></i>
+    </button>
+
 </td>
 
                 </tr>
@@ -174,6 +176,54 @@
     </div>
 
  
+
+
+
+
+ <!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden">
+    <!-- Blur overlay -->
+    <div class="absolute inset-0 backdrop-blur-sm bg-transparent" data-close-delete></div>
+
+    <!-- Modal card -->
+    <div class="relative mx-auto my-8 w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
+        <div class="flex items-center justify-between border-b pb-3">
+            <h3 class="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
+            <button type="button" class="text-gray-500 hover:text-gray-700" data-close-delete>&times;</button>
+        </div>
+
+        <div class="mt-4 space-y-3">
+            <p class="text-sm text-gray-600">You’re about to delete:</p>
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p id="del-title" class="text-sm font-medium text-gray-900"></p>
+            </div>
+            <div class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                This action is irreversible. The file and its metadata will be permanently removed.
+            </div>
+        </div>
+
+        <div class="mt-6 flex items-center justify-end gap-3">
+            <button type="button" class="rounded-lg border px-4 py-2 hover:bg-gray-50" data-close-delete>
+                Cancel
+            </button>
+
+            <!-- Hidden form submitted by JS -->
+            <form id="deleteForm" method="POST">
+                @csrf
+                @method('DELETE')
+                <button id="confirmDeleteBtn" type="submit"
+                        class="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50">
+                    <svg id="confirmDeleteSpinner" class="mr-2 hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+                        <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+                    </svg>
+                    Delete
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 
     <!-- Details Modal -->
 <div id="detailsModal" class="fixed inset-0 z-50 hidden">
@@ -298,6 +348,61 @@
 
     // Also close when clicking the dark overlay
     modal.querySelector('.absolute.inset-0').addEventListener('click', closeModal);
+})();
+</script>
+
+
+
+<script>
+(function () {
+    // DELETE MODAL WIRING
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteForm  = document.getElementById('deleteForm');
+    const delTitleEl  = document.getElementById('del-title');
+    const confirmBtn  = document.getElementById('confirmDeleteBtn');
+    const spinnerEl   = document.getElementById('confirmDeleteSpinner');
+
+    const openDelete = (action, title) => {
+        deleteForm.setAttribute('action', action);
+        delTitleEl.textContent = title || 'This research paper';
+        deleteModal.classList.remove('hidden');
+        document.documentElement.classList.add('overflow-hidden'); // lock scroll
+    };
+
+    const closeDelete = () => {
+        deleteModal.classList.add('hidden');
+        document.documentElement.classList.remove('overflow-hidden');
+        confirmBtn.disabled = false;
+        spinnerEl.classList.add('hidden');
+    };
+
+    // Delegate clicks for delete buttons (works across pagination)
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-delete');
+        if (btn) {
+            e.preventDefault();
+            openDelete(btn.dataset.action, btn.dataset.title);
+        }
+        if (e.target.hasAttribute('data-close-delete')) {
+            closeDelete();
+        }
+    });
+
+    // ESC closes modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !deleteModal.classList.contains('hidden')) {
+            closeDelete();
+        }
+    });
+
+    // Click overlay to close
+    deleteModal.querySelector('[data-close-delete]').addEventListener('click', closeDelete);
+
+    // Submit UX
+    deleteForm.addEventListener('submit', () => {
+        confirmBtn.disabled = true;
+        spinnerEl.classList.remove('hidden');
+    });
 })();
 </script>
 

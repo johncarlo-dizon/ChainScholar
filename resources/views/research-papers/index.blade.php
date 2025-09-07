@@ -147,7 +147,7 @@
                         </div>
 
                         {{-- Extracted text (hidden helper) --}}
-                        <div class="">
+                        <div class="hidden">
                             <label for="pdfText" class="block text-sm font-medium text-gray-700">Extracted Text</label>
                             <textarea id="pdfText" name="ocrPdf" rows="8" readonly
                                       class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 p-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
