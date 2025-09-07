@@ -85,7 +85,7 @@
   <div class="flex items-center justify-between">
     <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3>
        <button type="button" id="btnViewMatches"
-      class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+      class="px-2 py-2 shadow-sm text-gray-700 text-sm rounded-lg hover:text-gray-500  transition">
       View Matches
     </button>
   </div>
@@ -109,10 +109,14 @@
     </div>
 
     @if(!empty($adviserNote))
-        <div class="rounded-lg border border-gray-200 bg-gray-50 p-2">
-           
-            <pre class="whitespace-pre-wrap text-sm text-gray-800">{{ $adviserNote->content }}</pre>
-        </div>
+    <div class="rounded-lg border border-gray-200 bg-gray-50 p-2
+            max-h-40 overflow-y-auto overflow-x-hidden
+            w-full max-w-full min-w-0">
+  <div class="whitespace-pre-wrap break-words break-all text-sm text-gray-800">
+    {{ $adviserNote->content }}
+  </div>
+</div>
+
     @else
         <div class="rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500">
             No adviser note yet for this chapter.

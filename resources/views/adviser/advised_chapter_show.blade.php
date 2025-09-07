@@ -96,7 +96,7 @@
     </div>
 
     @if($studentNote)
-        <div class="rounded-lg border border-gray-200 bg-gray-50 p-2">
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-2 max-h-40 overflow-y-auto">
             <pre class="whitespace-pre-wrap text-sm text-gray-800">{{ $studentNote->content }}</pre>
         </div>
     @else
@@ -105,6 +105,7 @@
         </div>
     @endif
 </div>
+
 
 
 
