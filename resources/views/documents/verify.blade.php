@@ -30,55 +30,76 @@
         </button>
 
         <!-- NEW: AI Feedback Toggle (disabled/hidden until relevant) -->
-        <button type="button"
-                id="ai-toggle-btn"
-                class="w-full sm:w-auto px-4 py-2.5 shadow text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed hidden"
-                aria-controls="ai-feedback"
-                aria-expanded="false"
-                onclick="toggleAIPanel()">
-          <span id="ai-toggle-label">Show AI Feedback</span>
-        </button>
+      <button type="button"
+        id="ai-toggle-btn"
+        class="w-full sm:w-auto px-3 py-2 shadow text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed hidden"
+        aria-controls="ai-feedback"
+        aria-expanded="false"
+        onclick="toggleAIPanel()">
+  <span class="inline-flex items-center gap-2">
+    <!-- AI/bot icon -->
+    <svg xmlns="http://www.w3.org/2000/svg" 
+         class="w-4 h-4" 
+         fill="none" 
+         viewBox="0 0 24 24" 
+         stroke="currentColor" 
+         stroke-width="2">
+      <rect x="9" y="9" width="6" height="6" rx="1" />
+      <path d="M3 9h2M3 15h2M19 9h2M19 15h2M9 3v2M15 3v2M9 19v2M15 19v2" />
+    </svg>
+    <span id="ai-toggle-label">AI Feedback</span>
+  </span>
+</button>
+
+
 
         <span id="reject-hint" class="text-sm text-rose-600 hidden sm:ml-2">Title Rejected</span>
       </div>
-<!-- AI Feedback (compact 3-column layout) -->
-<div id="ai-feedback" class="mt-5 hidden">
-  <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 sm:p-5">
-    <div class="flex items-center gap-2 mb-4">
-      <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white text-xs">AI</span>
-      <h3 id="ai-heading" class="font-semibold text-rose-700 text-base sm:text-lg">Why it was rejected</h3>
-    </div>
 
-    <!-- 3-column grid to reduce empty space -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      
+
+
+<!-- AI Feedback (minimal, compact, neutral palette) -->
+<div id="ai-feedback" class="mt-4 hidden">
+  <section class="rounded-lg border border-slate-200 bg-slate-50/70 p-3 sm:p-4">
+    <!-- Header -->
+    <header class="flex items-center gap-2 mb-3">
+      <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white text-[10px] font-medium">AI</span>
+      <h3 id="ai-heading" class="font-semibold text-slate-800 text-sm sm:text-base tracking-tight">
+        Why it was rejected
+      </h3>
+    </header>
+
+    <!-- Content -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Reasons -->
-      <div>
-        <h4 class="font-semibold text-rose-700 text-base mb-2">Reasons</h4>
-        <ul id="ai-reasons" class="list-disc list-inside text-rose-700 text-sm space-y-1">
+      <div class="rounded-md border border-slate-200/80 bg-white p-3">
+        <h4 class="font-medium text-slate-800 text-sm mb-2">Reason for Rejection</h4>
+        <ul id="ai-reasons" class="text-slate-700 text-[13px] leading-relaxed space-y-1 list-disc list-inside">
           <!-- filled by JS -->
         </ul>
       </div>
 
-      <!-- Improvements -->
-      <div>
-        <h4 class="font-semibold text-emerald-700 text-base mb-2">How to improve</h4>
-        <ul id="ai-suggestions" class="list-disc list-inside text-emerald-700 text-sm space-y-1">
+      <!-- Tips -->
+      <div class="rounded-md border border-slate-200/80 bg-white p-3">
+        <h4 class="font-medium text-slate-800 text-sm mb-2">Tips to Improve</h4>
+        <ul id="ai-suggestions" class="text-slate-700 text-[13px] leading-relaxed space-y-1 list-disc list-inside">
           <!-- filled by JS -->
         </ul>
       </div>
-
-      <!-- Sample Titles -->
-      <div>
-        <h4 class="font-semibold text-slate-800 text-base mb-2">Sample improved titles</h4>
-        <ul id="ai-samples" class="list-disc list-inside text-slate-700 text-sm space-y-1">
-          <!-- filled by JS -->
-        </ul>
-      </div>
-
     </div>
-  </div>
+
+    <!-- Reminder -->
+    <div class="mt-3 rounded-md border border-slate-200 bg-white p-3">
+      <p id="ai-reminder" class="text-[13px] text-slate-700">
+        ✅ <span class="font-medium">Reminder:</span>
+        Our system is designed to ensure that every research is unique and original.
+        Refine your title to highlight <em>new perspectives, specific contexts, or unique approaches</em>.
+      </p>
+    </div>
+  </section>
 </div>
+
+
 
 
       <!-- Similarity Result Bars -->
@@ -262,9 +283,12 @@ function enableAIToggle(showButton){
 function setAIToggleLabel(open){
   const lbl = document.getElementById('ai-toggle-label');
   const btn = document.getElementById('ai-toggle-btn');
-  lbl.textContent = open ? 'Hide AI Feedback' : 'Show AI Feedback';
+  // Always keep short label
+  lbl.textContent = 'AI Feedback';
+  // Still update aria state for accessibility
   btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
+
 
 function openAIPanel(){
   const wrap = document.getElementById('ai-feedback');
@@ -286,6 +310,17 @@ function toggleAIPanel(){
   if (isHidden) openAIPanel(); else closeAIPanel();
 }
 
+ 
+
+async function fetchAIFeedback(payload) {
+  const res = await fetch("{{ route('titles.ai-feedback') }}", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
 function fillList(ul, items, emptyMsg='—') {
   ul.innerHTML = '';
   if (!items || !items.length) {
@@ -302,23 +337,19 @@ function fillList(ul, items, emptyMsg='—') {
   });
 }
 
-async function fetchAIFeedback(payload) {
-  const res = await fetch("{{ route('titles.ai-feedback') }}", {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-    body: JSON.stringify(payload)
-  });
-  return res.json();
+function renderAIFeedback(reasons=[], tips=[], reminderText=null){
+  const ulR  = document.getElementById('ai-reasons');
+  const ulT  = document.getElementById('ai-suggestions');
+  const rem  = document.getElementById('ai-reminder');
+
+  fillList(ulR, reasons, 'No reasons generated.');
+  fillList(ulT, tips, 'No tips generated.');
+
+  if (reminderText && typeof reminderText === 'string') {
+    rem.innerHTML = '✅ <span class="font-medium">Reminder:</span> ' + escapeHtml(reminderText);
+  }
 }
 
-function renderAIFeedback(reasons=[], suggestions=[], samples=[]){
-  const ulR  = document.getElementById('ai-reasons');
-  const ulS  = document.getElementById('ai-suggestions');
-  const ulSm = document.getElementById('ai-samples');
-  fillList(ulR, reasons, 'No reasons generated.');
-  fillList(ulS, suggestions, 'No suggestions generated.');
-  fillList(ulSm, samples, 'No sample titles generated.');
-}
 
 /* ---------- Internal state ---------- */
 window.passedInternal = false;
@@ -525,15 +556,15 @@ async function startVerification(event){
       hideLoading();
 
       // Render + prepare toggle
-      if (aiRes?.ok) {
-        renderAIFeedback(aiRes.reasons, aiRes.suggestions, aiRes.improved_samples);
-      } else {
-        renderAIFeedback(
-          ['AI feedback unavailable.'],
-          ['Refine scope, add population, specify method.'],
-          []
-        );
-      }
+     if (aiRes?.ok) {
+      renderAIFeedback(aiRes.reasons, aiRes.tips, aiRes.reminder);
+    } else {
+      renderAIFeedback(
+        ['AI feedback unavailable.'],
+        ['Narrow the scope and specify method.', 'Define population/context clearly.', 'State what’s novel in your approach.'],
+        null
+      );
+    }
 
       // Heading should explicitly say "was rejected"
       setAIHeading(true);
@@ -547,11 +578,12 @@ async function startVerification(event){
     } catch (err) {
       console.error(err);
       hideLoading();
-      renderAIFeedback(
+     renderAIFeedback(
         ['Error generating AI feedback.'],
-        ['Shorten the title and add a unique angle.'],
-        []
+        ['Shorten the title and add a unique angle.', 'Specify domain, population, and method.', 'Avoid boilerplate or generic phrases.'],
+        null
       );
+
       setAIHeading(true);
       enableAIToggle(true);
       closeAIPanel();

@@ -540,90 +540,118 @@ class TitleVerificationController extends Controller
 
 
 
-    public function aiFeedback(Request $request)
-    {
-        $data = $request->validate([
-            'title'              => 'required|string|min:5',
-            'internal_percent'   => 'nullable|numeric',
-            'web_percent'        => 'nullable|numeric',
-            'internal_examples'  => 'nullable|array',
-            'web_examples'       => 'nullable|array',
-            'rules'              => 'nullable|array', // thresholds you use (optional)
-        ]);
+  public function aiFeedback(Request $request)
+{
+    $data = $request->validate([
+        'title'              => 'required|string|min:5',
+        'internal_percent'   => 'nullable|numeric',
+        'web_percent'        => 'nullable|numeric',
+        'internal_examples'  => 'nullable|array',
+        'web_examples'       => 'nullable|array',
+        'rules'              => 'nullable|array',
+    ]);
 
-        $model   = config('services.openai.model', 'gpt-4o-mini');
-        $timeout = (int) config('services.openai.timeout', 18);
-        $apiKey  = config('services.openai.key');
+    $model   = config('services.openai.model', 'gpt-4o-mini');
+    $timeout = (int) config('services.openai.timeout', 18);
+    $apiKey  = config('services.openai.key');
 
-        if (!$apiKey) {
-            return response()->json([
-                'ok' => false,
-                'error' => 'Missing OpenAI API key. Set OPENAI_API_KEY in .env'
-            ], 500);
-        }
+    if (!$apiKey) {
+        return response()->json([
+            'ok' => false,
+            'error' => 'Missing OpenAI API key. Set OPENAI_API_KEY in .env'
+        ], 500);
+    }
 
-        // Compact context for the model (keeps tokens low)
-        $context = [
-            'title'            => $data['title'],
-            'internal_percent' => (float) ($data['internal_percent'] ?? 0),
-            'web_percent'      => (float) ($data['web_percent'] ?? 0),
-            'rules'            => $data['rules'] ?? ['reject_if_percent>=30'],
-            // send only top 3 items for each list to reduce tokens
-            'internal_examples'=> array_slice($data['internal_examples'] ?? [], 0, 3),
-            'web_examples'     => array_slice($data['web_examples'] ?? [], 0, 3),
-        ];
+    // Compact, structured context we send to the model
+    $context = [
+        'title'            => $data['title'],
+        'internal_percent' => (float) ($data['internal_percent'] ?? 0),
+        'web_percent'      => (float) ($data['web_percent'] ?? 0),
+        'rules'            => $data['rules'] ?? ['reject_if_percent>=30'],
+        'internal_examples'=> array_slice($data['internal_examples'] ?? [], 0, 3),
+        'web_examples'     => array_slice($data['web_examples'] ?? [], 0, 3),
+    ];
 
-        $system = <<<TXT
-    You are an academic research title reviewer. When a title is rejected by similarity rules,
-    explain concisely WHY (3 bullets) and HOW TO IMPROVE (3 bullets). Be specific, concrete, and
-    avoid generic advice. Keep each bullet under 20 words. Output strict JSON only.
-    Keys: reasons[], suggestions[], improved_samples[] (3 short improved title ideas).
-    TXT;
+    // === NEW system prompt: your exact instructions, with strict JSON output ===
+    $system = <<<TXT
+You are a research title evaluator.
+If the submitted title is rejected, you must:
+1) Clearly explain why the title was rejected (e.g., too similar to existing research, vague, overly broad, or lacks originality).
+2) Provide at least 3-4 constructive tips on how the researcher can improve the title to make it more unique and original.
+3) Encourage creativity and uniqueness while reminding the researcher that the system prevents duplicate or overly similar research to ensure originality.
 
-        $user = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+Your response must be STRICT JSON (no code fences) with the following keys ONLY:
+{
+  "reasons": string[],      // 1–4 concise bullets explaining rejection
+  "tips": string[],         // 3–5 concrete improvement tips
+  "reminder": string        // one short sentence encouraging originality
+}
 
-        try {
-            // Using Chat Completions (stable + simple)
-            $resp = Http::timeout($timeout)
-                ->withToken($apiKey)
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => $model,
-                    'temperature' => 0.3,
-                    'response_format' => ['type' => 'json_object'],
-                    'messages' => [
-                        ['role' => 'system', 'content' => $system],
-                        ['role' => 'user', 'content' => $user],
-                    ],
-                ]);
+Hard rules:
+- DO NOT include any sample or suggested titles.
+- Keep each bullet under 22 words.
+- Be specific and non-generic.
+TXT;
 
-            if (!$resp->ok()) {
-                return response()->json([
-                    'ok' => false,
-                    'error' => 'OpenAI request failed',
-                    'details' => $resp->json(),
-                ], 502);
-            }
+    // User message (context payload)
+    $user = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-            $content = data_get($resp->json(), 'choices.0.message.content', '{}');
-            $json    = json_decode($content, true);
-
-            // Guard rails if the model returns something unexpected
-            $reasons      = array_values(array_filter($json['reasons'] ?? []));
-            $suggestions  = array_values(array_filter($json['suggestions'] ?? []));
-            $samples      = array_values(array_filter($json['improved_samples'] ?? []));
-
-            return response()->json([
-                'ok' => true,
-                'reasons' => array_slice($reasons, 0, 3),
-                'suggestions' => array_slice($suggestions, 0, 3),
-                'improved_samples' => array_slice($samples, 0, 3),
+    try {
+        $resp = Http::timeout($timeout)
+            ->withToken($apiKey)
+            ->post('https://api.openai.com/v1/chat/completions', [
+                'model' => $model,
+                'temperature' => 0.3,
+                'response_format' => ['type' => 'json_object'],
+                'messages' => [
+                    ['role' => 'system', 'content' => $system],
+                    ['role' => 'user', 'content' => $user],
+                ],
             ]);
 
-        } catch (\Throwable $e) {
+        if (!$resp->ok()) {
             return response()->json([
                 'ok' => false,
-                'error' => 'AI feedback error: '.$e->getMessage(),
-            ], 500);
+                'error' => 'OpenAI request failed',
+                'details' => $resp->json(),
+            ], 502);
         }
+
+        $content = data_get($resp->json(), 'choices.0.message.content', '{}');
+        $json    = json_decode($content, true);
+
+        // Guard rails
+        $reasons = array_values(array_filter($json['reasons'] ?? []));
+        $tips    = array_values(array_filter($json['tips'] ?? []));
+        $rem     = trim((string) ($json['reminder'] ?? ''));
+
+        // Ensure at least some fallback tips if the model returns empty
+        if (count($tips) < 3) {
+            $tips = array_unique(array_filter(array_merge($tips, [
+                'Specify a focused population, setting, and timeframe.',
+                'Name the primary method or technique you will use.',
+                'Highlight the novel angle or gap you address.',
+                'Avoid boilerplate words; use precise domain terms.',
+            ])));
+            $tips = array_slice($tips, 0, 5);
+        }
+
+        if ($rem === '') {
+            $rem = 'Our system prevents duplicate or overly similar research. Refine your title to emphasize new perspectives or unique approaches.';
+        }
+
+        return response()->json([
+            'ok'       => true,
+            'reasons'  => array_slice($reasons, 0, 4),
+            'tips'     => $tips,
+            'reminder' => $rem,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'ok' => false,
+            'error' => 'AI feedback error: '.$e->getMessage(),
+        ], 500);
     }
+}
+
 }
