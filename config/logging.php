@@ -127,6 +127,15 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'copyleaks' => [
+            'driver'   => 'daily',                         // rotates daily
+            'path'     => storage_path('logs/copyleaks.log'),
+            'level'    => 'debug',
+            'days'     => 14,                              // keep 14 days
+            'permission' => 0644,
+        ],
+
+
     ],
 
 ];

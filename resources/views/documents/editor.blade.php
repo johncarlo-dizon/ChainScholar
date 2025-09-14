@@ -88,6 +88,11 @@
       class="px-2 py-2 shadow-sm text-gray-700 text-sm rounded-lg hover:text-gray-500  transition">
       View Matches
     </button>
+    <button type="button" id="btnCopyleaks"
+  class="px-2 py-2 shadow-sm text-gray-700 text-sm rounded-lg hover:text-gray-500 transition">
+  External (Copyleaks)
+</button>
+
   </div>
 
   <div class="flex gap-3">
@@ -434,32 +439,28 @@
       }
 
       const cards = matches.map(m => `
-        <div class="shadow overflow-hidden mb-4">
-          <!-- header -->
-          <div class="px-4 py-2 bg-gray-50 flex items-center justify-between">
-            <div class="text-sm text-gray-700">
-              <span class="font-semibold">Similarity:</span> ${m.percent}%
-            </div>
-            <div class="text-xs text-gray-500">${m.source_chapter ?? ''}</div>
-          </div>
+  <div class="shadow overflow-hidden mb-4">
+    <!-- header -->
+    <div class="px-4 py-2 bg-gray-50 flex items-center justify-between">
+      <div class="text-sm text-gray-700">
+        <span class="font-semibold">Similarity:</span> ${m.percent}%
+      </div>
+      ${m.source_url ? `<a class="text-xs text-blue-600 hover:underline" href="${m.source_url}" target="_blank" rel="noopener">Open source</a>` : ''}
+    </div>
 
-          <!-- row 1: YOUR content -->
-          <div class="p-4">
-            <div class="text-xs font-semibold text-gray-500 mb-1">Your content</div>
-            <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${escapeHtml(m.your_excerpt)}</pre>
-          </div>
+    <!-- row 1: YOUR content -->
+    <div class="p-4">
+      <div class="text-xs font-semibold text-gray-500 mb-1">Your content</div>
+      <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${escapeHtml(m.your_excerpt)}</pre>
+    </div>
 
-          <hr class="border-gray-100">
+    <!-- tiny source line (no excerpt) -->
+    <div class="px-4 pb-4 text-xs text-gray-500">
+      Source: ${escapeHtml(m.source_title || 'External source')}
+    </div>
+  </div>
+`).join('');
 
-          <!-- row 2: SOURCE -->
-          <div class="p-4">
-            <div class="text-xs font-semibold text-gray-500 mb-1">
-              Source: <span class="text-gray-800">${escapeHtml(m.source_title)}</span>
-            </div>
-            <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${escapeHtml(m.source_excerpt)}</pre>
-          </div>
-        </div>
-      `).join('');
 
       bodyBox.innerHTML = `
         <div class="mb-3 text-sm text-gray-600">
@@ -865,6 +866,173 @@ document.addEventListener('DOMContentLoaded', ()=>{
   },150);
 });
 </script>
+
+
+<script>
+// COPYLEAKS SCRIPT (replaces previous block)
+(() => {
+  const btnExternal = document.getElementById('btnCopyleaks');
+  const offcanvas   = document.getElementById('plagOffcanvas');
+  const bodyBox     = document.getElementById('plagBody');
+
+  function openOffcanvas(){ offcanvas.classList.remove('hidden'); }
+  const esc = s => (s ?? '').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+
+  btnExternal?.addEventListener('click', startExternalScan);
+
+  async function startExternalScan(){
+    const el = document.querySelector('.ck-content');
+    if (!el) { alert('Editor not ready.'); return; }
+
+    openOffcanvas();
+    bodyBox.innerHTML = `
+      <div class="space-y-3 text-gray-700">
+        <div class="flex items-center gap-2">
+          <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"/></svg>
+          <span>Submitting to Copyleaks…</span>
+        </div>
+        <p class="text-sm text-gray-500">We’ll show results as soon as the scan completes.</p>
+      </div>
+    `;
+
+    try{
+      const resp = await fetch(`{{ route('documents.copyleaks.start') }}`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+        body: JSON.stringify({ 
+          document_id: {{ $document->id }},
+          content_html: el.innerHTML
+        })
+      });
+      const start = await resp.json();
+      if (!resp.ok || !start?.ok || !start?.scan_id) throw new Error(start?.error || 'Failed to start');
+
+      await pollStatus(start.scan_id);
+    }catch(e){
+      bodyBox.innerHTML = `<div class="p-4 border rounded bg-red-50 text-red-700">Failed to start external scan.<br>${esc(e && e.message)}</div>`;
+    }
+  }
+
+  async function pollStatus(scanId){
+    let tries = 0;
+    const maxTries = 60; // ~6 minutes at 6s
+
+    while (tries++ < maxTries){
+      await new Promise(r=>setTimeout(r, 6000));
+      const url  = new URL(`{{ route('documents.copyleaks.status', $document) }}`);
+      url.searchParams.set('scan_id', scanId);
+      const res  = await fetch(url);
+      const data = await res.json();
+
+      if (data.status === 'error'){
+        bodyBox.innerHTML = `<div class="p-4 border rounded bg-red-50 text-red-700">Copyleaks error: ${esc(data.error||'Please retry.')}</div>`;
+        return;
+      }
+
+      if (data.status === 'completed' || data.status === 'exported'){
+        renderResults(data);
+        return;
+      }
+
+      bodyBox.innerHTML = `
+        <div class="flex items-center gap-2 text-gray-600">
+          <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"/></svg>
+          <span>External scan running…</span>
+        </div>
+      `;
+    }
+
+    bodyBox.innerHTML = `<div class="p-4 rounded border bg-yellow-50 text-yellow-800">Timeout waiting for Copyleaks.</div>`;
+  }
+
+function renderResults(data){
+  // NEW: read the separate fields the API now returns
+  const sourceMax = Number(data.source_max ?? data.score ?? 0);  // per-source max (card header)
+  const docAgg    = Number(data.doc_aggregated ?? 0);            // doc-level agg
+  const matches   = Array.isArray(data.matches) ? data.matches : [];
+
+  const esc = s => (s ?? '').toString()
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;');
+
+  const cards = matches.map(m => {
+  const your = (m.your_excerpt || '').trim();
+
+  return `
+    <div class="shadow overflow-hidden mb-4">
+      <div class="px-4 py-2 bg-gray-50 flex items-center justify-between">
+        <div class="text-sm text-gray-700">
+          <span class="font-semibold">Similarity:</span> ${m.percent ?? 0}%
+        </div>
+        ${m.source_url ? `<a class="text-xs text-blue-600 hover:underline" href="${m.source_url}" target="_blank" rel="noopener">Open source</a>` : ''}
+      </div>
+
+      ${your ? `
+        <div class="p-4">
+          <div class="text-xs font-semibold text-gray-500 mb-1">Your content</div>
+          <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(your)}</pre>
+        </div>` : ''}
+
+      <!-- No source excerpt rendered -->
+      <div class="px-4 pb-4 text-xs text-gray-500">
+        Source: ${esc(m.source_title || 'External source')}
+      </div>
+    </div>
+  `;
+}).join('');
+
+
+  bodyBox.innerHTML = `
+    <div class="mb-3 text-sm text-gray-600">
+      External Max Similarity: <strong>${sourceMax}%</strong>
+      <span class="text-gray-400">• Doc similarity: ${docAgg}%</span>
+      ${matches.length ? `• Showing ${matches.length} match(es)` : ''}
+    </div>
+    ${cards || `<div class="p-4 rounded shadow bg-gray-50 text-gray-700">No web matches yet. (Export may still be delivering details.)</div>`}
+  `;
+
+  // Keep your blocking logic based on the header metric
+  window.__externalScore = sourceMax;
+  maybeBlockButtons();
+}
+
+
+  function maybeBlockButtons(){
+    const external = Number(window.__externalScore || 0);
+    const internalText = document.getElementById('plagiarism-result')?.innerText || '';
+    const internalMatch = internalText.match(/Plagiarism Score:\s*(\d+)%/i);
+    const internal = internalMatch ? Number(internalMatch[1]) : 0;
+
+    const maxScore = Math.max(external, internal);
+    const BLOCK_THRESHOLD = 45;
+
+    const saveBtn   = document.getElementById('saveBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultBox = document.getElementById('plagiarism-result');
+
+    const disabled = maxScore >= BLOCK_THRESHOLD;
+    [saveBtn, submitBtn].forEach(btn=>{
+      if(!btn) return;
+      btn.disabled = disabled;
+      btn.classList.toggle('opacity-50', disabled);
+      btn.classList.toggle('cursor-not-allowed', disabled);
+      btn.classList.toggle('hover:bg-blue-700', !disabled);
+    });
+
+    if (resultBox) {
+      resultBox.classList.remove('hidden');
+      resultBox.innerHTML = `Overall (internal+external) Score: ${maxScore}%` +
+        (disabled ? `<br><span class="text-red-600">Submission blocked due to high similarity.</span>` :
+                    `<br><span class="text-green-600">OK to submit.</span>`);
+    }
+  }
+})();
+</script>
+
+
+
+
 
 
     <style>

@@ -14,7 +14,6 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TitleController;
 use App\Http\Controllers\TitleVerificationController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
-use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +23,42 @@ use App\Models\Document;
 use App\Http\Controllers\PdfPlagiarismController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Middleware\EnsureIsAdmin;
+use App\Http\Controllers\ExternalPlagiarismController;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+// COPYLEAKS START
+Route::middleware(['auth'])->group(function () {
+    Route::post('/documents/copyleaks/start', [ExternalPlagiarismController::class, 'start'])
+        ->name('documents.copyleaks.start');
 
+    // Allow UI to poll a specific scan (optionally ?scan_id=...)
+    Route::get('/documents/{document}/copyleaks/status', [ExternalPlagiarismController::class, 'status'])
+        ->name('documents.copyleaks.status');
+});
+
+// Webhooks must be publicly reachable (no auth, no CSRF)
+// Copyleaks will POST to /result/{STATUS}, so accept that optional param
+Route::post('/webhooks/copyleaks/result/{status?}', [ExternalPlagiarismController::class, 'webhook'])
+    ->where('status', '.*') // allow completed|error|creditsChecked|indexed (or empty for newResult)
+    ->name('webhooks.copyleaks.result')
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+
+// Export artifacts will be pushed here per-result:
+Route::post('/webhooks/copyleaks/export/result/{scanId}/{resultId}', [ExternalPlagiarismController::class, 'exportResult'])
+    ->name('webhooks.copyleaks.export.result')
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+
+// Export completion summary:
+Route::post('/webhooks/copyleaks/export/completed/{scanId}/{exportId}', [ExternalPlagiarismController::class, 'exportCompleted'])
+    ->name('webhooks.copyleaks.export.completed')
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+    // routes/web.php (or api.php if you use it for webhooks)
+Route::post('/webhooks/copyleaks/export/crawled/{scanId}', [ExternalPlagiarismController::class, 'exportCrawled'])
+    ->name('webhooks.copyleaks.export.crawled')
+    ->withoutMiddleware([VerifyCsrfToken::class]); 
+// COPYLEAKS END
+
+ 
 
 //AI SUGGEST
 Route::post('/titles/ai-feedback', [TitleVerificationController::class, 'aiFeedback'])

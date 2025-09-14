@@ -46,6 +46,21 @@ return [
         'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
         'timeout' => (int) env('OPENAI_TIMEOUT', 18),
     ],
+
+    'copyleaks' => [
+        'email'          => env('COPYLEAKS_EMAIL'),
+        'key'            => env('COPYLEAKS_API_KEY'),
+        'webhook'        => env('COPYLEAKS_WEBHOOK_URL'),
+        'signing_secret' => env('COPYLEAKS_WEBHOOK_SECRET'),
+        'sandbox'        => (bool) env('COPYLEAKS_SANDBOX', true), // ← toggle here
+        'export_base'  => env('COPYLEAKS_EXPORT_BASE', null),
+         'min_percent'    => env('COPYLEAKS_MIN_PERCENT', 5), 
+    ],
+
+
+
+
+
  
 
 

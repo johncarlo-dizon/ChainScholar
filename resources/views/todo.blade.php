@@ -51,3 +51,18 @@ modal design
  Cancel button + Delete button.
  Delete button shows a spinner and disables itself on submit.
  Script should be delegated (works across pagination), handle open/close, lock scroll, ESC key, and overlay click.”
+
+
+
+
+
+
+
+
+The only things left are optional polish (not required for correctness):
+
+Make min_percent consistent between pre-export and post-export (5 vs 20).
+
+Drop unused code that still builds/cleans source_excerpt behind the scenes.
+
+Standardize your log channels if you want cleaner debugging.
