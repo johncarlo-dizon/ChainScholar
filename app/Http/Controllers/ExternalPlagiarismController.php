@@ -219,195 +219,190 @@ class ExternalPlagiarismController extends Controller
 
     /* ------------------------ export per result ------------------------ */
 
- public function exportResult(Request $req, string $scanId, string $resultId)
-{
-    $expected = (string) config('services.copyleaks.signing_secret');
-    if (!$expected || $req->header('Authentication') !== $expected) {
-        return response()->json(['error' => 'unauthorized'], 401);
-    }
-
-    $payload = $req->json()->all();
-    Log::channel('copyleaks')->info('Export payload', [
-        'scanId'=>$scanId,'resultId'=>$resultId,
-        'has'=>[
-            'html'=>isset($payload['html']['value']),
-            'text'=>isset($payload['text']['value']),
-            'cmp'=>isset($payload['html']['comparison']) || isset($payload['text']['comparison']),
-        ]
-    ]);
-
-    $scan = ExternalPlagiarismScan::where('scan_id', $scanId)->first();
-    if (!$scan) return response()->json(['ok'=>true]);
-
-    // If crawled (your original) isn't cached yet, queue and return fast
-    $crawled = Cache::get("copyleaks:crawled:{$scanId}");
-    if (!$crawled || (!($crawled['html'] ?? '') && !($crawled['text'] ?? ''))) {
-        $this->pendResult($scanId, $resultId, $payload);
-        return response()->json(['ok'=>true,'queued'=>true]);
-    }
-
-    // Otherwise process immediately
-    $this->processExportResult($scan, $payload, $resultId);
-    return response()->json(['ok'=>true]);
-}
-
-
-
-private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, array $payload, string $resultId): void
-{
-    // ----- idempotency key (based on core fields we actually care about) -----
-    $rawForHash = json_encode([
-        'text'  => $payload['text']['value']  ?? null,
-        'html'  => $payload['html']['value']  ?? null,
-        'score' => $payload['score']['aggregatedScore'] ?? null,
-        'stats' => $payload['statistics'] ?? null,
-    ], JSON_UNESCAPED_UNICODE);
-
-    $exportKey = 'rid:' . $resultId . '|sha1:' . sha1($rawForHash ?? '');
-    if (ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->where('export_key', $exportKey)->exists()) {
-        return; // already processed this exact payload
-    }
-
-    // ----- compute % score for this specific source -----
-    $pct = 0;
-    if (isset($payload['score']['aggregatedScore']) && is_numeric($payload['score']['aggregatedScore'])) {
-        $pct = (int) round((float) $payload['score']['aggregatedScore']);
-    } elseif (isset($payload['matchedWords'], $payload['totalWords']) && (int) $payload['totalWords'] > 0) {
-        $pct = (int) round(((float) $payload['matchedWords'] * 100.0) / (float) $payload['totalWords']);
-    } else {
-        // fallback: derive from doc total words if present in original webhook
-        $raw = $scan->raw_payload;
-        if (is_string($raw)) {
-            $raw = json_decode($raw, true) ?: [];
+    public function exportResult(Request $req, string $scanId, string $resultId)
+    {
+        $expected = (string) config('services.copyleaks.signing_secret');
+        if (!$expected || $req->header('Authentication') !== $expected) {
+            return response()->json(['error' => 'unauthorized'], 401);
         }
-        $docTotal = (int) ($raw['scannedDocument']['totalWords'] ?? 0);
-        $mw = (int) (
-            ($payload['statistics']['identical'] ?? 0) +
-            ($payload['statistics']['minorChanges'] ?? 0) +
-            ($payload['statistics']['relatedMeaning'] ?? 0)
-        );
-        if ($docTotal > 0 && $mw > 0) {
-            $pct = (int) round(($mw * 100.0) / max(1, $docTotal));
+
+        $payload = $req->json()->all();
+        Log::channel('copyleaks')->info('Export payload', [
+            'scanId'=>$scanId,'resultId'=>$resultId,
+            'has'=>[
+                'html'=>isset($payload['html']['value']),
+                'text'=>isset($payload['text']['value']),
+                'cmp'=>isset($payload['html']['comparison']) || isset($payload['text']['comparison']),
+            ]
+        ]);
+
+        $scan = ExternalPlagiarismScan::where('scan_id', $scanId)->first();
+        if (!$scan) return response()->json(['ok'=>true]);
+
+        // If crawled (your original) isn't cached yet, queue and return fast
+        $crawled = Cache::get("copyleaks:crawled:{$scanId}");
+        if (!$crawled || (!($crawled['html'] ?? '') && !($crawled['text'] ?? ''))) {
+            $this->pendResult($scanId, $resultId, $payload);
+            return response()->json(['ok'=>true,'queued'=>true]);
         }
+
+        // Otherwise process immediately
+        $this->processExportResult($scan, $payload, $resultId);
+        return response()->json(['ok'=>true]);
     }
 
-    if ($pct <= 0) {
-        return; // ignore absolute zeros
-    }
+    private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, array $payload, string $resultId): void
+    {
+        // ----- idempotency key (based on core fields we actually care about) -----
+        $rawForHash = json_encode([
+            'text'  => $payload['text']['value']  ?? null,
+            'html'  => $payload['html']['value']  ?? null,
+            'score' => $payload['score']['aggregatedScore'] ?? null,
+            'stats' => $payload['statistics'] ?? null,
+        ], JSON_UNESCAPED_UNICODE);
 
-    // ----- load your crawled version (guaranteed present by caller) -----
-    $crawled     = Cache::get("copyleaks:crawled:{$scan->scan_id}", ['html' => '', 'text' => '']);
-    $htmlFullYou = (string) ($crawled['html'] ?? '');
-    $textFullYou = (string) ($crawled['text'] ?? '');
-
-    // ----- figure out the best "your excerpt" (no source excerpt stored) -----
-    $cats = ['identical', 'minorChanges', 'relatedMeaning'];
-
-    $yourRangeHtml = $this->bestRangeFromAny(array_map(
-        fn($c) => $payload['html']['comparison'][$c]['suspected']['chars']
-            ?? $payload['html']['comparison'][$c]['target']['chars']
-            ?? $payload['html']['comparison'][$c]['document']['chars']
-            ?? null,
-        $cats
-    ));
-    $yourRangeText = $this->bestRangeFromAny(array_map(
-        fn($c) => $payload['text']['comparison'][$c]['suspected']['chars']
-            ?? $payload['text']['comparison'][$c]['target']['chars']
-            ?? $payload['text']['comparison'][$c]['document']['chars']
-            ?? null,
-        $cats
-    ));
-
-    $yourExcerpt = '';
-    if ($yourRangeHtml && $htmlFullYou !== '') {
-        $yourExcerpt = $this->cleanHtmlSnippet($this->sliceByRange($htmlFullYou, $yourRangeHtml, 100));
-    } elseif ($yourRangeText && $textFullYou !== '') {
-        $yourExcerpt = $this->textSanitize($this->sliceByRange($textFullYou, $yourRangeText, 100));
-    } else {
-        // last resort: fragment-style fallbacks if present in payload
-        [$fragYour] = $this->findBestFragmentPair($payload);
-        if ($fragYour) {
-            $yourExcerpt = $fragYour;
+        $exportKey = 'rid:' . $resultId . '|sha1:' . sha1($rawForHash ?? '');
+        if (ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->where('export_key', $exportKey)->exists()) {
+            return; // already processed this exact payload
         }
-    }
-    $yourExcerpt = \Illuminate\Support\Str::limit($this->textSanitize($yourExcerpt ?? ''), 400);
 
-    // Require a meaningful snippet
-    if ($yourExcerpt === '') {
-        return;
-    }
+        // ----- compute % score for this specific source -----
+        $pct = 0;
+        if (isset($payload['score']['aggregatedScore']) && is_numeric($payload['score']['aggregatedScore'])) {
+            $pct = (int) round((float) $payload['score']['aggregatedScore']);
+        } elseif (isset($payload['matchedWords'], $payload['totalWords']) && (int) $payload['totalWords'] > 0) {
+            $pct = (int) round(((float) $payload['matchedWords'] * 100.0) / (float) $payload['totalWords']);
+        } else {
+            // fallback: derive from doc total words if present in original webhook
+            $raw = $scan->raw_payload;
+            if (is_string($raw)) {
+                $raw = json_decode($raw, true) ?: [];
+            }
+            $docTotal = (int) ($raw['scannedDocument']['totalWords'] ?? 0);
+            $mw = (int) (
+                ($payload['statistics']['identical'] ?? 0) +
+                ($payload['statistics']['minorChanges'] ?? 0) +
+                ($payload['statistics']['relatedMeaning'] ?? 0)
+            );
+            if ($docTotal > 0 && $mw > 0) {
+                $pct = (int) round(($mw * 100.0) / max(1, $docTotal));
+            }
+        }
 
-    // ----- noise gate: drop tiny/boilerplate matches unless the quote is long enough -----
-    $minPct     = (int) (config('services.copyleaks.min_percent', 20)); // default 20%
-    $minWordsOK = 18; // allow low % if contiguous quote is long
-    $longEnough = str_word_count($yourExcerpt) >= $minWordsOK;
+        if ($pct <= 0) {
+            return; // ignore absolute zeros
+        }
 
-    if ($pct < $minPct && !$longEnough) {
-        if ($this->isBoilerplate($yourExcerpt)) {
+        // ----- load your crawled version (guaranteed present by caller) -----
+        $crawled     = Cache::get("copyleaks:crawled:{$scan->scan_id}", ['html' => '', 'text' => '']);
+        $htmlFullYou = (string) ($crawled['html'] ?? '');
+        $textFullYou = (string) ($crawled['text'] ?? '');
+
+        // ----- figure out the best "your excerpt" (no source excerpt stored) -----
+        $cats = ['identical', 'minorChanges', 'relatedMeaning'];
+
+        $yourRangeHtml = $this->bestRangeFromAny(array_map(
+            fn($c) => $payload['html']['comparison'][$c]['suspected']['chars']
+                ?? $payload['html']['comparison'][$c]['target']['chars']
+                ?? $payload['html']['comparison'][$c]['document']['chars']
+                ?? null,
+            $cats
+        ));
+        $yourRangeText = $this->bestRangeFromAny(array_map(
+            fn($c) => $payload['text']['comparison'][$c]['suspected']['chars']
+                ?? $payload['text']['comparison'][$c]['target']['chars']
+                ?? $payload['text']['comparison'][$c]['document']['chars']
+                ?? null,
+            $cats
+        ));
+
+        $yourExcerpt = '';
+        if ($yourRangeHtml && $htmlFullYou !== '') {
+            $yourExcerpt = $this->cleanHtmlSnippet($this->sliceByRange($htmlFullYou, $yourRangeHtml, 100));
+        } elseif ($yourRangeText && $textFullYou !== '') {
+            $yourExcerpt = $this->textSanitize($this->sliceByRange($textFullYou, $yourRangeText, 100));
+        } else {
+            // last resort: fragment-style fallbacks if present in payload
+            [$fragYour] = $this->findBestFragmentPair($payload);
+            if ($fragYour) {
+                $yourExcerpt = $fragYour;
+            }
+        }
+        $yourExcerpt = \Illuminate\Support\Str::limit($this->textSanitize($yourExcerpt ?? ''), 400);
+
+        // Require a meaningful snippet
+        if ($yourExcerpt === '') {
             return;
         }
-    }
 
-    // ----- build source URL/title (for display only, no source excerpt) -----
-    $htmlFullSrc  = (string) ($payload['html']['value'] ?? '');
-    $sourceUrlRaw = $payload['source']['url'] ?? ($payload['url'] ?? null);
-    if (!$sourceUrlRaw) {
-        $sourceUrlRaw = $this->inferUrlFromHtml($htmlFullSrc);
-    }
-    $sourceUrl = $this->normalizeUrl($sourceUrlRaw);
+        // ----- noise gate: drop tiny/boilerplate matches unless the quote is long enough -----
+        $minPct     = (int) (config('services.copyleaks.min_percent', 20)); // default 20%
+        $minWordsOK = 18; // allow low % if contiguous quote is long
+        $longEnough = str_word_count($yourExcerpt) >= $minWordsOK;
 
-    $sourceTitleRaw = $payload['source']['title'] ?? ($payload['title'] ?? null);
-    if (!is_string($sourceTitleRaw) || trim($sourceTitleRaw) === '') {
-        $sourceTitleRaw = $this->extractTitleFromHtml($htmlFullSrc) ?: $this->titleFromUrl($sourceUrl);
-    }
-    $sourceTitle = $this->tidyTitle($sourceTitleRaw, $htmlFullSrc, $sourceUrl);
+        if ($pct < $minPct && !$longEnough) {
+            if ($this->isBoilerplate($yourExcerpt)) {
+                return;
+            }
+        }
 
-    // ----- upsert: merge by normalized URL (keep the highest percent) -----
-    $updated = false;
-    $sourceUrlNorm = $this->normalizeUrl($sourceUrl);
+        // ----- build source URL/title (for display only; no source excerpt) -----
+        $htmlFullSrc  = (string) ($payload['html']['value'] ?? '');
+        $sourceUrlRaw = $payload['source']['url'] ?? ($payload['url'] ?? null);
+        if (!$sourceUrlRaw) {
+            $sourceUrlRaw = $this->inferUrlFromHtml($htmlFullSrc);
+        }
+        $sourceUrl = $this->normalizeUrl($sourceUrlRaw);
 
-    if ($sourceUrlNorm) {
-        $existing = ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)
-            ->whereRaw('COALESCE(source_url, "") <> ""')
-            ->get()
-            ->first(function ($r) use ($sourceUrlNorm) {
-                return $this->normalizeUrl($r->source_url) === $sourceUrlNorm;
-            });
+        $sourceTitleRaw = $payload['source']['title'] ?? ($payload['title'] ?? null);
+        if (!is_string($sourceTitleRaw) || trim($sourceTitleRaw) === '') {
+            $sourceTitleRaw = $this->extractTitleFromHtml($htmlFullSrc) ?: $this->titleFromUrl($sourceUrl);
+        }
+        $sourceTitle = $this->tidyTitle($sourceTitleRaw, $htmlFullSrc, $sourceUrl);
 
-        if ($existing) {
-            $existing->update([
-                'percent'      => max((int) $existing->percent, (int) $pct),
-                'source_title' => $sourceTitle ?: ($existing->source_title ?: 'External source'),
-                'your_excerpt' => $yourExcerpt ?: $existing->your_excerpt,
+        // ----- upsert: merge by normalized URL (keep the highest percent) -----
+        $updated = false;
+        $sourceUrlNorm = $this->normalizeUrl($sourceUrl);
+
+        if ($sourceUrlNorm) {
+            $existing = ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)
+                ->whereRaw('COALESCE(source_url, "") <> ""')
+                ->get()
+                ->first(function ($r) use ($sourceUrlNorm) {
+                    return $this->normalizeUrl($r->source_url) === $sourceUrlNorm;
+                });
+
+            if ($existing) {
+                $existing->update([
+                    'percent'      => max((int) $existing->percent, (int) $pct),
+                    'source_title' => $sourceTitle ?: ($existing->source_title ?: 'External source'),
+                    'your_excerpt' => $yourExcerpt ?: $existing->your_excerpt,
+                    'export_key'   => $exportKey,
+                ]);
+                $updated = true;
+            }
+        }
+
+        if (!$updated) {
+            ExternalPlagiarismMatch::create([
+                'scan_id_fk'   => $scan->id,
+                'document_id'  => $scan->document_id,
+                'percent'      => (int) $pct,
+                'source_title' => $sourceTitle ?: 'External source',
+                'source_url'   => $sourceUrl ?: null,
+                'your_excerpt' => $yourExcerpt ?: null,
                 'export_key'   => $exportKey,
             ]);
-            $updated = true;
+        }
+
+        // ----- bump scan score & status -----
+        if ($pct > (int) $scan->score) {
+            $scan->update(['score' => $pct]);
+        }
+        if (in_array($scan->status, ['completed', 'running', 'queued'], true)) {
+            $scan->update(['status' => 'exported']);
         }
     }
-
-    if (!$updated) {
-        ExternalPlagiarismMatch::create([
-            'scan_id_fk'   => $scan->id,
-            'document_id'  => $scan->document_id,
-            'percent'      => (int) $pct,
-            'source_title' => $sourceTitle ?: 'External source',
-            'source_url'   => $sourceUrl ?: null,
-            'your_excerpt' => $yourExcerpt ?: null,
-            'export_key'   => $exportKey,
-        ]);
-    }
-
-    // ----- bump scan score & status -----
-    if ($pct > (int) $scan->score) {
-        $scan->update(['score' => $pct]);
-    }
-    if (in_array($scan->status, ['completed', 'running', 'queued'], true)) {
-        $scan->update(['status' => 'exported']);
-    }
-}
-
-
-
 
     /* ------------------------ export completed ------------------------ */
 
@@ -442,6 +437,7 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
 
         if (!$scan) return response()->json(['status' => 'none']);
 
+// NOTE: we only keep/stabilize your_excerpt; no source excerpt processing.
         $matchesQ = ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->orderByDesc('percent');
 
         // collapse: best per normalized host (www/m/amp stripped; mirrors collapsed)
@@ -458,7 +454,6 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
                 // skip completely empty cards
                 if ($r->your_excerpt === '') continue;
 
-
                 if (!isset($collapsed[$host]) || (int)$r->percent > (int)$collapsed[$host]->percent) {
                     $r->source_url = $url;
                     $collapsed[$host] = $r;
@@ -474,7 +469,6 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
             'source_url'   => $r->source_url,
             'your_excerpt' => $r->your_excerpt,
         ])->values();
-
 
         $sourceMax = (int) (ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->max('percent') ?? 0);
         $raw = $scan->raw_payload; if (is_string($raw)) $raw = json_decode($raw, true) ?: [];
@@ -566,17 +560,10 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
                 }
                 $pct = max(0, (int) round($pct));
 
-                /** 👇👇👇 ADD THIS RIGHT AFTER $pct IS FINAL 👇👇👇 **/
-                $MIN_PCT = (int) config('services.copyleaks.min_percent', 5);
-                if ($pct <= 0) {
-                    // absolute zero: skip
-                    continue;
-                }
-                if ($pct < $MIN_PCT) {
-                    // keep small matches only if we later find meaningful excerpts; at this early stage, skip
-                    continue;
-                }
-
+                /** keep only meaningful matches at this stage (no source excerpt work) **/
+                $MIN_PCT = (int) config('services.copyleaks.min_percent', 20);
+                if ($pct <= 0) continue;
+                if ($pct < $MIN_PCT) continue;
 
                 // URL + title (unproxy)
                 $urlRaw = $m['url'] ?? ($m['metadata']['finalUrl'] ?? ($m['source']['url'] ?? null));
@@ -585,16 +572,12 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
                 $titleRaw = $m['title'] ?? ($m['source']['title'] ?? ($url ?: 'External source'));
                 $title    = is_string($titleRaw) ? $this->tidyTitle($titleRaw, null, $url) : 'External source';
 
-                // preview excerpts → sanitize (avoid nav/css)
-                $yourPreview   = $this->textSanitize($m['text']['value']  ?? ($m['preview']['text']  ?? null));
-                $sourcePreview = $this->textSanitize(
-                    $m['introduction'] ?? ($m['html']['value'] ?? ($m['preview']['source'] ?? null))
-                );
+                // Your preview only (drop source preview entirely)
+                $yourPreview = $this->textSanitize($m['text']['value']  ?? ($m['preview']['text']  ?? null));
 
-                $intro = trim((string) ($m['introduction'] ?? ''));
-                if ($intro !== '' && preg_match('/^skip to content\b/i', $intro)) continue;
-                if (!$url && $this->isBoilerplate((string)$sourcePreview)) continue;
-                if ($yourPreview==='' && $sourcePreview==='') continue;
+                // REMOVED: source preview building, intro/boilerplate checks based on source excerpt
+
+                if ($yourPreview === '') continue;
 
                 $rows[] = [
                     'percent'        => $pct,
@@ -688,13 +671,13 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
 
     private function findBestFragmentPair(array $payload): array
     {
-        // scans for fragment-style arrays and picks the longest pair (your/source)
+        // scans for fragment-style arrays and picks the longest YOUR fragment only
         $paths = [
             ['comparison','matches'],
             ['comparison','similarities'],
             ['comparison','fragments'],
         ];
-        $bestLen = 0; $bestYour = null; $bestSrc = null;
+        $bestLen = 0; $bestYour = null;
 
         foreach ($paths as $p) {
             $node = $payload;
@@ -703,14 +686,13 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
 
             foreach ($node as $frag) {
                 $y = $frag['text']['value']  ?? $frag['text']  ?? null;
-                $s = $frag['source']['value']?? $frag['source']?? null;
                 $len = mb_strlen((string)$y, 'UTF-8');
-                if ($len > $bestLen) { $bestLen = $len; $bestYour = $y; $bestSrc = $s; }
+                if ($len > $bestLen) { $bestLen = $len; $bestYour = $y; }
             }
         }
 
-        return [$bestYour ? $this->textSanitize($bestYour) : null,
-                $bestSrc  ? $this->textSanitize($bestSrc)   : null];
+        // Return [yourFragment, null] to preserve call-site destructuring
+        return [$bestYour ? $this->textSanitize($bestYour) : null, null];
     }
 
     private function bestRange($chars): ?array
@@ -790,43 +772,7 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
         return $out;
     }
 
-    private function firstMeaningfulParagraph(string $html): string
-    {
-        $clean = preg_replace('#<(script|style|noscript)\b[^>]*>.*?</\1>#is', ' ', $html) ?? $html;
-        $clean = strip_tags($clean);
-        $clean = html_entity_decode($clean, ENT_QUOTES|ENT_HTML5, 'UTF-8');
-        $clean = preg_replace("/[ \t]{2,}/u", ' ', $clean) ?? $clean;
-        $clean = preg_replace("/\r\n|\r|\n/u", "\n", $clean) ?? $clean;
-        $clean = trim($clean);
-        foreach (preg_split("/\n{2,}/u", $clean) ?: [$clean] as $p) {
-            $p = $this->textSanitize($p);
-            if ($p === '') continue;
-            if (str_word_count($p) >= 12) return Str::limit($p, 800);
-        }
-        return Str::limit($clean, 600);
-    }
-
-    private function chooseBestSnippet(array $candidates): string
-    {
-        $best = '';
-        $bestScore = -INF;
-        foreach ($candidates as $c) {
-            $s = $this->textSanitize($c ?? '');
-            if ($s === '' || $this->isBoilerplate($s)) continue;
-
-            $len = mb_strlen($s, 'UTF-8');
-            $letters = preg_match_all('/\p{L}/u', $s);
-            $symbols = preg_match_all('/[{};:$#@()<>\[\]\|]/u', $s);
-
-            // Boost compact quotes; penalize very long blobs
-            $matchBonus = ($len <= 500) ? 150 : 0;
-            $longPenalty = max(0, $len - 800) * 0.5;
-
-            $score = ($len) + ($letters * 2) - ($symbols * 3) + $matchBonus - $longPenalty;
-            if ($score > $bestScore) { $bestScore = $score; $best = $s; }
-        }
-        return Str::limit($best, 1000);
-    }
+    // REMOVED: private function firstMeaningfulParagraph(string $html): string
 
     private function extractTitleFromHtml(?string $html): ?string
     {
@@ -912,8 +858,7 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
         return $text;
     }
 
-
-   public function exportCrawled(Request $req, string $scanId)
+    public function exportCrawled(Request $req, string $scanId)
     {
         $expected = (string) config('services.copyleaks.signing_secret');
         if (!$expected || $req->header('Authentication') !== $expected) {
@@ -981,6 +926,4 @@ private function processExportResult(\App\Models\ExternalPlagiarismScan $scan, a
         }
         return $items;
     }
-
-
 }

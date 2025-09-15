@@ -367,7 +367,7 @@
   <div class="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-xl flex flex-col">
     <div class="border-b border-gray-100 px-4 py-3 flex items-center justify-between">
       <h3 class="text-lg font-semibold">Plagiarism Matches (from Chapter 1 onward)</h3>
-      <button id="plagClose" class="p-2 rounded hover:bg-gray-100" aria-label="Close">✕</button>
+      <button type="button" id="plagClose" class="p-2 rounded hover:bg-gray-100" aria-label="Close">✕</button>
     </div>
 
     <div id="plagBody" class="p-4 overflow-y-auto grow">
@@ -543,125 +543,6 @@ function prepareFinalContent() {
 
 
 
-<script>
-// ---------- config ----------
-const THRESHOLD = 45;
-const MIN_CHARS_TO_CHECK = 40; // avoid noise when the doc is still empty
-const DISPLAY_MIN = 0;
-const BLOCK_THRESHOLD = 45;  
-// ---------- helpers ----------
-const saveBtn   = document.getElementById('saveBtn');
-const submitBtn = document.getElementById('submitBtn');
-const resultBox = document.getElementById('plagiarism-result');
-
-function setButtonsDisabled(disabled, reason = '') {
-  [saveBtn, submitBtn].forEach(btn => {
-    if (!btn) return;
-    btn.disabled = disabled;
-    btn.classList.toggle('opacity-50', disabled);
-    btn.classList.toggle('cursor-not-allowed', disabled);
-    btn.classList.toggle('hover:bg-blue-700', !disabled);
-  });
-  if (reason && resultBox) {
-    resultBox.classList.remove('hidden');
-    resultBox.innerHTML = `<span class="text-gray-600">${reason}</span>`;
-  }
-}
-
-// Use the same source the offcanvas uses (HTML) so cleaning & chapter-skip match
-function getEditorHTML() {
-  const el = document.querySelector('.ck-content');
-  return el ? el.innerHTML.trim() : null;
-}
-// For a quick length gate we can still look at the visible text:
-function getEditorVisibleTextLength() {
-  const el = document.querySelector('.ck-content');
-  return el ? el.innerText.trim().length : 0;
-}
-
-// ---------- run check ----------
-async function checkPlagiarism() {
-  const html = getEditorHTML();
-  if (html === null) {
-    setButtonsDisabled(true, 'Editor not ready yet…');
-    return;
-  }
-  if (getEditorVisibleTextLength() < MIN_CHARS_TO_CHECK) {
-    setButtonsDisabled(true, 'Type more content, then run the checker.');
-    resultBox.classList.remove('hidden');
-    resultBox.innerHTML = `<span class="text-gray-600">Waiting for more content…</span>`;
-    return;
-  }
-
-  resultBox.classList.remove('hidden');
-  resultBox.innerHTML = `
-    <div class="flex items-center space-x-2 text-gray-600">
-      <svg class="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-      </svg>
-      <span>Checking for plagiarism...</span>
-    </div>
-  `;
-
-  try {
-    const response = await fetch("{{ route('documents.checkPlagiarismLive') }}", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-      },
-      body: JSON.stringify({
-        content_html: html,                 // ← IMPORTANT: send HTML (same as offcanvas)
-        document_id: {{ $document->id }},
-        min_percent: DISPLAY_MIN 
-      })
-    });
-
-    const data  = await response.json();
-    const score = Number(data.score ?? 0);
-
-    resultBox.innerHTML = `<span>Plagiarism Score:</span> ${score}%`;
-
-    if (score >= BLOCK_THRESHOLD) {
-      resultBox.innerHTML += `<br><span class="text-red-600">High similarity detected! ⚠️</span>`;
-      setButtonsDisabled(true);
-    } else {
-      resultBox.innerHTML += `<br><span class="text-green-600">Content appears original ✅</span>`;
-      setButtonsDisabled(false);
-    }
-  } catch (error) {
-    setButtonsDisabled(true, 'Error checking plagiarism. Please try again.');
-  }
-}
-
-// ---------- init: disable on load, then auto-run when editor is ready ----------
-document.addEventListener('DOMContentLoaded', () => {
-  setButtonsDisabled(true, 'Run the plagiarism checker to enable Save & Submit.');
-
-  // Wait for CKEditor .ck-content to exist, then auto-run once
-  const waitForEditor = setInterval(() => {
-    const el = document.querySelector('.ck-content');
-    if (el) {
-      clearInterval(waitForEditor);
-      setTimeout(checkPlagiarism, 300);
-
-      // Re-disable when user types; debounce re-check
-      let debounce;
-      const observer = new MutationObserver(() => {
-        setButtonsDisabled(true, 'Content changed. Please run the checker again.');
-        clearTimeout(debounce);
-        // Auto re-check after user stops typing for 1s
-        debounce = setTimeout(checkPlagiarism, 1000);
-      });
-      observer.observe(el, { subtree: true, characterData: true, childList: true });
-    }
-  }, 150);
-});
-
-// Expose to the Run button
-window.checkPlagiarism = checkPlagiarism;
-</script>
 
 <script>
 /** ===== Target word counts ===== */
@@ -868,54 +749,451 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 
 
+
+
+
+
 <script>
-// COPYLEAKS SCRIPT (replaces previous block)
+// ---------------- GLOBAL GATE (shared) ----------------
+/**
+ * Global pass threshold for BOTH checkers.
+ * Buttons are enabled ONLY IF:
+ *   - window.__internalScore is a number AND < PASS_THRESHOLD
+ *   - window.__externalScore is a number AND < PASS_THRESHOLD
+ */
+const PASS_THRESHOLD = 20;
+
+// These are set by the internal & external scripts, and reset to null on edits.
+window.__internalScore = null;
+window.__externalScore = null;
+
+// Buttons / status nodes
+const saveBtn   = document.getElementById('saveBtn');
+const submitBtn = document.getElementById('submitBtn');
+const resultBox = document.getElementById('plagiarism-result');
+
+function setButtonsDisabled(disabled, reason = '') {
+  [saveBtn, submitBtn].forEach(btn => {
+    if (!btn) return;
+    btn.disabled = disabled;
+    btn.classList.toggle('opacity-50', disabled);
+    btn.classList.toggle('cursor-not-allowed', disabled);
+    btn.classList.toggle('hover:bg-blue-700', !disabled);
+  });
+  if (resultBox) {
+    resultBox.classList.remove('hidden');
+    resultBox.innerHTML = reason ? `<span class="text-gray-600">${reason}</span>` : '';
+  }
+}
+
+function buildGateReason() {
+  const hasInternal = typeof window.__internalScore === 'number';
+  const hasExternal = typeof window.__externalScore === 'number';
+  const lines = [];
+  if (!hasInternal) lines.push('Run the internal checker.');
+  if (!hasExternal) lines.push('Run the external (Copyleaks) checker.');
+  if (hasInternal && window.__internalScore >= PASS_THRESHOLD) {
+    lines.push(`Internal score ${window.__internalScore}% must be below ${PASS_THRESHOLD}%.`);
+  }
+  if (hasExternal && window.__externalScore >= PASS_THRESHOLD) {
+    lines.push(`External score ${window.__externalScore}% must be below ${PASS_THRESHOLD}%.`);
+  }
+  return lines.join(' ');
+}
+
+function updatePlagGate(optionalReason) {
+  const hasInternal = typeof window.__internalScore === 'number';
+  const hasExternal = typeof window.__externalScore === 'number';
+  const internalOk  = hasInternal && window.__internalScore < PASS_THRESHOLD;
+  const externalOk  = hasExternal && window.__externalScore < PASS_THRESHOLD;
+  const enabled     = internalOk && externalOk;
+
+  setButtonsDisabled(!enabled, enabled ? '' : (optionalReason || buildGateReason()));
+
+  // Show combined status line
+  if (resultBox) {
+    const internalTxt = hasInternal ? `${window.__internalScore}%` : '—';
+    const externalTxt = hasExternal ? `${window.__externalScore}%` : '—';
+    const allOk       = enabled ? `<span class="text-green-600">Ready to save/submit ✅</span>` :
+                                   `<span class="text-red-600">Not ready</span>`;
+    resultBox.classList.remove('hidden');
+    resultBox.innerHTML =
+      `<div class="text-sm">
+         <div>Internal: <strong>${internalTxt}</strong> | External: <strong>${externalTxt}</strong></div>
+         <div class="mt-1">${allOk}${enabled ? '' : `<span class="text-gray-600"> — ${buildGateReason()}</span>`}</div>
+       </div>`;
+  }
+}
+
+// ---------------- INTERNAL (my database) LIVE CHECK ----------------
+const MIN_CHARS_TO_CHECK = 40; // avoid noise when the doc is still empty
+const DISPLAY_MIN = 0;
+
+// helpers to read content
+function getEditorHTML() {
+  const el = document.querySelector('.ck-content');
+  return el ? el.innerHTML.trim() : null;
+}
+function getEditorVisibleTextLength() {
+  const el = document.querySelector('.ck-content');
+  return el ? el.innerText.trim().length : 0;
+}
+
+async function checkPlagiarism() {
+  const html = getEditorHTML();
+  if (html === null) {
+    setButtonsDisabled(true, 'Editor not ready yet…');
+    return;
+  }
+  if (getEditorVisibleTextLength() < MIN_CHARS_TO_CHECK) {
+    // Not enough content yet. Internal score is unknown.
+    window.__internalScore = null;
+    updatePlagGate('Type more content, then run the checker.');
+    return;
+  }
+
+  if (resultBox) {
+    resultBox.classList.remove('hidden');
+    resultBox.innerHTML = `
+      <div class="flex items-center space-x-2 text-gray-600">
+        <svg class="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span>Checking (internal)…</span>
+      </div>
+    `;
+  }
+
+  try {
+    const response = await fetch(`{{ route('documents.checkPlagiarismLive') }}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+      },
+      body: JSON.stringify({
+        content_html: html,
+        document_id: {{ $document->id }},
+        min_percent: DISPLAY_MIN
+      })
+    });
+
+    const data  = await response.json();
+    const score = Number(data.score ?? 0);
+
+    // Set global internal score & update gate
+    window.__internalScore = isNaN(score) ? null : score;
+    updatePlagGate();
+  } catch (error) {
+    // Internal failed -> require re-run
+    window.__internalScore = null;
+    updatePlagGate('Error checking (internal). Please try again.');
+  }
+}
+
+// ---------- init: keep disabled until both checks pass ----------
+document.addEventListener('DOMContentLoaded', () => {
+  // On first load, we haven't run either checker yet.
+  window.__internalScore = null;
+  // __externalScore will be set by the Copyleaks panel when used.
+  updatePlagGate('Run both plagiarism checks.');
+
+  // Wait for CKEditor .ck-content to exist, then set observers
+  const waitForEditor = setInterval(() => {
+    const el = document.querySelector('.ck-content');
+    if (el) {
+      clearInterval(waitForEditor);
+
+      // Debounced re-check of internal (optional). Also, edits invalidate BOTH scores.
+      let debounce;
+      const observer = new MutationObserver(() => {
+        // Any content change invalidates previous results (require re-check)
+        window.__internalScore = null;
+        window.__externalScore = null;
+        updatePlagGate('Content changed. Run internal and external checkers again.');
+        clearTimeout(debounce);
+        // If you want auto-run internal after idle, keep this:
+        debounce = setTimeout(checkPlagiarism, 1200);
+      });
+      observer.observe(el, { subtree: true, characterData: true, childList: true });
+
+      // Optionally auto-run an initial internal check once editor is ready
+      setTimeout(checkPlagiarism, 500);
+    }
+  }, 150);
+});
+
+// Expose to any button you might wire elsewhere
+window.checkPlagiarism = checkPlagiarism;
+</script>
+
+
+
+<script>
+// COPYLEAKS SCRIPT — open to view last scan; start only on button click
 (() => {
   const btnExternal = document.getElementById('btnCopyleaks');
   const offcanvas   = document.getElementById('plagOffcanvas');
   const bodyBox     = document.getElementById('plagBody');
 
-  function openOffcanvas(){ offcanvas.classList.remove('hidden'); }
+  // Ensure global gate utilities exist (in case load order differs)
+  if (typeof window.updatePlagGate !== 'function') {
+    window.__internalScore = window.__internalScore ?? null;
+    window.__externalScore = window.__externalScore ?? null;
+    window.PASS_THRESHOLD  = window.PASS_THRESHOLD ?? 20;
+
+    const saveBtn   = document.getElementById('saveBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultBox = document.getElementById('plagiarism-result');
+
+    function setButtonsDisabled(disabled, reason = '') {
+      [saveBtn, submitBtn].forEach(btn => {
+        if (!btn) return;
+        btn.disabled = disabled;
+        btn.classList.toggle('opacity-50', disabled);
+        btn.classList.toggle('cursor-not-allowed', disabled);
+        btn.classList.toggle('hover:bg-blue-700', !disabled);
+      });
+      if (resultBox) {
+        resultBox.classList.remove('hidden');
+        resultBox.innerHTML = reason ? `<span class="text-gray-600">${reason}</span>` : '';
+      }
+    }
+    function buildGateReason() {
+      const hasInternal = typeof window.__internalScore === 'number';
+      const hasExternal = typeof window.__externalScore === 'number';
+      const lines = [];
+      if (!hasInternal) lines.push('Run the internal checker.');
+      if (!hasExternal) lines.push('Run the external (Copyleaks) checker.');
+      if (hasInternal && window.__internalScore >= window.PASS_THRESHOLD) {
+        lines.push(`Internal score ${window.__internalScore}% must be below ${window.PASS_THRESHOLD}%.`);
+      }
+      if (hasExternal && window.__externalScore >= window.PASS_THRESHOLD) {
+        lines.push(`External score ${window.__externalScore}% must be below ${window.PASS_THRESHOLD}%.`);
+      }
+      return lines.join(' ');
+    }
+    window.updatePlagGate = function(optionalReason) {
+      const hasInternal = typeof window.__internalScore === 'number';
+      const hasExternal = typeof window.__externalScore === 'number';
+      const internalOk  = hasInternal && window.__internalScore < window.PASS_THRESHOLD;
+      const externalOk  = hasExternal && window.__externalScore < window.PASS_THRESHOLD;
+      const enabled     = internalOk && externalOk;
+
+      setButtonsDisabled(!enabled, enabled ? '' : (optionalReason || buildGateReason()));
+
+      if (resultBox) {
+        const internalTxt = hasInternal ? `${window.__internalScore}%` : '—';
+        const externalTxt = hasExternal ? `${window.__externalScore}%` : '—';
+        const allOk       = enabled ? `<span class="text-green-600">Ready to save/submit ✅</span>` :
+                                       `<span class="text-red-600">Not ready</span>`;
+        resultBox.classList.remove('hidden');
+        resultBox.innerHTML =
+          `<div class="text-sm">
+             <div>Internal: <strong>${internalTxt}</strong> • External: <strong>${externalTxt}</strong> • Threshold: &lt; ${window.PASS_THRESHOLD}%</div>
+             <div class="mt-1">${allOk}${enabled ? '' : `<span class="text-gray-600"> — ${buildGateReason()}</span>`}</div>
+           </div>`;
+      }
+    };
+  }
+
   const esc = s => (s ?? '').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  function openOffcanvas(){ offcanvas.classList.remove('hidden'); }
+  function setBody(html){ bodyBox.innerHTML = html; }
 
-  btnExternal?.addEventListener('click', startExternalScan);
+  // Open + load the latest results; DO NOT start a scan automatically
+  btnExternal?.addEventListener('click', openAndLoadLatest);
 
-  async function startExternalScan(){
-    const el = document.querySelector('.ck-content');
-    if (!el) { alert('Editor not ready.'); return; }
-
+  async function openAndLoadLatest() {
     openOffcanvas();
-    bodyBox.innerHTML = `
+    setBody(`
       <div class="space-y-3 text-gray-700">
         <div class="flex items-center gap-2">
           <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"/></svg>
+          <span>Loading latest scan…</span>
+        </div>
+      </div>
+    `);
+
+    try {
+      const url  = new URL(`{{ route('documents.copyleaks.status', $document) }}`);
+      const res  = await fetch(url);
+      const data = await res.json();
+
+      // Persist score to gate if we have a number
+      if (typeof data?.source_max === 'number') {
+        window.__externalScore = Number(data.source_max);
+        updatePlagGate();
+      }
+
+      if (!data || data.status === 'none') {
+        renderIdle(null);
+        return;
+      }
+      if (data.status === 'running' || data.status === 'queued') {
+        renderRunning(data);
+        if (data.scan_id) pollStatus(data.scan_id);
+        return;
+      }
+      if (data.status === 'completed' || data.status === 'exported') {
+        renderResults(data);
+        return;
+      }
+      if (data.status === 'error') {
+        renderIdle(data);
+        return;
+      }
+      renderIdle(data);
+    } catch (e) {
+      renderIdle(null, 'Failed to load last scan. You can still start a new one.');
+    }
+  }
+
+  // ---- UI renderers ----
+  function renderIdle(data, note) {
+    const meta = data ? `
+      <div class="text-sm text-gray-600 space-y-1">
+        <div>Last status: <strong>${esc(data.status)}</strong></div>
+        <div>External Max Similarity: <strong>${Number(data.source_max ?? data.score ?? 0)}%</strong></div>
+        <div>Doc similarity: <strong>${Number(data.doc_aggregated ?? 0)}%</strong></div>
+        ${data.updated_at_iso ? `<div>Updated: <span class="text-gray-500">${esc(data.updated_at_iso)}</span></div>` : ``}
+        ${data.credits_used ? `<div>Credits used: ${Number(data.credits_used)}</div>` : ``}
+      </div>
+    ` : `<div class="text-sm text-gray-600">No previous external scans yet for this chapter.</div>`;
+
+    setBody(`
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold">External Plagiarism (Copyleaks)</h3>
+          <button type="button" class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                  id="btnStartExternal">
+            Start scan
+          </button>
+        </div>
+        ${note ? `<div class="p-3 rounded bg-yellow-50 text-yellow-800 text-sm">${esc(note)}</div>` : ``}
+        ${meta}
+        ${Array.isArray(data?.matches) && data.matches.length ? renderCardsHTML(data.matches, data) : ``}
+      </div>
+    `);
+
+    // Idle view doesn't guarantee a valid external score; re-evaluate gate.
+    updatePlagGate();
+
+    document.getElementById('btnStartExternal')?.addEventListener('click', startExternalScan);
+  }
+
+  function renderRunning(data) {
+    setBody(`
+      <div class="space-y-3 text-gray-700">
+        <div class="flex items-center gap-2">
+          <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"/></svg>
+          <span>External scan running…</span>
+        </div>
+        <div class="text-sm text-gray-600">We’ll update results here as soon as they’re ready.</div>
+        ${Array.isArray(data?.matches) && data.matches.length ? renderCardsHTML(data.matches, data) : ``}
+      </div>
+    `);
+  }
+
+  function renderResults(data) {
+    const sourceMax = Number(data.source_max ?? data.score ?? 0);
+    const docAgg    = Number(data.doc_aggregated ?? 0);
+    const matches   = Array.isArray(data.matches) ? data.matches : [];
+
+    // Persist + update gate
+    window.__externalScore = isNaN(sourceMax) ? null : sourceMax;
+
+    setBody(`
+      <div class="mb-3 text-sm text-gray-600 flex items-center justify-between">
+        <div>
+          External Max Similarity: <strong>${isNaN(sourceMax) ? '—' : sourceMax + '%'}</strong>
+          <span class="text-gray-400">• Doc similarity: ${isNaN(docAgg) ? '—' : docAgg + '%'}</span>
+          ${matches.length ? `• Showing ${matches.length} match(es)` : ``}
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                  id="btnRefreshExternal">Refresh</button>
+          <button type="button" class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                  id="btnRescanExternal">Rescan</button>
+        </div>
+      </div>
+      ${renderCardsHTML(matches, data) || `<div class="p-4 rounded shadow bg-gray-50 text-gray-700">No web matches yet. (Export may still be delivering details.)</div>`}
+    `);
+
+    document.getElementById('btnRefreshExternal')?.addEventListener('click', openAndLoadLatest);
+    document.getElementById('btnRescanExternal')?.addEventListener('click', startExternalScan);
+
+    updatePlagGate();
+  }
+
+  function renderCardsHTML(matches, data) {
+    return matches.map(m => {
+      const your = (m.your_excerpt || '').trim();
+      return `
+        <div class="shadow overflow-hidden mb-4">
+          <div class="px-4 py-2 bg-gray-50 flex items-center justify-between">
+            <div class="text-sm text-gray-700">
+              <span class="font-semibold">Similarity:</span> ${m.percent ?? 0}%
+            </div>
+            ${m.source_url ? `<a class="text-xs text-blue-600 hover:underline" href="${m.source_url}" target="_blank" rel="noopener">Open source</a>` : ``}
+          </div>
+          ${your ? `
+            <div class="p-4">
+              <div class="text-xs font-semibold text-gray-500 mb-1">Your content</div>
+              <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(your)}</pre>
+            </div>` : ``}
+          <div class="px-4 pb-4 text-xs text-gray-500">
+            Source: ${esc(m.source_title || 'External source')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ---- Start a new scan (on button click) ----
+  async function startExternalScan() {
+    const el = document.querySelector('.ck-content');
+    if (!el) { alert('Editor not ready.'); return; }
+
+    // Starting a new scan invalidates the previous external score until results arrive
+    window.__externalScore = null;
+    updatePlagGate('External scan running…');
+
+    setBody(`
+      <div class="space-y-3 text-gray-700">
+        <div class="flex items-center gap-2">
+          <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a 8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"/></svg>
           <span>Submitting to Copyleaks…</span>
         </div>
         <p class="text-sm text-gray-500">We’ll show results as soon as the scan completes.</p>
       </div>
-    `;
+    `);
 
-    try{
+    try {
       const resp = await fetch(`{{ route('documents.copyleaks.start') }}`, {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           document_id: {{ $document->id }},
           content_html: el.innerHTML
         })
       });
       const start = await resp.json();
-      if (!resp.ok || !start?.ok || !start?.scan_id) throw new Error(start?.error || 'Failed to start');
-
+      if (!resp.ok || !start?.ok || !start?.scan_id) throw new Error(start?.message || 'Failed to start');
+      renderRunning({ status: 'running' });
       await pollStatus(start.scan_id);
-    }catch(e){
-      bodyBox.innerHTML = `<div class="p-4 border rounded bg-red-50 text-red-700">Failed to start external scan.<br>${esc(e && e.message)}</div>`;
+    } catch (e) {
+      setBody(`<div class="p-4 border rounded bg-red-50 text-red-700">Failed to start external scan.<br>${esc(e && e.message)}</div>`);
+      // Keep external as null so the gate stays disabled until a successful run
+      updatePlagGate('External scan failed. Please try again.');
     }
   }
 
+  // ---- Poll current scan by id ----
   async function pollStatus(scanId){
     let tries = 0;
-    const maxTries = 60; // ~6 minutes at 6s
+    const maxTries = 60; // ~6 minutes @6s
 
     while (tries++ < maxTries){
       await new Promise(r=>setTimeout(r, 6000));
@@ -925,110 +1203,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const data = await res.json();
 
       if (data.status === 'error'){
-        bodyBox.innerHTML = `<div class="p-4 border rounded bg-red-50 text-red-700">Copyleaks error: ${esc(data.error||'Please retry.')}</div>`;
+        // Error -> no valid external score
+        window.__externalScore = null;
+        updatePlagGate('External scan failed. Please try again.');
+        renderIdle(data, data.error || 'Scan failed.');
         return;
       }
-
       if (data.status === 'completed' || data.status === 'exported'){
         renderResults(data);
         return;
       }
-
-      bodyBox.innerHTML = `
-        <div class="flex items-center gap-2 text-gray-600">
-          <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"/></svg>
-          <span>External scan running…</span>
-        </div>
-      `;
+      renderRunning(data);
     }
 
-    bodyBox.innerHTML = `<div class="p-4 rounded border bg-yellow-50 text-yellow-800">Timeout waiting for Copyleaks.</div>`;
-  }
-
-function renderResults(data){
-  // NEW: read the separate fields the API now returns
-  const sourceMax = Number(data.source_max ?? data.score ?? 0);  // per-source max (card header)
-  const docAgg    = Number(data.doc_aggregated ?? 0);            // doc-level agg
-  const matches   = Array.isArray(data.matches) ? data.matches : [];
-
-  const esc = s => (s ?? '').toString()
-    .replaceAll('&','&amp;')
-    .replaceAll('<','&lt;')
-    .replaceAll('>','&gt;');
-
-  const cards = matches.map(m => {
-  const your = (m.your_excerpt || '').trim();
-
-  return `
-    <div class="shadow overflow-hidden mb-4">
-      <div class="px-4 py-2 bg-gray-50 flex items-center justify-between">
-        <div class="text-sm text-gray-700">
-          <span class="font-semibold">Similarity:</span> ${m.percent ?? 0}%
-        </div>
-        ${m.source_url ? `<a class="text-xs text-blue-600 hover:underline" href="${m.source_url}" target="_blank" rel="noopener">Open source</a>` : ''}
-      </div>
-
-      ${your ? `
-        <div class="p-4">
-          <div class="text-xs font-semibold text-gray-500 mb-1">Your content</div>
-          <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(your)}</pre>
-        </div>` : ''}
-
-      <!-- No source excerpt rendered -->
-      <div class="px-4 pb-4 text-xs text-gray-500">
-        Source: ${esc(m.source_title || 'External source')}
-      </div>
-    </div>
-  `;
-}).join('');
-
-
-  bodyBox.innerHTML = `
-    <div class="mb-3 text-sm text-gray-600">
-      External Max Similarity: <strong>${sourceMax}%</strong>
-      <span class="text-gray-400">• Doc similarity: ${docAgg}%</span>
-      ${matches.length ? `• Showing ${matches.length} match(es)` : ''}
-    </div>
-    ${cards || `<div class="p-4 rounded shadow bg-gray-50 text-gray-700">No web matches yet. (Export may still be delivering details.)</div>`}
-  `;
-
-  // Keep your blocking logic based on the header metric
-  window.__externalScore = sourceMax;
-  maybeBlockButtons();
-}
-
-
-  function maybeBlockButtons(){
-    const external = Number(window.__externalScore || 0);
-    const internalText = document.getElementById('plagiarism-result')?.innerText || '';
-    const internalMatch = internalText.match(/Plagiarism Score:\s*(\d+)%/i);
-    const internal = internalMatch ? Number(internalMatch[1]) : 0;
-
-    const maxScore = Math.max(external, internal);
-    const BLOCK_THRESHOLD = 45;
-
-    const saveBtn   = document.getElementById('saveBtn');
-    const submitBtn = document.getElementById('submitBtn');
-    const resultBox = document.getElementById('plagiarism-result');
-
-    const disabled = maxScore >= BLOCK_THRESHOLD;
-    [saveBtn, submitBtn].forEach(btn=>{
-      if(!btn) return;
-      btn.disabled = disabled;
-      btn.classList.toggle('opacity-50', disabled);
-      btn.classList.toggle('cursor-not-allowed', disabled);
-      btn.classList.toggle('hover:bg-blue-700', !disabled);
-    });
-
-    if (resultBox) {
-      resultBox.classList.remove('hidden');
-      resultBox.innerHTML = `Overall (internal+external) Score: ${maxScore}%` +
-        (disabled ? `<br><span class="text-red-600">Submission blocked due to high similarity.</span>` :
-                    `<br><span class="text-green-600">OK to submit.</span>`);
-    }
+    // Timeout -> invalidate external
+    window.__externalScore = null;
+    updatePlagGate('Timeout waiting for Copyleaks.');
+    setBody(`<div class="p-4 rounded border bg-yellow-50 text-yellow-800">Timeout waiting for Copyleaks.</div>`);
   }
 })();
 </script>
+
+
 
 
 

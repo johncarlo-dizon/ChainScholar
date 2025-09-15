@@ -59,10 +59,19 @@ modal design
 
 
 
-The only things left are optional polish (not required for correctness):
 
-Make min_percent consistent between pre-export and post-export (5 vs 20).
 
-Drop unused code that still builds/cleans source_excerpt behind the scenes.
 
-Standardize your log channels if you want cleaner debugging.
+
+
+
+
+https://dashboard.ngrok.com/get-started/setup/windows
+
+
+command in cmd 
+
+    ngrok config add-authtoken 32QKnUae7CrLNyKtSEdRNGHUjta_2adkfznFpTjakipZ2RKaE
+
+    ngrok http http://chainscholar.test --host-header=chainscholar.test
+

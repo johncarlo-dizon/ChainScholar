@@ -54,7 +54,7 @@ return [
         'signing_secret' => env('COPYLEAKS_WEBHOOK_SECRET'),
         'sandbox'        => (bool) env('COPYLEAKS_SANDBOX', true), // ← toggle here
         'export_base'  => env('COPYLEAKS_EXPORT_BASE', null),
-         'min_percent'    => env('COPYLEAKS_MIN_PERCENT', 5), 
+        'min_percent'    => env('COPYLEAKS_MIN_PERCENT', default: 20), 
     ],
 
 
