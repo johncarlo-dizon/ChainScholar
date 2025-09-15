@@ -86,11 +86,11 @@
     <h3 class="text-lg font-semibold text-gray-700">Plagiarism Checker</h3>
        <button type="button" id="btnViewMatches"
       class="px-2 py-2 shadow-sm text-gray-700 text-sm rounded-lg hover:text-gray-500  transition">
-      View Matches
+      Internal Matches
     </button>
     <button type="button" id="btnCopyleaks"
   class="px-2 py-2 shadow-sm text-gray-700 text-sm rounded-lg hover:text-gray-500 transition">
-  External (Copyleaks)
+   External Matches
 </button>
 
   </div>
