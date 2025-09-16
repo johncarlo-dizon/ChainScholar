@@ -13,8 +13,9 @@
     // Announcements data
     $announcementsCount = $announcementsCount ?? 0;
     $recentAnnouncements = $recentAnnouncements ?? collect();
+    $awaitingAdminCount = $awaitingAdminCount ?? 0;
 @endphp
-
+ 
 
 <!-- ===== Responsive Sidebar (mobile drawer + desktop sticky) ===== -->
 <!-- Mobile toggle button (shows only < md) -->
@@ -100,6 +101,27 @@
                                 Templates
                             </a>
                         </li>
+ <li>
+  <a href="{{ route('admin.titles.awaiting') }}"
+     class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.awaiting') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+      
+      {{-- Icon + corner badge (same style as notifBadge) --}}
+      <span class="relative mr-3">
+        <i data-feather="shield" class="w-5 h-5"></i>
+        @if($awaitingAdminCount > 0)
+          <span
+            class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold text-white bg-red-400 rounded-full leading-none shadow"
+            aria-label="{{ $awaitingAdminCount }} awaiting admin">
+            {{ $awaitingAdminCount > 99 ? '99+' : $awaitingAdminCount }}
+          </span>
+        @endif
+      </span>
+
+      <span>Awaiting Titles</span>
+  </a>
+</li>
+
+
                         <li>
                             <a href="{{ route('admin.titles.submitted') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.submitted','admin.titles.submitted.view','admin.documents.review') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">

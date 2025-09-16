@@ -50,5 +50,17 @@ class AppServiceProvider extends ServiceProvider
                     ]);
                 }
         });
+
+
+        // App\Providers\AppServiceProvider::boot()
+        View::composer('components.sidebar', function ($view) {
+            $count = 0;
+            if (auth()->check() && auth()->user()->role === 'ADMIN') {
+                $count = \App\Models\Title::where('status', 'awaiting_admin')->count();
+            }
+            $view->with('awaitingAdminCount', $count);
+        });
+
+
     }
 }

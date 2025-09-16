@@ -106,6 +106,20 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('research-papers.destroy');
 });
 
+// Admin approval gate for adviser assignments
+Route::middleware(['auth','admin'])
+    ->prefix('admin/titles')
+    ->name('admin.titles.')
+    ->group(function () {
+        Route::get('/awaiting', [AdminTitleController::class, 'awaiting'])
+            ->name('awaiting'); // list of awaiting_admin
+
+        Route::post('/{title}/approve', [AdminTitleController::class, 'approve'])
+            ->name('approve');
+
+        Route::post('/{title}/return', [AdminTitleController::class, 'return'])
+            ->name('return');
+    });
 
 
 

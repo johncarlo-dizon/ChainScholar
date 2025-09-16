@@ -254,30 +254,37 @@ public function __construct(private PlagiarismService $plag) {}
     }
 
 
-  public function edit(Document $document)
-{
-    $this->authorize('update', $document);
+    public function edit(Document $document)
+    {
+        $this->authorize('update', $document);
 
-    // Load the fields you actually need, including 'authors'
-    $title = $document->titleRelation()
-        ->select('id', 'title', 'primary_adviser_id', 'authors')
-        ->first();
+        $title = $document->titleRelation()
+            ->select('id', 'title', 'primary_adviser_id', 'authors', 'status')
+            ->first();
 
-    $adviserNote = null;
-    if ($title && $title->primary_adviser_id) {
-        $adviserNote = AdviserNote::with('adviser')
-            ->where('document_id', $document->id)
-            ->where('adviser_id', $title->primary_adviser_id)
-            ->first();
-    } else {
-        $adviserNote = AdviserNote::with('adviser')
-            ->where('document_id', $document->id)
-            ->latest('updated_at')
-            ->first();
+        // Gate: only editable after admin approval
+        if (!$title || $title->status !== 'in_advising') {
+            return redirect()
+                ->route('titles.chapters', $document->title_id)
+                ->with('error', 'Editing is locked until the admin approves your adviser assignment.');
+        }
+
+        $adviserNote = null;
+        if ($title->primary_adviser_id) {
+            $adviserNote = \App\Models\AdviserNote::with('adviser')
+                ->where('document_id', $document->id)
+                ->where('adviser_id', $title->primary_adviser_id)
+                ->first();
+        } else {
+            $adviserNote = \App\Models\AdviserNote::with('adviser')
+                ->where('document_id', $document->id)
+                ->latest('updated_at')
+                ->first();
+        }
+
+        return view('documents.editor', compact('document', 'adviserNote', 'title'));
     }
 
-    return view('documents.editor', compact('document', 'adviserNote', 'title'));
-}
 
 
 
@@ -292,12 +299,15 @@ public function __construct(private PlagiarismService $plag) {}
     {
         $this->authorize('update', $document);
 
-        $request->validate([
-            'content' => 'required'
-        ]);
+        // Guard: must be admin-approved
+        $title = $document->titleRelation()->select('id','status')->first();
+        if (!$title || $title->status !== 'in_advising') {
+            return back()->with('error', 'Editing is locked until the admin approves your adviser assignment.');
+        }
 
-        // Compute plagiarism score but don't block
-       $plagPct = $this->plag->quickScore($request->content, $document); // in update
+        $request->validate(['content' => 'required']);
+
+        $plagPct = $this->plag->quickScore($request->content, $document);
 
         $document->update([
             'content' => $request->content,
@@ -308,6 +318,7 @@ public function __construct(private PlagiarismService $plag) {}
             ->route('titles.chapters', $document->title_id)
             ->with('success', "Chapter updated successfully! Similarity: {$plagPct}%");
     }
+
 
 
 

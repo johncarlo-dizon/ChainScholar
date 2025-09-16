@@ -35,6 +35,7 @@ return new class extends Migration {
                 'submitted',
                 'verified',
                 'awaiting_adviser',
+                'awaiting_admin',
                 'in_advising',
                 'returned',
                 'archived'

@@ -143,7 +143,7 @@ class AdviserController extends Controller
      * Accept a pending request that was addressed to this adviser.
      * Locks this adviser as the primary adviser and closes other pending requests.
      */
-    public function accept(Request $request, AdviserRequest $adviserRequest)
+   public function accept(Request $request, AdviserRequest $adviserRequest)
     {
         $user = $request->user();
 
@@ -157,7 +157,7 @@ class AdviserController extends Controller
         DB::transaction(function () use ($adviserRequest, $user) {
             $title = $adviserRequest->title()->lockForUpdate()->first();
 
-            // If title already assigned, just mark request as declined to avoid conflicts
+            // If title already assigned, just mark request as declined
             if ($title->primary_adviser_id) {
                 $adviserRequest->update([
                     'status'     => 'declined',
@@ -172,14 +172,14 @@ class AdviserController extends Controller
                 'decided_at' => now(),
             ]);
 
-            // Assign adviser to title
+            // Assign adviser to title and move to admin gate
             $title->update([
-                'primary_adviser_id' => $user->id,
-                'adviser_assigned_at'=> now(),
-                'status'             => 'in_advising',
+                'primary_adviser_id'  => $user->id,
+                'adviser_assigned_at' => now(),
+                'status'              => 'awaiting_admin', // ← admin gate
             ]);
 
-            // Close other pending requests for this title
+            // Close other pending requests
             AdviserRequest::where('title_id', $title->id)
                 ->where('id', '!=', $adviserRequest->id)
                 ->where('status', 'pending')
@@ -187,10 +187,21 @@ class AdviserController extends Controller
                     'status'     => 'declined',
                     'decided_at' => now(),
                 ]);
+
+            // Optional: notify student
+            if (class_exists(\App\Models\Notification::class)) {
+                \App\Models\Notification::create([
+                    'user_id' => $title->owner_id,
+                    'title'   => 'Adviser Accepted',
+                    'message' => 'Your adviser accepted. Waiting for admin approval.',
+                    'is_read' => false,
+                ]);
+            }
         });
 
-        return back()->with('success', 'Request accepted. You are now the primary adviser for this title.');
+        return back()->with('success', 'Request accepted. Waiting for admin approval.');
     }
+
 
     /**
      * Decline a pending request that was addressed to this adviser.

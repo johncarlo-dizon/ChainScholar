@@ -142,22 +142,30 @@ class TitleController extends Controller
     }
 
 
-      public function showAwaitingTitles(Request $request)
+    public function showAwaitingTitles(Request $request)
     {
         $userId = $request->user()->id;
 
         $titles = Title::query()
             ->with([
-                // Load ALL pending requests (both student/adviser)
                 'adviserRequests' => fn ($q) => $q->where('status', 'pending')->with('adviser'),
+                'owner',
             ])
-            ->where('owner_id', $userId)                 // use 'user_id' if you haven't migrated yet
-            ->where('status', 'awaiting_adviser')
-            ->whereNull('primary_adviser_id')
+            ->where('owner_id', $userId)
+            ->whereIn('status', ['awaiting_adviser', 'awaiting_admin']) // ← both gates
             ->orderByDesc('submitted_at')
-            ->paginate(10);
+            ->paginate(10)
+            ->through(function ($t) {
+                // Derived label for UI
+                $t->waiting_for = match ($t->status) {
+                    'awaiting_adviser' => 'Adviser approval',
+                    'awaiting_admin'   => 'Admin approval',
+                    default            => '—',
+                };
+                return $t;
+            });
 
-        $advisers = User::where('role', 'ADVISER')
+        $advisers = \App\Models\User::where('role', 'ADVISER')
             ->orderBy('name')
             ->get(['id','name','department','specialization']);
 
@@ -277,28 +285,36 @@ class TitleController extends Controller
         }
 
         DB::transaction(function () use ($title, $adviserRequest) {
-            // Accept the chosen request
             $adviserRequest->update([
                 'status'     => 'accepted',
                 'decided_at' => now(),
             ]);
 
-            // Assign adviser to title
             $title->update([
                 'primary_adviser_id'  => $adviserRequest->adviser_id,
                 'adviser_assigned_at' => now(),
-                'status'              => 'in_advising',
+                'status'              => 'awaiting_admin', // ← admin gate
             ]);
 
-            // Close all other pending requests (student/adviser)
             AdviserRequest::where('title_id', $title->id)
                 ->where('id', '!=', $adviserRequest->id)
                 ->where('status', 'pending')
                 ->update(['status' => 'declined', 'decided_at' => now()]);
+
+            // Optional notify student
+            if (class_exists(\App\Models\Notification::class)) {
+                \App\Models\Notification::create([
+                    'user_id' => $title->owner_id,
+                    'title'   => 'Adviser Accepted',
+                    'message' => 'Adviser accepted. Waiting for admin approval.',
+                    'is_read' => false,
+                ]);
+            }
         });
 
-        return back()->with('success', 'Adviser accepted. Title is now in advising.');
+        return back()->with('success', 'Adviser accepted. Now waiting for admin approval.');
     }
+
 
     /** Student DECLINES an incoming adviser-initiated request */
     public function declineIncoming(Request $request, Title $title, AdviserRequest $adviserRequest)

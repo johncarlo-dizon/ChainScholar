@@ -35,6 +35,18 @@ class Title extends Model
     ];
     
 
+    public function isEditableByOwner(): bool
+    {
+        return $this->status === 'in_advising';
+    }
+    // App\Models\Title.php
+    public function adviser()
+    { 
+    return $this->belongsTo(\App\Models\User::class, 'primary_adviser_id');
+    }
+
+
+
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
