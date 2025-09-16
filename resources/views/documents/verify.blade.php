@@ -207,6 +207,10 @@
 
   {{-- ===== JS ===== --}}
   <script>
+/* ---------- Thresholds (edit here only) ---------- */
+const INTERNAL_THRESHOLD = 20; // pass if max internal similarity < 20%
+const EXTERNAL_THRESHOLD = 60; // pass if max web similarity < 50%
+
 /* ---------- Helpers ---------- */
 function escapeHtml(str){
   return (str || '').replace(/[&<>"']/g, m => (
@@ -283,12 +287,9 @@ function enableAIToggle(showButton){
 function setAIToggleLabel(open){
   const lbl = document.getElementById('ai-toggle-label');
   const btn = document.getElementById('ai-toggle-btn');
-  // Always keep short label
   lbl.textContent = 'AI Feedback';
-  // Still update aria state for accessibility
   btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
-
 
 function openAIPanel(){
   const wrap = document.getElementById('ai-feedback');
@@ -309,8 +310,6 @@ function toggleAIPanel(){
   const isHidden = wrap.classList.contains('hidden');
   if (isHidden) openAIPanel(); else closeAIPanel();
 }
-
- 
 
 async function fetchAIFeedback(payload) {
   const res = await fetch("{{ route('titles.ai-feedback') }}", {
@@ -349,7 +348,6 @@ function renderAIFeedback(reasons=[], tips=[], reminderText=null){
     rem.innerHTML = '✅ <span class="font-medium">Reminder:</span> ' + escapeHtml(reminderText);
   }
 }
-
 
 /* ---------- Internal state ---------- */
 window.passedInternal = false;
@@ -425,11 +423,13 @@ async function startVerification(event){
     window.__lastInternalData = internalData;
 
     internalPercent = Math.round(Number(internalData.max_similarity || 0));
+    const internalApproved = internalPercent < INTERNAL_THRESHOLD;
+
     updateBars({
       bar: document.getElementById("similarity-bar"),
       percent: document.getElementById("similarity-percent"),
       result: document.getElementById("similarity-result")
-    }, internalPercent, internalPercent < 30);
+    }, internalPercent, internalApproved);
 
     const internalList = document.getElementById("internal-similar-titles");
     internalList.innerHTML = "";
@@ -459,7 +459,9 @@ async function startVerification(event){
     } else {
       internalList.innerHTML = `<li class="italic text-gray-400">No similar internal titles found.</li>`;
     }
-    window.passedInternal = internalPercent < 30;
+
+    // NEW: internal pass check uses 20% threshold
+    window.passedInternal = internalApproved;
   } catch (e) {
     console.error(e);
     updateBars({
@@ -484,11 +486,14 @@ async function startVerification(event){
   window.__lastWebData = data;
   const webPercent = Math.round(Number(data.max_similarity || 0));
 
+  // NEW: external pass check uses 50% threshold (ignore server-approved flag)
+  const externalApproved = webPercent < EXTERNAL_THRESHOLD;
+
   updateBars({
     bar: document.getElementById("external-similarity-bar"),
     percent: document.getElementById("external-similarity-percent"),
     result: document.getElementById("external-similarity-result")
-  }, webPercent, Boolean(data.approved));
+  }, webPercent, externalApproved);
 
   const webList = document.getElementById("web-similar-titles");
   webList.innerHTML = "";
@@ -520,14 +525,14 @@ async function startVerification(event){
     webList.innerHTML = `<li class="italic text-gray-400">No similar web titles found.</li>`;
   }
 
-  window.passedExternal = Boolean(data.approved);
+  // NEW: external pass stored using 50% threshold
+  window.passedExternal = externalApproved;
   updateProceedButton();
 
   const finalPass = (window.passedInternal && window.passedExternal);
   toggleRejectHint(!finalPass);
 
-  // === NEW: AI feedback flow ===
-  // We only generate feedback when rejected, but we always let the user decide to show/hide via the toggle.
+  // === NEW: AI feedback respects thresholds 20/50 ===
   if (!finalPass) {
     try {
       showLoading('Generating AI feedback…');
@@ -549,28 +554,28 @@ async function startVerification(event){
         web_percent: Math.round(Number(window.__lastWebData?.max_similarity || 0)),
         internal_examples: internalExamples,
         web_examples: webExamples,
-        rules: ['reject_if_percent>=30']
+        // UPDATED rules to match your requested thresholds
+        rules: [
+          `internal_reject_if_percent>=${INTERNAL_THRESHOLD}`,
+          `external_reject_if_percent>=${EXTERNAL_THRESHOLD}`
+        ]
       };
 
       const aiRes = await fetchAIFeedback(aiPayload);
       hideLoading();
 
-      // Render + prepare toggle
-     if (aiRes?.ok) {
-      renderAIFeedback(aiRes.reasons, aiRes.tips, aiRes.reminder);
-    } else {
-      renderAIFeedback(
-        ['AI feedback unavailable.'],
-        ['Narrow the scope and specify method.', 'Define population/context clearly.', 'State what’s novel in your approach.'],
-        null
-      );
-    }
+      if (aiRes?.ok) {
+        renderAIFeedback(aiRes.reasons, aiRes.tips, aiRes.reminder);
+      } else {
+        renderAIFeedback(
+          ['AI feedback unavailable.'],
+          ['Narrow the scope and specify method.', 'Define population/context clearly.', 'State what’s novel in your approach.'],
+          null
+        );
+      }
 
-      // Heading should explicitly say "was rejected"
       setAIHeading(true);
       enableAIToggle(true);
-
-      // Respect last user choice (open/close)
       let wantOpen = false;
       try { wantOpen = localStorage.getItem(AI_STORE_KEY) === '1'; } catch(e){}
       if (wantOpen) openAIPanel(); else closeAIPanel();
@@ -578,7 +583,7 @@ async function startVerification(event){
     } catch (err) {
       console.error(err);
       hideLoading();
-     renderAIFeedback(
+      renderAIFeedback(
         ['Error generating AI feedback.'],
         ['Shorten the title and add a unique angle.', 'Specify domain, population, and method.', 'Avoid boilerplate or generic phrases.'],
         null
@@ -589,7 +594,6 @@ async function startVerification(event){
       closeAIPanel();
     }
   } else {
-    // Passed — keep AI button hidden & panel closed
     enableAIToggle(false);
     closeAIPanel();
   }
@@ -600,5 +604,6 @@ async function startVerification(event){
   }
   isRunning = false;
 }
-  </script>
+</script>
+
 </x-userlayout>
