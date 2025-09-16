@@ -4,6 +4,7 @@ NOTIFY ADMIN - USER ---- USER -- ADMIN
 
 
 
+php artisan migrate:fresh --seed
 
 
 php artisan:migrate fresh

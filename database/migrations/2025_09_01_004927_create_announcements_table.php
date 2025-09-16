@@ -10,9 +10,19 @@ return new class extends Migration
     {
         Schema::create('announcements', function (Blueprint $table) {
             $table->id();
-            $table->string('title'); // e.g. "Final Defense Schedule"
-            $table->text('body');    // announcement details
+            $table->string('title');                // e.g. "Final Defense Schedule"
+            $table->text('body');                   // announcement details
             $table->date('event_date')->nullable(); // optional event date
+
+            // NEW: Tier and Audience enums
+            $table->enum('tier', ['URGENT', 'IMPORTANT', 'GENERAL'])
+                  ->default('GENERAL')
+                  ->index();
+
+            $table->enum('audience', ['ALL', 'STUDENT', 'ADVISER', 'ADMIN'])
+                  ->default('ALL')
+                  ->index();
+
             $table->foreignId('user_id')->constrained()->onDelete('cascade'); // admin who posted
             $table->timestamps();
         });
