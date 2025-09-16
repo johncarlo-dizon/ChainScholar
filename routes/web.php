@@ -26,6 +26,21 @@ use App\Http\Middleware\EnsureIsAdmin;
 use App\Http\Controllers\ExternalPlagiarismController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use App\Http\Controllers\AdviserProfileController;
+
+
+
+
+// ADVISER PROFILE START
+Route::middleware(['auth'])->group(function () {
+    Route::get('/adviser/profile', [AdviserProfileController::class, 'edit'])
+        ->name('adviser.profile.edit');
+
+    Route::put('/adviser/profile', [AdviserProfileController::class, 'update'])
+        ->name('adviser.profile.update');
+});
+// ADVISER PROFILE END
+
 // COPYLEAKS START
 Route::middleware(['auth'])->group(function () {
     Route::post('/documents/copyleaks/start', [ExternalPlagiarismController::class, 'start'])

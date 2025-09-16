@@ -6,15 +6,28 @@
     $roleMap = ['ADMIN' => 'Admin', 'ADVISER' => 'Adviser', 'STUDENT' => 'Student'];
     $roleLabel = $roleMap[$user->role ?? ''] ?? 'User';
 
-    // Safe fallbacks so the badge/panel won't error if not provided
+    // Safe fallbacks
     $unreadCount = $unreadCount ?? 0;
     $notifications = $notifications ?? collect();
-    
+
     // Announcements data
     $announcementsCount = $announcementsCount ?? 0;
     $recentAnnouncements = $recentAnnouncements ?? collect();
     $awaitingAdminCount = $awaitingAdminCount ?? 0;
+
+    // Adviser profile completeness indicator
+    $profileIncomplete = false;
+    if ($user && $user->role === 'ADVISER') {
+        $p = $user->adviserProfile; // lazy-load ok
+        $profileIncomplete = !$p
+            || empty($p->department)
+            || empty($p->field_of_expertise)
+            || empty($p->highest_degree)
+            || empty($p->degree_school)
+            || empty($p->degree_year);
+    }
 @endphp
+
  
 
 <!-- ===== Responsive Sidebar (mobile drawer + desktop sticky) ===== -->
@@ -178,37 +191,42 @@
                         </li>
                     @endif
 
-                    {{-- ================== ADVISER ================== --}}
-                    @if($user->role === 'ADVISER')
-                        <li>
-                            <a href="{{ route('adviser.index') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="layout" class="w-4 h-4 mr-3"></i>
-                                Dashboard
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('adviser.advised.index') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.advised.*') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="bookmark" class="w-4 h-4 mr-3"></i>
-                                My Advised Titles
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('adviser.titles.browse') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.titles.browse') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="search" class="w-4 h-4 mr-3"></i>
-                                Browse Titles
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('adviser.requests.pending') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.requests.pending') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="alert-circle" class="w-4 h-4 mr-3"></i>
-                                Pending Requests
-                            </a>
-                        </li>
-                    @endif
+                  {{-- ================== ADVISER ================== --}}
+@if($user->role === 'ADVISER')
+    <li>
+        <a href="{{ route('adviser.index') }}"
+           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="layout" class="w-4 h-4 mr-3"></i>
+            Dashboard
+        </a>
+    </li>
+
+    {{-- NEW: Adviser Profile tab --}}
+ 
+
+    <li>
+        <a href="{{ route('adviser.advised.index') }}"
+           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.advised.*') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="bookmark" class="w-4 h-4 mr-3"></i>
+            My Advised Titles
+        </a>
+    </li>
+    <li>
+        <a href="{{ route('adviser.titles.browse') }}"
+           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.titles.browse') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="search" class="w-4 h-4 mr-3"></i>
+            Browse Titles
+        </a>
+    </li>
+    <li>
+        <a href="{{ route('adviser.requests.pending') }}"
+           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.requests.pending') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="alert-circle" class="w-4 h-4 mr-3"></i>
+            Pending Requests
+        </a>
+    </li>
+@endif
+
                 @endauth
             </ul>
         </div>
@@ -338,6 +356,30 @@
                         <span>Notification</span>
                     </a>
                 </li>
+                @auth
+@if($user->role === 'ADVISER')
+   <li>
+        <a href="{{ route('adviser.profile.edit') }}"
+           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.profile.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <span class="relative mr-3">
+                <i data-feather="user-check" class="w-4 h-4"></i>
+                @if($profileIncomplete)
+                    {{-- tiny warning dot --}}
+                    <span class="absolute -top-1 -right-1 inline-block w-2 h-2 bg-amber-500 rounded-full" title="Complete your adviser profile"></span>
+                @endif
+            </span>
+             Background Info
+            @if($profileIncomplete)
+                <span class="ml-auto text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                    Incomplete
+                </span>
+            @endif
+        </a>
+    </li>
+
+@endif
+
+                @endauth
                 <li>
                     <a href="{{route('profile.show')}}"
                        class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('profile.show') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
@@ -345,6 +387,13 @@
                         Profile
                     </a>
                 </li>
+
+
+      
+
+
+
+
             </ul>
         </nav>
     </div>

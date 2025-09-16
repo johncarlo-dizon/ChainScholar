@@ -146,30 +146,109 @@
       </div>
 
       {{-- Adviser chooser (hidden until internal+web pass) --}}
-      <div id="adviser-box" class="mt-6 hidden">
-        <label for="adviser_id" class="block mb-2 font-bold text-blue-600 text-sm sm:text-base">Choose Adviser</label>
-        @if(($advisers ?? collect())->count())
-          <select id="adviser_id" name="adviser_id"
-                  class="w-full border border-gray-300 rounded-md px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  disabled>
-            <option value="">— Select an adviser —</option>
-            @foreach($advisers as $adv)
-              <option value="{{ $adv->id }}">
-                {{ $adv->name }}
-                @if($adv->department) — {{ $adv->department }} @endif
-                @if($adv->specialization) ({{ $adv->specialization }}) @endif
-              </option>
-            @endforeach
-          </select>
-          <p class="text-xs text-gray-500 mt-1">
-            The adviser will receive your request and can accept/decline.
-          </p>
-        @else
-          <div class="p-3 rounded-md bg-amber-50 border border-amber-200 text-sm text-amber-800">
-            No advisers available yet. Please contact the administrator.
+ <div id="adviser-box" class="mt-6 hidden">
+  <label for="adviser_id" class="block mb-2 font-bold text-blue-600 text-sm sm:text-base">Choose Adviser</label>
+
+  @if(($advisers ?? collect())->count())
+    <select id="adviser_id" name="adviser_id"
+            class="w-full border border-gray-300 rounded-md px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+            disabled>
+      <option value="">— Select an adviser —</option>
+      @foreach($advisers as $adv)
+        @php
+          $p = $adv->adviserProfile;
+          $meta = [
+            'id'   => $adv->id,
+            'name' => $adv->name,
+            'avatar' => $adv->avatar ? asset('storage/avatars/'.$adv->avatar) : asset('storage/avatars/default.png'),
+            'profile' => $p ? [
+              'department'         => $p->department,
+              'field_of_expertise' => $p->field_of_expertise,
+              'highest_degree'     => $p->highest_degree,
+              'degree_school'      => $p->degree_school,
+              'degree_year'        => $p->degree_year,
+              'advisory_years'     => $p->advisory_years,
+              'projects_handled'   => $p->projects_handled,
+              'notes'              => $p->notes,
+              'achievements'       => $p->achievements->map(fn($a)=>[
+                  'title'=>$a->title, 'issuer'=>$a->issuer, 'year'=>$a->year, 'description'=>$a->description
+              ])->values(),
+              'interests'          => $p->researchInterests->pluck('name')->values(),
+            ] : null,
+          ];
+        @endphp
+        <option value="{{ $adv->id }}" data-meta='@json($meta)'>
+          {{ $adv->name }}
+          @if($p?->department) — {{ $p->department }} @endif
+          @if($p?->field_of_expertise) ({{ $p->field_of_expertise }}) @endif
+        </option>
+      @endforeach
+    </select>
+
+    {{-- Adviser Info Card --}}
+    <div id="adviser-info" class="hidden mt-4 rounded-xl border border-gray-200 bg-gray-50">
+      <div class="p-4 sm:p-5">
+        <div class="flex items-start gap-4">
+          <img id="adv-avatar" class="h-14 w-14 rounded-full object-cover shadow-sm"
+               src="{{ asset('storage/avatars/default.png') }}" alt="Adviser avatar">
+          <div class="min-w-0 flex-1">
+            <h4 id="adv-name" class="text-lg font-semibold text-gray-900">—</h4>
+            <p id="adv-dept" class="text-sm text-gray-600">—</p>
+            <p id="adv-field" class="text-sm text-gray-600">—</p>
           </div>
-        @endif
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+          <div class="rounded-lg bg-white border p-3">
+            <div class="text-xs text-gray-500">Highest Degree</div>
+            <div id="adv-degree" class="text-sm font-medium text-gray-800">—</div>
+          </div>
+          <div class="rounded-lg bg-white border p-3">
+            <div class="text-xs text-gray-500">Advisory Years</div>
+            <div id="adv-years" class="text-sm font-medium text-gray-800">—</div>
+          </div>
+          <div class="rounded-lg bg-white border p-3">
+            <div class="text-xs text-gray-500">Projects Handled</div>
+            <div id="adv-projects" class="text-sm font-medium text-gray-800">—</div>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-lg bg-white border p-3">
+          <div class="text-xs text-gray-500 mb-1">Research Interests</div>
+          <div id="adv-interests" class="flex flex-wrap gap-2">
+            <span class="text-xs text-gray-400 italic">—</span>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-lg bg-white border p-3">
+          <div class="flex items-center justify-between">
+            <div class="text-sm font-semibold text-gray-800">Major Achievements</div>
+            <button type="button" id="toggle-achievements"
+                    class="text-xs text-blue-600 hover:underline" aria-expanded="true">
+              Collapse
+            </button>
+          </div>
+          <ul id="adv-achievements" class="mt-2 space-y-2">
+            <li class="text-sm text-gray-500 italic">—</li>
+          </ul>
+        </div>
+
+        <div class="mt-4 rounded-lg bg-white border p-3">
+          <div class="text-xs text-gray-500 mb-1">Notes / Bio</div>
+          <p id="adv-notes" class="text-sm text-gray-700">—</p>
+        </div>
       </div>
+    </div>
+
+    <p class="text-xs text-gray-500 mt-2">
+      The adviser will receive your request and can accept/decline.
+    </p>
+  @else
+    <div class="p-3 rounded-md bg-amber-50 border border-amber-200 text-sm text-amber-800">
+      No advisers available yet. Please contact the administrator.
+    </div>
+  @endif
+</div>
 
       <div id="authors-box" class="mt-4 hidden">
         <label for="authors" class="block mb-2 font-bold text-blue-600 text-sm sm:text-base">Authors</label>
@@ -204,6 +283,139 @@
       <p class="text-blue-700 font-semibold text-base sm:text-lg">Scanning title for similarity...</p>
     </div>
   </div>
+
+
+
+
+
+
+
+{{-- ========== ADVISER METADATA CODE START============= --}}
+{{-- ======== ADVISER METADATA (single source of truth) ======== --}}
+
+
+<script>
+(function(){
+  const select = document.getElementById('adviser_id');
+  const card   = document.getElementById('adviser-info');
+
+  const $ = (id) => document.getElementById(id);
+  const avatar  = $('adv-avatar');
+  const nameEl  = $('adv-name');
+  const deptEl  = $('adv-dept');
+  const fieldEl = $('adv-field');
+  const degree  = $('adv-degree');
+  const years   = $('adv-years');
+  const projects= $('adv-projects');
+  const interestsWrap = $('adv-interests');
+  const achList = $('adv-achievements');
+  const notes   = $('adv-notes');
+  const toggle  = $('toggle-achievements');
+
+  function esc(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
+
+  function renderInterests(list){
+    interestsWrap.innerHTML = '';
+    if (!Array.isArray(list) || list.length === 0){
+      const span = document.createElement('span');
+      span.className = 'text-xs text-gray-400 italic';
+      span.textContent = '—';
+      interestsWrap.appendChild(span);
+      return;
+    }
+    list.forEach(t=>{
+      const chip = document.createElement('span');
+      chip.className = 'text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100';
+      chip.textContent = t;
+      interestsWrap.appendChild(chip);
+    });
+  }
+
+  function renderAchievements(list){
+    achList.innerHTML = '';
+    if (!Array.isArray(list) || list.length === 0){
+      const li = document.createElement('li');
+      li.className = 'text-sm text-gray-500 italic';
+      li.textContent = '—';
+      achList.appendChild(li);
+      return;
+    }
+    list.forEach(a=>{
+      const li = document.createElement('li');
+      li.className = 'text-sm text-gray-800';
+      const bits = [];
+      if (a.title) bits.push(`<span class="font-medium">${esc(a.title)}</span>`);
+      const tail = [a.issuer, a.year].filter(Boolean).join(' • ');
+      if (tail) bits.push(`<span class="text-gray-500">(${esc(tail)})</span>`);
+      if (a.description) bits.push(`<div class="text-gray-600">${esc(a.description)}</div>`);
+      li.innerHTML = bits.join(' ');
+      achList.appendChild(li);
+    });
+  }
+
+  function fillCard(meta){
+    const p = meta && meta.profile ? meta.profile : null;
+
+    card.classList.remove('hidden');
+    avatar.src       = (meta && meta.avatar) ? meta.avatar : "{{ asset('storage/avatars/default.png') }}";
+    nameEl.textContent  = meta?.name || '—';
+    deptEl.textContent  = p?.department || (p === null ? 'No profile yet' : '—');
+    fieldEl.textContent = p?.field_of_expertise || '—';
+
+    if (p){
+      const deg = [p.highest_degree, p.degree_school, p.degree_year].filter(Boolean).join(', ');
+      degree.textContent   = deg || '—';
+      years.textContent    = (p.advisory_years ?? '') !== '' ? p.advisory_years : '—';
+      projects.textContent = (p.projects_handled ?? '') !== '' ? p.projects_handled : '—';
+      notes.textContent    = p.notes || '—';
+      renderInterests(p.interests || []);
+      renderAchievements(p.achievements || []);
+    } else {
+      degree.textContent   = '—';
+      years.textContent    = '—';
+      projects.textContent = '—';
+      notes.textContent    = '—';
+      renderInterests([]);
+      renderAchievements([]);
+    }
+  }
+
+  function parseMeta(opt){
+    try {
+      const raw = opt.getAttribute('data-meta');
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch(e){ return null; }
+  }
+
+  function onChange(){
+    const opt = select.options[select.selectedIndex];
+    if (!opt || !opt.value) { card.classList.add('hidden'); return; }
+    const meta = parseMeta(opt);
+    if (meta) fillCard(meta); else card.classList.add('hidden');
+  }
+
+  select?.addEventListener('change', onChange);
+
+  // collapse/expand achievements
+  toggle?.addEventListener('click', () => {
+    const hidden = achList.classList.toggle('hidden');
+    toggle.setAttribute('aria-expanded', String(!hidden));
+    toggle.textContent = hidden ? 'Expand' : 'Collapse';
+  });
+})();
+</script>
+
+{{-- ========== ADVISER METADATA CODE END============= --}}
+
+
+
+
+
+
+
+
+
 
   {{-- ===== JS ===== --}}
   <script>

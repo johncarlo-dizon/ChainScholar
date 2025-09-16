@@ -21,10 +21,6 @@ return new class extends Migration
             $table->string('avatar')->nullable();
 
 
-            // Optional adviser metadata (kept nullable for students/admins)
-            $table->string('department')->nullable();
-            $table->string('specialization')->nullable();
-
             $table->rememberToken();
             $table->timestamps();
         });

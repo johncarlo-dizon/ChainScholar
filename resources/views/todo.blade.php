@@ -6,6 +6,23 @@ NOTIFY ADMIN - USER ---- USER -- ADMIN
 
 
 
+php artisan:migrate fresh
+php artisan db:seed --class=DemoUsersSeeder
+php artisan db:seed
+
+
+
+//command to clear or to restart the whole system
+php artisan optimize:clear    
+
+//command to clear the configure if theres a changes in env or services file
+php artisan config:clear   
+
+
+
+
+
+
 fix the manage part also the delete modal part
    <!-- Admin Actions -->
                    @if(auth()->check() && auth()->user()->isAdmin())

@@ -27,8 +27,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'role',        // updated from position → role
         'avatar',
-        'department',
-        'specialization',
     ];
 
     /**
@@ -54,6 +52,15 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+
+    public function adviserProfile()
+    {
+        return $this->hasOne(\App\Models\AdviserProfile::class);
+    }
+    public function scopeAdvisers($q)
+    {
+        return $q->where('role', 'ADVISER');
+    }
     public function sendEmailVerificationNotification()
     {
         $this->notify(new  CustomVerifyEmail);

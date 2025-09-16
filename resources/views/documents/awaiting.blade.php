@@ -1,246 +1,448 @@
 <x-userlayout>
-    <div class="bg-blue-600 rounded-lg shadow p-4">
-        <h2 class="text-2xl font-semibold text-white">Awaiting Titles</h2>
-        <p class="text-blue-100 text-sm">Manage adviser approvals and admin approvals in one view.</p>
-    </div>
+  <div class="bg-blue-600 rounded-lg shadow p-4">
+    <h2 class="text-2xl font-semibold text-white">Awaiting Titles</h2>
+    <p class="text-blue-100 text-sm">Manage adviser and admin approvals in one place.</p>
+  </div>
 
+  <div class="container mx-auto px-4 py-4">
+    {{-- FILTERS / SEARCH --}}
+    <form method="GET" class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+        {{-- Search (title or adviser) --}}
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1" for="q">Search</label>
+          <input id="q" name="q" value="{{ old('q', $q ?? '') }}"
+                 placeholder="Search by title or adviser name"
+                 class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none">
+        </div>
+
+        {{-- Status --}}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1" for="status">Status</label>
+          <select id="status" name="status"
+                  class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-400">
+            @php $statusVal = $status ?? 'all'; @endphp
+            <option value="all" @selected($statusVal==='all')>All</option>
+            <option value="awaiting_adviser" @selected($statusVal==='awaiting_adviser')>Waiting for Adviser</option>
+            <option value="awaiting_admin" @selected($statusVal==='awaiting_admin')>Waiting for Admin</option>
+          </select>
+        </div>
+
+    
+
+        {{-- Filter by Adviser (pending target) --}}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1" for="adviser_id">Adviser</label>
+          <select id="adviser_id" name="adviser_id"
+                  class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-400">
+            <option value="">Any adviser</option>
+            @foreach($advisers as $a)
+              <option value="{{ $a->id }}" @selected(($advId ?? null) == $a->id)>{{ $a->name }}</option>
+            @endforeach
+          </select>
+        </div>
+
+            {{-- Pending with Adviser (student-initiated request exists) --}}
+        <div>
+         
+           <label class="block text-xs font-medium text-gray-600 mb-1" for="adviser_id">Actions</label>
+          <a href="{{ route('titles.awaiting') }}"
+             class="px-3 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-100">Reset</a>
+          <button type="submit"
+                  class="px-3 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700">Apply</button>
+   
+        </div>
+      </div>
+ 
+    </form>
+
+    {{-- UNIFIED LIST --}}
     @php
-        $pageItems = $titles instanceof \Illuminate\Pagination\AbstractPaginator
-            ? $titles->getCollection()
-            : collect($titles);
+      $pageItems = $titles instanceof \Illuminate\Pagination\AbstractPaginator
+          ? $titles->getCollection()
+          : collect($titles);
 
-        $awaitingAdviser = $pageItems->where('status', 'awaiting_adviser')->values();
-        $awaitingAdmin   = $pageItems->where('status', 'awaiting_admin')->values();
+      $statusStyles = [
+        'awaiting_adviser' => 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200',
+        'awaiting_admin'   => 'bg-blue-50 text-blue-800 ring-1 ring-blue-200',
+      ];
     @endphp
 
-    <div class="container mx-auto px-4 py-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {{-- LEFT COLUMN: Waiting for Adviser --}}
-            <section class="space-y-2">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-sm font-semibold text-gray-900">Waiting for Adviser</h3>
-                    <span class="text-xs text-gray-500">{{ $awaitingAdviser->count() }} item(s)</span>
-                </div>
+    @if($pageItems->isEmpty())
+      <div class="bg-white border border-gray-200 rounded-lg p-6 text-sm text-gray-600 text-center">
+        No results found.
+      </div>
+    @else
+      <ul class="space-y-3">
+        @foreach($pageItems as $t)
+          @php
+            $studentPending = $t->adviserRequests->firstWhere('requested_by', 'student');
+            $incomingFromAdvisers = $t->adviserRequests->where('requested_by', 'adviser')->values();
+            $badgeClass = $statusStyles[$t->status] ?? 'bg-gray-50 text-gray-700 ring-1 ring-gray-200';
 
-                @if($awaitingAdviser->isEmpty())
-                    <div class="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-600 text-center">
-                        No titles are currently awaiting an adviser.
-                    </div>
-                @else
-                    @foreach($awaitingAdviser as $t)
-                        @php
-                            $studentPending = $t->adviserRequests->firstWhere('requested_by', 'student');
-                            $incomingFromAdvisers = $t->adviserRequests->where('requested_by', 'adviser')->values();
-                        @endphp
+            // Prebuild meta for <option> embedding
+            $buildMeta = function($adv) {
+              $p = $adv->adviserProfile;
+              return [
+                'id'   => $adv->id,
+                'name' => $adv->name,
+                'avatar' => $adv->avatar ? asset('storage/avatars/'.$adv->avatar) : asset('storage/avatars/default.png'),
+                'profile' => $p ? [
+                  'department'         => $p->department,
+                  'field_of_expertise' => $p->field_of_expertise,
+                  'highest_degree'     => $p->highest_degree,
+                  'degree_school'      => $p->degree_school,
+                  'degree_year'        => $p->degree_year,
+                  'advisory_years'     => $p->advisory_years,
+                  'projects_handled'   => $p->projects_handled,
+                  'notes'              => $p->notes,
+                  'achievements'       => $p->achievements->map(fn($a)=>[
+                      'title'=>$a->title, 'issuer'=>$a->issuer, 'year'=>$a->year, 'description'=>$a->description
+                  ])->values(),
+                  'interests'          => $p->researchInterests->pluck('name')->values(),
+                ] : null,
+              ];
+            };
+          @endphp
 
-                        <div class="bg-white border border-gray-200 rounded-lg p-4">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <div class="font-semibold text-gray-700 text-sm md:text-base truncate">{{ $t->title }}</div>
-                                    <div class="mt-1 flex flex-wrap items-center gap-2">
-                                        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200">awaiting_adviser</span>
-                                        @if($studentPending)
-                                            <span class="px-2 py-0.5 rounded-full text-[11px] bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200">
-                                                Pending with <b>{{ $studentPending->adviser->name }}</b>
-                                            </span>
-                                        @else
-                                            <span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-50 text-gray-600 ring-1 ring-gray-200">No student request</span>
-                                        @endif
-                                    </div>
-                                </div>
+         
 
-                                {{-- Change / Withdraw (compact) --}}
-                                <div class="w-48">
-                                    <label for="adviser_id_{{ $t->id }}" class="sr-only">Choose adviser</label>
-                                    <select id="adviser_id_{{ $t->id }}"
-                                            class="w-full border-gray-300 rounded-md text-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                                        <option value="">— Select adviser —</option>
-                                        @foreach($advisers as $a)
-                                            <option value="{{ $a->id }}" @selected(optional($studentPending)->adviser_id === $a->id)>
-                                                {{ $a->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <div class="mt-2 flex gap-1">
-                                        <form id="changeForm-{{ $t->id }}" method="POST" action="{{ route('titles.adviser.change', $t) }}">
-                                            @csrf
-                                            <input type="hidden" name="adviser_id" id="adviser_id_hidden_{{ $t->id }}">
-                                            <button type="submit" class="px-2.5 py-1 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700">Change</button>
-                                        </form>
-                                        <form id="withdrawForm-{{ $t->id }}" method="POST" action="{{ route('titles.adviser.cancel', $t) }}">
-                                            @csrf
-                                            <button type="button"
-                                                    class="px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 text-xs hover:bg-gray-200"
-                                                    data-confirm
-                                                    data-title="Withdraw Request"
-                                                    data-message="Withdraw your current adviser request for “{{ $t->title }}”?"
-                                                    data-form="withdrawForm-{{ $t->id }}">
-                                                Withdraw
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
+<li class="bg-white border border-gray-200 rounded-lg p-4">
+  {{-- TOP ROW: title/badges on the left, adviser actions on the right --}}
+  <div class="flex items-start justify-between gap-4">
+    <div class="min-w-0">
+      <div class="font-semibold text-gray-800 text-sm md:text-base truncate">{{ $t->title }}</div>
+      <div class="mt-1 flex flex-wrap items-center gap-2">
+        {{-- unified status badge --}}
+        @php
+          $badgeClass = ($t->status === 'awaiting_adviser')
+            ? 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200'
+            : (($t->status === 'awaiting_admin')
+              ? 'bg-blue-50 text-blue-800 ring-1 ring-blue-200'
+              : 'bg-gray-50 text-gray-700 ring-1 ring-gray-200');
+        @endphp
+        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium {{ $badgeClass }}">
+          {{ $t->status }}
+        </span>
 
-                            {{-- Incoming adviser requests (compact list) --}}
-                            <div class="mt-3">
-                                @if($incomingFromAdvisers->isEmpty())
-                                    <div class="text-xs text-gray-500">No adviser-initiated requests yet.</div>
-                                @else
-                                    <ul class="space-y-2">
-                                        @foreach($incomingFromAdvisers as $req)
-                                            <li class="border border-gray-200 rounded-md p-2">
-                                                <div class="flex items-center justify-between gap-2">
-                                                    <div class="truncate">
-                                                        <span class="text-sm font-medium text-gray-900">{{ $req->adviser->name }}</span>
-                                                        <span class="text-xs text-gray-500">
-                                                            @if($req->adviser->department) • {{ $req->adviser->department }} @endif
-                                                        </span>
-                                                    </div>
-                                                    <div class="flex gap-1">
-                                                        <form id="acceptForm-{{ $t->id }}-{{ $req->id }}" method="POST" action="{{ route('titles.incoming.accept', [$t, $req]) }}">
-                                                            @csrf
-                                                            <button type="button"
-                                                                    class="px-2.5 py-1 rounded-md bg-green-600 text-white text-xs hover:bg-green-700"
-                                                                    data-confirm
-                                                                    data-title="Accept Adviser"
-                                                                    data-message="Accept {{ $req->adviser->name }} as adviser for “{{ $t->title }}”? This will close other pending requests."
-                                                                    data-form="acceptForm-{{ $t->id }}-{{ $req->id }}">
-                                                                Accept
-                                                            </button>
-                                                        </form>
-                                                        <form id="declineForm-{{ $t->id }}-{{ $req->id }}" method="POST" action="{{ route('titles.incoming.decline', [$t, $req]) }}">
-                                                            @csrf
-                                                            <button type="button"
-                                                                    class="px-2.5 py-1 rounded-md bg-red-600 text-white text-xs hover:bg-red-700"
-                                                                    data-confirm
-                                                                    data-title="Decline Adviser"
-                                                                    data-message="Decline {{ $req->adviser->name }}’s request for “{{ $t->title }}”?"
-                                                                    data-form="declineForm-{{ $t->id }}-{{ $req->id }}">
-                                                                Decline
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @endif
-                            </div>
-                        </div>
+        {{-- “Pending with Adviser” badge --}}
+        @if($studentPending)
+          <span class="px-2 py-0.5 rounded-full text-[11px] bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200">
+            Pending with <b>{{ $studentPending->adviser->name }}</b>
+          </span>
+        @endif
+      </div>
+    </div>
 
-                        {{-- Sync select → hidden input --}}
-                        <script>
-                            (function(){
-                                const s = document.getElementById('adviser_id_{{ $t->id }}');
-                                const h = document.getElementById('adviser_id_hidden_{{ $t->id }}');
-                                if (s && h) { h.value = s.value; s.addEventListener('change',()=>h.value=s.value); }
-                            })();
-                        </script>
-                    @endforeach
-                @endif
-            </section>
+    {{-- RIGHT: change adviser + per-row toggle --}}
+    <div class="shrink-0 w-full sm:w-auto">
+      <div class="flex items-center justify-end gap-3">
+        {{-- toggle --}}
+        <label class="inline-flex items-center gap-2">
+          <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-400"
+                 id="toggle-details-{{ $t->id }}">
+          <span class="text-xs text-gray-700">Show details</span>
+        </label>
 
-            {{-- RIGHT COLUMN: Waiting for Admin --}}
-            <section class="space-y-2">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-sm font-semibold text-gray-900">Waiting for Admin</h3>
-                    <span class="text-xs text-gray-500">{{ $awaitingAdmin->count() }} item(s)</span>
-                </div>
+        {{-- change adviser --}}
+        <div class="flex items-center gap-2">
+          <label for="adviser_id_{{ $t->id }}" class="text-xs text-gray-600 hidden sm:inline">Change Adviser</label>
+          <select id="adviser_id_{{ $t->id }}"
+                  class="border-gray-300 rounded-md text-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">— Select adviser —</option>
+            @foreach($advisers as $a)
+              @php
+                $p = $a->adviserProfile;
+                $meta = [
+                  'id'   => $a->id,
+                  'name' => $a->name,
+                  'avatar' => $a->avatar ? asset('storage/avatars/'.$a->avatar) : asset('storage/avatars/default.png'),
+                  'profile' => $p ? [
+                    'department'         => $p->department,
+                    'field_of_expertise' => $p->field_of_expertise,
+                    'highest_degree'     => $p->highest_degree,
+                    'degree_school'      => $p->degree_school,
+                    'degree_year'        => $p->degree_year,
+                    'advisory_years'     => $p->advisory_years,
+                    'projects_handled'   => $p->projects_handled,
+                    'notes'              => $p->notes,
+                    'achievements'       => $p->achievements->map(fn($aa)=>[
+                        'title'=>$aa->title, 'issuer'=>$aa->issuer, 'year'=>$aa->year, 'description'=>$aa->description
+                    ])->values(),
+                    'interests'          => $p->researchInterests->pluck('name')->values(),
+                  ] : null,
+                ];
+              @endphp
+              <option value="{{ $a->id }}"
+                      @selected(optional($studentPending)->adviser_id === $a->id)
+                      data-meta='@json($meta)'>
+                {{ $a->name }}@if($p?->department) — {{ $p->department }} @endif
+              </option>
+            @endforeach
+          </select>
 
-                @if($awaitingAdmin->isEmpty())
-                    <div class="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-600 text-center">
-                        No titles are currently awaiting admin approval.
-                    </div>
-                @else
-                    @foreach($awaitingAdmin as $t)
-                        <div class="bg-white border border-gray-200 rounded-lg p-4">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <div class="font-semibold text-gray-700 text-sm md:text-base truncate">{{ $t->title }}</div>
-                                    <div class="mt-1 flex flex-wrap items-center gap-2">
-                                        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-800 ring-1 ring-blue-200">awaiting_admin</span>
-                                        <span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-50 text-gray-700 ring-1 ring-gray-200">Editing locked</span>
-                                    </div>
-                                </div>
-                                <div class="text-xs text-gray-600">
-                                    Adviser accepted — pending admin approval. You’ll be notified once approved.
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
-                @endif
-            </section>
+          <form id="changeForm-{{ $t->id }}" method="POST" action="{{ route('titles.adviser.change', $t) }}">
+            @csrf
+            <input type="hidden" name="adviser_id" id="adviser_id_hidden_{{ $t->id }}">
+            <button type="submit"
+                    class="shrink-0 px-2.5 py-1 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700">
+              Change
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- FULL-WIDTH ADVISER INFO (spans the entire card) --}}
+  <div id="adv-card-{{ $t->id }}" class="hidden mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+    <div class="grid gap-4 md:grid-cols-12">
+      {{-- LEFT: avatar + name + dept/field --}}
+      <div class="md:col-span-4 lg:col-span-3">
+        <div class="flex items-start gap-3">
+          <img id="adv-avatar-{{ $t->id }}" class="h-14 w-14 rounded-full object-cover"
+               src="{{ asset('storage/avatars/default.png') }}" alt="Adviser avatar">
+          <div class="min-w-0">
+            <div id="adv-name-{{ $t->id }}" class="text-base font-semibold text-gray-900">—</div>
+            <div id="adv-dept-{{ $t->id }}" class="text-sm text-gray-600">—</div>
+            <div id="adv-field-{{ $t->id }}" class="text-sm text-gray-600">—</div>
+          </div>
+        </div>
+      </div>
+
+      {{-- RIGHT: stats + interests (fills remaining width) --}}
+      <div class="md:col-span-8 lg:col-span-9">
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div class="rounded-lg bg-white border p-3">
+            <div class="text-xs text-gray-500">Highest Degree</div>
+            <div id="adv-degree-{{ $t->id }}" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
+          </div>
+          <div class="rounded-lg bg-white border p-3">
+            <div class="text-xs text-gray-500">Advisory Years</div>
+            <div id="adv-years-{{ $t->id }}" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
+          </div>
+          <div class="rounded-lg bg-white border p-3">
+            <div class="text-xs text-gray-500">Projects</div>
+            <div id="adv-projects-{{ $t->id }}" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
+          </div>
         </div>
 
         <div class="mt-3">
-            {{ $titles->links() }}
+          <div class="text-xs text-gray-500 mb-1">Interests</div>
+          <div id="adv-interests-{{ $t->id }}" class="flex flex-wrap gap-1.5">
+            <span class="text-[11px] text-gray-400 italic">—</span>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 
-    {{-- Confirm Modal (reuse yours as-is) --}}
-    <div id="confirmModal" class="fixed inset-0 hidden items-center justify-center z-50">
-        <div id="confirmOverlay" class="absolute inset-0 backdrop-blur-sm bg-black/20"></div>
-        <div class="relative bg-white rounded-xl shadow-xl p-6 max-w-lg w-full mx-4 z-10">
-            <div class="flex items-start gap-3">
-                <div class="shrink-0 w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M12 9v4m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-                <div class="min-w-0">
-                    <h3 id="confirmTitle" class="text-lg font-semibold text-gray-900">Confirm</h3>
-                    <p id="confirmMessage" class="mt-1 text-sm text-gray-600">Are you sure?</p>
-                </div>
+  {{-- incoming adviser-initiated requests (optional compact list) --}}
+  @if($incomingFromAdvisers->isNotEmpty())
+    <div class="mt-3">
+      <ul class="space-y-2">
+        @foreach($incomingFromAdvisers as $req)
+          <li class="border border-gray-200 rounded-md p-2">
+            <div class="flex items-center justify-between gap-2">
+              <div class="truncate">
+                <span class="text-sm font-medium text-gray-900">{{ $req->adviser->name }}</span>
+                @if(optional($req->adviser)->department)
+                  <span class="text-xs text-gray-500"> • {{ $req->adviser->department }}</span>
+                @endif
+              </div>
+              <div class="flex gap-1">
+                <form id="acceptForm-{{ $t->id }}-{{ $req->id }}" method="POST" action="{{ route('titles.incoming.accept', [$t, $req]) }}">
+                  @csrf
+                  <button type="button"
+                          class="px-2.5 py-1 rounded-md bg-green-600 text-white text-xs hover:bg-green-700"
+                          data-confirm
+                          data-title="Accept Adviser"
+                          data-message="Accept {{ $req->adviser->name }} as adviser for “{{ $t->title }}”?"
+                          data-form="acceptForm-{{ $t->id }}-{{ $req->id }}">
+                    Accept
+                  </button>
+                </form>
+                <form id="declineForm-{{ $t->id }}-{{ $req->id }}" method="POST" action="{{ route('titles.incoming.decline', [$t, $req]) }}">
+                  @csrf
+                  <button type="button"
+                          class="px-2.5 py-1 rounded-md bg-red-600 text-white text-xs hover:bg-red-700"
+                          data-confirm
+                          data-title="Decline Adviser"
+                          data-message="Decline {{ $req->adviser->name }}’s request for “{{ $t->title }}”?"
+                          data-form="declineForm-{{ $t->id }}-{{ $req->id }}">
+                    Decline
+                  </button>
+                </form>
+              </div>
             </div>
+          </li>
+        @endforeach
+      </ul>
+    </div>
+  @endif
+</li>
 
-            <div class="mt-4 flex justify-end gap-2">
-                <button type="button" id="confirmCancelBtn"
-                        class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
-                    Cancel
-                </button>
-                <button type="button" id="confirmOkBtn"
-                        class="px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">
-                    Confirm
-                </button>
-            </div>
+{{-- per-row script (unchanged logic, works with full-width card) --}}
+<script>
+  (function(){
+    const rowId = "{{ $t->id }}";
+    const select = document.getElementById('adviser_id_' + rowId);
+    const hidden = document.getElementById('adviser_id_hidden_' + rowId);
+    const toggle = document.getElementById('toggle-details-' + rowId);
+    const card   = document.getElementById('adv-card-' + rowId);
+
+    function chips(el, arr){
+      el.innerHTML = '';
+      if (!Array.isArray(arr) || arr.length === 0) {
+        const span = document.createElement('span');
+        span.className = 'text-[11px] text-gray-400 italic';
+        span.textContent = '—';
+        el.appendChild(span);
+        return;
+      }
+      arr.forEach(t=>{
+        const s = document.createElement('span');
+        s.className = 'text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100';
+        s.textContent = t;
+        el.appendChild(s);
+      });
+    }
+
+    function render(meta){
+      const p = meta && meta.profile ? meta.profile : null;
+      document.getElementById('adv-avatar-' + rowId).src = (meta && meta.avatar) ? meta.avatar : "{{ asset('storage/avatars/default.png') }}";
+      document.getElementById('adv-name-' + rowId).textContent  = meta?.name || '—';
+      document.getElementById('adv-dept-' + rowId).textContent  = p?.department || (p === null ? 'No profile yet' : '—');
+      document.getElementById('adv-field-' + rowId).textContent = p?.field_of_expertise || '—';
+
+      const deg = p ? [p.highest_degree, p.degree_school, p.degree_year].filter(Boolean).join(', ') : '';
+      document.getElementById('adv-degree-' + rowId).textContent   = deg || '—';
+      document.getElementById('adv-years-' + rowId).textContent    = (p?.advisory_years ?? '') !== '' ? p.advisory_years : '—';
+      document.getElementById('adv-projects-' + rowId).textContent = (p?.projects_handled ?? '') !== '' ? p.projects_handled : '—';
+      chips(document.getElementById('adv-interests-' + rowId), p?.interests || []);
+    }
+
+    function parseMeta(opt){
+      try {
+        const raw = opt.getAttribute('data-meta');
+        return raw ? JSON.parse(raw) : null;
+      } catch(e){ return null; }
+    }
+
+    // sync select → hidden
+    function syncHidden(){ if (hidden) hidden.value = select.value || ''; }
+    select.addEventListener('change', ()=>{
+      syncHidden();
+      const opt = select.options[select.selectedIndex];
+      const meta = opt ? parseMeta(opt) : null;
+      if (meta) render(meta);
+      if (toggle.checked) card.classList.remove('hidden');
+    });
+    syncHidden(); // initial
+
+    // row toggle
+    toggle.addEventListener('change', ()=>{
+      if (toggle.checked) {
+        const opt = select.options[select.selectedIndex];
+        const meta = opt ? parseMeta(opt) : null;
+        if (meta) render(meta);
+        card.classList.remove('hidden');
+      } else {
+        card.classList.add('hidden');
+      }
+    });
+
+    // respect global default (if you enabled that checkbox above)
+    try {
+      const globalOn = localStorage.getItem('awaiting_show_details_default') === '1';
+      if (globalOn) { toggle.checked = true; toggle.dispatchEvent(new Event('change')); }
+    } catch(e){}
+  })();
+</script>
+
+
+
+
+
+        @endforeach
+      </ul>
+
+      <div class="mt-4">
+      {{ $titles->appends(request()->query())->links() }}
+      </div>
+    @endif
+  </div>
+
+  {{-- Confirm Modal (unchanged) --}}
+  <div id="confirmModal" class="fixed inset-0 hidden items-center justify-center z-50">
+    <div id="confirmOverlay" class="absolute inset-0 backdrop-blur-sm bg-black/20"></div>
+    <div class="relative bg-white rounded-xl shadow-xl p-6 max-w-lg w-full mx-4 z-10">
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+          <svg class="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 9v4m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
+        <div class="min-w-0">
+          <h3 id="confirmTitle" class="text-lg font-semibold text-gray-900">Confirm</h3>
+          <p id="confirmMessage" class="mt-1 text-sm text-gray-600">Are you sure?</p>
+        </div>
+      </div>
+      <div class="mt-4 flex justify-end gap-2">
+        <button type="button" id="confirmCancelBtn"
+                class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">Cancel</button>
+        <button type="button" id="confirmOkBtn"
+                class="px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">Confirm</button>
+      </div>
     </div>
+  </div>
 
-    <script>
-        (function () {
-            const modal   = document.getElementById('confirmModal');
-            const overlay = document.getElementById('confirmOverlay');
-            const titleEl = document.getElementById('confirmTitle');
-            const msgEl   = document.getElementById('confirmMessage');
-            const okBtn   = document.getElementById('confirmOkBtn');
-            const cancel  = document.getElementById('confirmCancelBtn');
-            let targetFormId = null;
+  <script>
+    // Confirm modal (unchanged)
+    (function () {
+      const modal   = document.getElementById('confirmModal');
+      const overlay = document.getElementById('confirmOverlay');
+      const titleEl = document.getElementById('confirmTitle');
+      const msgEl   = document.getElementById('confirmMessage');
+      const okBtn   = document.getElementById('confirmOkBtn');
+      const cancel  = document.getElementById('confirmCancelBtn');
+      let targetFormId = null;
 
-            function openModal({ title, message, formId }) {
-                titleEl.textContent = title || 'Confirm';
-                msgEl.textContent   = message || 'Are you sure?';
-                targetFormId        = formId || null;
-                modal.classList.remove('hidden'); modal.classList.add('flex');
-            }
-            function closeModal() {
-                modal.classList.add('hidden'); modal.classList.remove('flex');
-                titleEl.textContent = 'Confirm'; msgEl.textContent = 'Are you sure?'; targetFormId = null;
-            }
-            document.addEventListener('click', (e) => {
-                const btn = e.target.closest('[data-confirm]'); if (!btn) return;
-                openModal({
-                    title: btn.getAttribute('data-title'),
-                    message: btn.getAttribute('data-message'),
-                    formId: btn.getAttribute('data-form')
-                });
-            });
-            overlay.addEventListener('click', closeModal);
-            cancel.addEventListener('click', closeModal);
-            okBtn.addEventListener('click', () => {
-                if (targetFormId) { const f = document.getElementById(targetFormId); if (f) f.submit(); }
-                closeModal();
-            });
-        })();
-    </script>
+      function openModal({ title, message, formId }) {
+        titleEl.textContent = title || 'Confirm';
+        msgEl.textContent   = message || 'Are you sure?';
+        targetFormId        = formId || null;
+        modal.classList.remove('hidden'); modal.classList.add('flex');
+      }
+      function closeModal() {
+        modal.classList.add('hidden'); modal.classList.remove('flex');
+        titleEl.textContent = 'Confirm'; msgEl.textContent = 'Are you sure?'; targetFormId = null;
+      }
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-confirm]'); if (!btn) return;
+        openModal({
+          title: btn.getAttribute('data-title'),
+          message: btn.getAttribute('data-message'),
+          formId: btn.getAttribute('data-form')
+        });
+      });
+      overlay.addEventListener('click', closeModal);
+      cancel.addEventListener('click', closeModal);
+      okBtn.addEventListener('click', () => {
+        if (targetFormId) { const f = document.getElementById(targetFormId); if (f) f.submit(); }
+        closeModal();
+      });
+    })();
+
+    // Global default for adviser detail visibility (localStorage)
+    (function(){
+      const box = document.getElementById('toggle-global-details');
+      if (!box) return;
+      try { box.checked = localStorage.getItem('awaiting_show_details_default') === '1'; } catch(e){}
+      box.addEventListener('change', ()=>{
+        try { localStorage.setItem('awaiting_show_details_default', box.checked ? '1' : '0'); } catch(e){}
+        // Tip: we do not auto-open all rows to avoid heavy DOM churn; each row reads this on init.
+      });
+    })();
+  </script>
 </x-userlayout>

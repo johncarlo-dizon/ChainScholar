@@ -13,13 +13,43 @@ class TitleController extends Controller
     //
     
 
-    public function verifyForm(){  // NAV - DOC.VERIFY
-    $advisers = \App\Models\User::where('role', 'ADVISER')
-        ->orderBy('name')
-        ->get(['id','name','department','specialization']);
+    public function verifyForm()  // NAV - DOC.VERIFY
+    {
+        $advisers = \App\Models\User::where('role', 'ADVISER')
+            ->with(['adviserProfile.achievements', 'adviserProfile.researchInterests'])
+            ->orderBy('name')
+            ->get();
 
-    return view('documents.verify', compact('advisers'));
+        // Build lean JSON for the front-end (avoid dumping entire models)
+        $adviserMeta = $advisers->map(function ($u) {
+            $p = $u->adviserProfile;
+            return [
+                'id'   => $u->id,
+                'name' => $u->name,
+                'avatar' => $u->avatar ? asset('storage/avatars/'.$u->avatar) : asset('storage/avatars/default.png'),
+                'profile' => $p ? [
+                    'department'         => $p->department,
+                    'field_of_expertise' => $p->field_of_expertise,
+                    'highest_degree'     => $p->highest_degree,
+                    'degree_school'      => $p->degree_school,
+                    'degree_year'        => $p->degree_year,
+                    'advisory_years'     => $p->advisory_years,
+                    'projects_handled'   => $p->projects_handled,
+                    'notes'              => $p->notes,
+                    'achievements'       => $p->achievements->map(fn($a)=>[
+                        'title'=>$a->title, 'issuer'=>$a->issuer, 'year'=>$a->year, 'description'=>$a->description
+                    ])->values(),
+                    'interests'          => $p->researchInterests->pluck('name')->values(),
+                ] : null,
+            ];
+        })->values();
+
+        return view('documents.verify', [
+            'advisers'    => $advisers,     // for the <select>
+            'adviserMeta' => $adviserMeta,  // for the info card (JSON)
+        ]);
     }
+
 
 
   
@@ -146,30 +176,55 @@ class TitleController extends Controller
     {
         $userId = $request->user()->id;
 
+        $q        = trim((string)$request->query('q', ''));
+        $status   = (string)$request->query('status', 'all'); // all|awaiting_adviser|awaiting_admin
+        $pending  = (bool)$request->boolean('pending_with_adviser', false);
+        $advId    = $request->query('adviser_id'); // optional filter by pending adviser
+
         $titles = Title::query()
             ->with([
-                'adviserRequests' => fn ($q) => $q->where('status', 'pending')->with('adviser'),
-                'owner',
+                'adviserRequests' => fn ($q) => $q
+                    ->where('status', 'pending')
+                    ->with('adviser:id,name,avatar')
+                    ->select('id','title_id','adviser_id','requested_by','status'),
+                'owner:id,name',
             ])
             ->where('owner_id', $userId)
-            ->whereIn('status', ['awaiting_adviser', 'awaiting_admin']) // ← both gates
+            ->whereIn('status', ['awaiting_adviser', 'awaiting_admin'])
+            // status filter
+            ->when($status !== 'all', fn($qq) => $qq->where('status', $status))
+            // search by title or adviser name
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('title', 'like', "%{$q}%")
+                      ->orWhereHas('adviserRequests.adviser', fn($h) => $h->where('name', 'like', "%{$q}%"));
+                });
+            })
+            // only those with a student-initiated pending adviser request
+            ->when($pending, function ($qq) {
+                $qq->whereHas('adviserRequests', fn($h) => $h->where('requested_by', 'student'));
+            })
+            // optionally filter by the adviser in the pending request
+            ->when(!empty($advId), function ($qq) use ($advId) {
+                $qq->whereHas('adviserRequests', fn($h) => $h
+                    ->where('requested_by', 'student')
+                    ->where('adviser_id', $advId));
+            })
             ->orderByDesc('submitted_at')
             ->paginate(10)
             ->through(function ($t) {
-                // Derived label for UI
-                $t->waiting_for = match ($t->status) {
-                    'awaiting_adviser' => 'Adviser approval',
-                    'awaiting_admin'   => 'Admin approval',
-                    default            => '—',
-                };
+                $t->waiting_for = $t->status === 'awaiting_adviser' ? 'Adviser approval'
+                                 : ($t->status === 'awaiting_admin'   ? 'Admin approval' : '—');
                 return $t;
             });
 
-        $advisers = \App\Models\User::where('role', 'ADVISER')
+        // Pull advisers for: change-adviser selects, filter select, and metadata embedding
+        $advisers = User::where('role', 'ADVISER')
+            ->with(['adviserProfile.achievements', 'adviserProfile.researchInterests'])
             ->orderBy('name')
-            ->get(['id','name','department','specialization']);
+            ->get();
 
-        return view('documents.awaiting', compact('titles', 'advisers'));
+        return view('documents.awaiting', compact('titles', 'advisers', 'q', 'status', 'pending', 'advId'));
     }
 
     /** Change adviser choice (withdraw student request, create a new student request) */

@@ -14,7 +14,14 @@ class AdminTitleController extends Controller
      */
     public function awaiting(Request $request)
     {
-        $q = Title::with(['owner','finalDocument'])
+        $q = Title::with([
+                'owner',
+                'finalDocument',
+                // NEW: load adviser and full profile data
+                'adviser',
+                'adviser.adviserProfile.achievements',
+                'adviser.adviserProfile.researchInterests',
+            ])
             ->where('status', 'awaiting_admin')
             ->orderByDesc('adviser_assigned_at');
 
