@@ -730,7 +730,7 @@ async function startVerification(event){
           : 'Unknown author(s)';
         const year = item.year ? ` (${item.year})` : '';
         const sim  = (typeof item.similarity === 'number') ? `${item.similarity}%` : '—';
-        li.className = 'p-2 bg-white rounded-md border hover:border-blue-400 hover:shadow-sm transition';
+        li.className = 'p-2 bg-white rounded-md  border border-gray-300 hover:border-blue-400 hover:shadow-sm transition';
         li.innerHTML = `
           <div class="text-sm leading-snug">
             <div class="font-medium">${idx===0 ? '🔥 ' : ''}${safeTitle}</div>
@@ -772,7 +772,14 @@ async function startVerification(event){
   hideLoading();
 
   window.__lastWebData = data;
-  const webPercent = Math.round(Number(data.max_similarity || 0));
+
+  // keep only results with positive similarity
+  const rawResults = Array.isArray(data.results) ? data.results : [];
+  const positiveResults = rawResults.filter(r => Number(r.similarity) > 0);
+
+  // if all items are 0 (or no items), treat as 0 overall
+  const anyPositive = positiveResults.length > 0;
+  const webPercent = anyPositive ? Math.round(Number(data.max_similarity || 0)) : 0;
 
   // NEW: external pass check uses 50% threshold (ignore server-approved flag)
   const externalApproved = webPercent < EXTERNAL_THRESHOLD;
@@ -783,35 +790,37 @@ async function startVerification(event){
     result: document.getElementById("external-similarity-result")
   }, webPercent, externalApproved);
 
-  const webList = document.getElementById("web-similar-titles");
-  webList.innerHTML = "";
-  if (Array.isArray(data.results) && data.results.length){
-    data.results.forEach((item, idx) => {
-      const li = document.createElement('li');
-      const safeTitle = escapeHtml(item.title || '');
-      const byline = (item.authors && item.authors.length)
-          ? escapeHtml(item.authors.slice(0, 5).join(', ')) + (item.authors.length > 5 ? ' et al.' : '')
-          : 'Unknown author(s)';
-      const year = item.year ? ` (${item.year})` : '';
-      const src  = item.source ? ` · <span class="text-[11px] text-gray-500">${escapeHtml(item.source)}</span>` : '';
-      const sim  = (typeof item.similarity === 'number') ? `${item.similarity}%` : '—';
-      const link = item.link ? `<a href="${item.link}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">Link</a>` : '<span class="text-gray-400">No link</span>';
-      li.className = 'p-2 bg-white rounded-md border hover:border-green-400 hover:shadow-sm transition';
-      li.innerHTML = `
-        <div class="text-sm leading-snug">
-          <div class="font-medium">${idx===0 ? '🔥 ' : ''}${safeTitle}</div>
-          <div class="text-xs text-gray-600 mt-0.5">by ${byline}${year}${src}</div>
-          <div class="text-xs text-gray-600 mt-1 flex items-center gap-2">
-            <span class="inline-block px-1.5 py-0.5 rounded bg-gray-100 border text-gray-700">Similarity: ${sim}</span>
-            ${link}
-          </div>
+ const webList = document.getElementById("web-similar-titles");
+webList.innerHTML = "";
+
+if (positiveResults.length) {
+  positiveResults.forEach((item, idx) => {
+    const li = document.createElement('li');
+    const safeTitle = escapeHtml(item.title || '');
+    const byline = (item.authors && item.authors.length)
+      ? escapeHtml(item.authors.slice(0, 5).join(', ')) + (item.authors.length > 5 ? ' et al.' : '')
+      : 'Unknown author(s)';
+    const year = item.year ? ` (${item.year})` : '';
+    const src  = item.source ? ` · <span class="text-[11px] text-gray-500">${escapeHtml(item.source)}</span>` : '';
+    const sim  = (typeof item.similarity === 'number') ? `${item.similarity}%` : '—';
+    const link = item.link ? `<a href="${item.link}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">Link</a>` : '<span class="text-gray-400">No link</span>';
+    li.className = 'p-2 bg-white rounded-md border border-gray-300 hover:border-green-400 hover:shadow-sm transition';
+    li.innerHTML = `
+      <div class="text-sm leading-snug">
+        <div class="font-medium">${idx===0 ? '🔥 ' : ''}${safeTitle}</div>
+        <div class="text-xs text-gray-600 mt-0.5">by ${byline}${year}${src}</div>
+        <div class="text-xs text-gray-600 mt-1 flex items-center gap-2">
+          <span class="inline-block px-1.5 py-0.5 rounded bg-gray-100 border text-gray-700">Similarity: ${sim}</span>
+          ${link}
         </div>
-      `;
-      webList.appendChild(li);
-    });
-  } else {
-    webList.innerHTML = `<li class="italic text-gray-400">No similar web titles found.</li>`;
-  }
+      </div>
+    `;
+    webList.appendChild(li);
+  });
+} else {
+  webList.innerHTML = `<li class="italic text-gray-400">No similar web titles found.</li>`;
+}
+
 
   // NEW: external pass stored using 50% threshold
   window.passedExternal = externalApproved;
