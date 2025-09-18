@@ -166,10 +166,15 @@
                             <form method="POST" action="{{ route('admin.titles.approve', $t) }}"
                                 onsubmit="return confirm('Approve this adviser assignment and unlock editing for the student?');">
                             @csrf
-                            <button type="submit"
-                                class="inline-flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 whitespace-nowrap">
-                                Approve
-                            </button>
+                           {{-- Approve (opens modal) --}}
+<button type="button"
+    class="inline-flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 whitespace-nowrap"
+    data-open-approve
+    data-url="{{ route('admin.titles.approve', $t) }}"
+    data-title="{{ $t->title }}">
+    Approve
+</button>
+
                             </form>
 
                             {{-- Return (opens modal) --}}
@@ -320,6 +325,83 @@
     </div>
   </div>
 </div>
+
+
+
+
+{{-- ===== Approve Modal (reused for all rows) ===== --}}
+<div id="approve-modal" class="fixed inset-0 hidden z-50">
+  <div class="absolute inset-0 bg-black/40" data-close-approve></div>
+
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-xl bg-white shadow-lg">
+      <div class="px-5 pt-2 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-base font-semibold text-gray-900">
+          Approve Adviser Assignment
+        </h3>
+        <button type="button" class="text-gray-500 hover:text-gray-700" data-close-approve>✕</button>
+      </div>
+
+      <form id="approve-form" method="POST" action="#">
+        @csrf
+        <div class="p-5 space-y-3">
+          <div class="rounded-md bg-green-50 border border-green-200 text-green-900 text-xs px-3 py-2">
+            <span class="font-semibold">Action:</span> Approve this adviser assignment and unlock editing for the student.
+          </div>
+
+          <div class="text-sm text-gray-700">
+            Are you sure you want to approve <span class="font-semibold">this title</span>?
+          </div>
+          <div class="text-xs text-gray-500" id="approve-context">Title: —</div>
+        </div>
+
+        <div class="px-5 py-3 border-t border-gray-200 flex justify-end gap-2">
+          <button type="button" class="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50" data-close-approve>
+            Cancel
+          </button>
+          <button type="submit" class="px-3 py-1.5 text-xs rounded-md bg-green-600 text-white font-semibold hover:bg-green-700">
+            Confirm Approve
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<script>
+(function () {
+  const modal = document.getElementById('approve-modal');
+  const form  = document.getElementById('approve-form');
+  const ctx   = document.getElementById('approve-context');
+
+  function openApprove(url, title) {
+    form.setAttribute('action', url);
+    ctx.textContent = 'Title: ' + (title || '—');
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+  }
+  function closeApprove() {
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+    // no inputs to reset, but keep symmetrical with return modal
+  }
+
+  document.addEventListener('click', (e) => {
+    const openBtn = e.target.closest('[data-open-approve]');
+    if (openBtn) {
+      openApprove(openBtn.dataset.url, openBtn.dataset.title);
+    }
+    if (e.target.matches('[data-close-approve]')) {
+      closeApprove();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeApprove();
+  });
+})();
+</script>
 
 
 <script>
