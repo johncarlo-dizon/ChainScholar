@@ -135,63 +135,68 @@
     </div>
 
     {{-- RIGHT: change adviser + per-row toggle --}}
-    <div class="shrink-0 w-full sm:w-auto">
-      <div class="flex items-center justify-end gap-3">
-        {{-- toggle --}}
-        <label class="inline-flex items-center gap-2">
-          <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-400"
-                 id="toggle-details-{{ $t->id }}">
-          <span class="text-xs text-gray-700">Show details</span>
-        </label>
+  {{-- RIGHT: toggle + (conditionally) change adviser --}}
+@php $isAwaitingAdviser = ($t->status === 'awaiting_adviser'); @endphp
+<div class="shrink-0 w-full sm:w-auto">
+  <div class="flex items-center justify-end gap-3">
+    {{-- toggle --}}
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-400"
+             id="toggle-details-{{ $t->id }}">
+      <span class="text-xs text-gray-700">Show details</span>
+    </label>
 
-        {{-- change adviser --}}
-        <div class="flex items-center gap-2">
-          <label for="adviser_id_{{ $t->id }}" class="text-xs text-gray-600 hidden sm:inline">Change Adviser</label>
-          <select id="adviser_id_{{ $t->id }}"
-                  class="border-gray-300 rounded-md text-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <option value="">— Select adviser —</option>
-            @foreach($advisers as $a)
-              @php
-                $p = $a->adviserProfile;
-                $meta = [
-                  'id'   => $a->id,
-                  'name' => $a->name,
-                  'avatar' => $a->avatar ? asset('storage/avatars/'.$a->avatar) : asset('storage/avatars/default.png'),
-                  'profile' => $p ? [
-                    'department'         => $p->department,
-                    'field_of_expertise' => $p->field_of_expertise,
-                    'highest_degree'     => $p->highest_degree,
-                    'degree_school'      => $p->degree_school,
-                    'degree_year'        => $p->degree_year,
-                    'advisory_years'     => $p->advisory_years,
-                    'projects_handled'   => $p->projects_handled,
-                    'notes'              => $p->notes,
-                    'achievements'       => $p->achievements->map(fn($aa)=>[
-                        'title'=>$aa->title, 'issuer'=>$aa->issuer, 'year'=>$aa->year, 'description'=>$aa->description
-                    ])->values(),
-                    'interests'          => $p->researchInterests->pluck('name')->values(),
-                  ] : null,
-                ];
-              @endphp
-              <option value="{{ $a->id }}"
-                      @selected(optional($studentPending)->adviser_id === $a->id)
-                      data-meta='@json($meta)'>
-                {{ $a->name }}@if($p?->department) — {{ $p->department }} @endif
-              </option>
-            @endforeach
-          </select>
+    {{-- change adviser (show ONLY while awaiting_adviser) --}}
+    @if($isAwaitingAdviser)
+      <div class="flex items-center gap-2">
+        <label for="adviser_id_{{ $t->id }}" class="text-xs text-gray-600 hidden sm:inline">Change Adviser</label>
+        <select id="adviser_id_{{ $t->id }}"
+                class="border-gray-300 rounded-md text-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">— Select adviser —</option>
+          @foreach($advisers as $a)
+            @php
+              $p = $a->adviserProfile;
+              $meta = [
+                'id'   => $a->id,
+                'name' => $a->name,
+                'avatar' => $a->avatar ? asset('storage/avatars/'.$a->avatar) : asset('storage/avatars/default.png'),
+                'profile' => $p ? [
+                  'department'         => $p->department,
+                  'field_of_expertise' => $p->field_of_expertise,
+                  'highest_degree'     => $p->highest_degree,
+                  'degree_school'      => $p->degree_school,
+                  'degree_year'        => $p->degree_year,
+                  'advisory_years'     => $p->advisory_years,
+                  'projects_handled'   => $p->projects_handled,
+                  'notes'              => $p->notes,
+                  'achievements'       => $p->achievements->map(fn($aa)=>[
+                      'title'=>$aa->title, 'issuer'=>$aa->issuer, 'year'=>$aa->year, 'description'=>$aa->description
+                  ])->values(),
+                  'interests'          => $p->researchInterests->pluck('name')->values(),
+                ] : null,
+              ];
+            @endphp
+            <option value="{{ $a->id }}"
+                    @selected(optional($studentPending)->adviser_id === $a->id)
+                    data-meta='@json($meta)'>
+              {{ $a->name }}@if($p?->department) — {{ $p->department }} @endif
+            </option>
+          @endforeach
+        </select>
 
-          <form id="changeForm-{{ $t->id }}" method="POST" action="{{ route('titles.adviser.change', $t) }}">
-            @csrf
-            <input type="hidden" name="adviser_id" id="adviser_id_hidden_{{ $t->id }}">
-            <button type="submit"
-                    class="shrink-0 px-2.5 py-1 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700">
-              Change
-            </button>
-          </form>
-        </div>
+        <form id="changeForm-{{ $t->id }}" method="POST" action="{{ route('titles.adviser.change', $t) }}">
+          @csrf
+          <input type="hidden" name="adviser_id" id="adviser_id_hidden_{{ $t->id }}">
+          <button type="submit"
+                  class="shrink-0 px-2.5 py-1 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700">
+            Change
+          </button>
+        </form>
       </div>
-    </div>
+    @endif
+  </div>
+</div>
+
   </div>
 
   {{-- FULL-WIDTH ADVISER INFO (spans the entire card) --}}

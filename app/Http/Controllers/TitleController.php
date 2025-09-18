@@ -346,7 +346,7 @@ class TitleController extends Controller
         }
     });
 
-    return back()->with('success', 'Adviser request updated.');
+    return back()->with('status', 'Adviser request updated.');
 }
 
 
