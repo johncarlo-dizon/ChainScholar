@@ -4,14 +4,73 @@ namespace App\Http\Controllers;
 
 use App\Models\Title;
 use App\Models\Document;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\AdviserRequest;
 
 class AdminTitleController extends Controller
 {
     /**
      * Awaiting admin approval list.
      */
+       public function return(Request $request, Title $title)
+        {
+    
+
+        $data = $request->validate([
+            'reason' => 'nullable|string|max:1000',
+        ]);
+
+        $reason = trim((string)($data['reason'] ?? ''));
+        $student = $title->owner;                 // Title owner (student)
+        $prevAdviserId = $title->primary_adviser_id;
+        $prevAdviser   = $title->adviser;         // assuming relation ->adviser
+
+        DB::transaction(function () use ($title, $reason, $student, $prevAdviserId, $prevAdviser) {
+            // 1) Close all adviser requests for this title (so the student starts fresh)
+            AdviserRequest::where('title_id', $title->id)
+                ->whereIn('status', ['pending','accepted'])
+                ->update([
+                    'status'     => 'declined',
+                    'decided_at' => now(),
+                ]);
+
+            // 2) Revert title back to "awaiting_adviser" and clear assignment
+            $title->update([
+                'status'              => 'awaiting_adviser',
+                'primary_adviser_id'  => null,
+                'adviser_assigned_at' => null,
+            ]);
+
+            // 3) Notify student
+            $studentMsg = 'Your title "'.$title->title.'" was returned. '
+                .'Please choose an adviser again.'
+                .($reason !== '' ? ' Reason: '.$reason : '');
+
+            Notification::create([
+                'user_id' => $student->id,
+                'title'   => 'Title Returned',
+                'message' => $studentMsg,
+                'is_read' => false,
+            ]);
+
+            // 4) Notify previous adviser (if there was one)
+            if ($prevAdviserId && $prevAdviser) {
+                $adviserMsg = 'The title "'.$title->title.'" was returned.'
+                    .($reason !== '' ? ' Reason: '.$reason : '');
+
+                Notification::create([
+                    'user_id' => $prevAdviser->id,
+                    'title'   => 'Title Returned',
+                    'message' => $adviserMsg,
+                    'is_read' => false,
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Title returned to student. They must choose an adviser again.');
+    }
     public function awaiting(Request $request)
     {
         $q = Title::with([
@@ -67,32 +126,7 @@ class AdminTitleController extends Controller
     /**
      * RETURN for correction / change adviser
      */
-    public function return(Request $request, Title $title)
-    {
-        abort_if($title->status !== 'awaiting_admin', 400, 'Not awaiting admin.');
-
-        $reason = trim((string)$request->input('reason', ''));
-
-        DB::transaction(function () use ($title, $reason) {
-            // You can choose where to send it back; here: to awaiting_adviser
-            $title->update([
-                'status'       => 'awaiting_adviser',
-                'approved_at'  => null,
-                'review_comments' => $reason ?: 'Please revise your adviser selection or details.',
-            ]);
-
-            if (class_exists(\App\Models\Notification::class)) {
-                \App\Models\Notification::create([
-                    'user_id' => $title->owner_id,
-                    'title'   => 'Admin Returned',
-                    'message' => 'Admin returned your request: '.($reason ?: 'Please revise.'),
-                    'is_read' => false,
-                ]);
-            }
-        });
-
-        return back()->with('success', 'Title returned to awaiting adviser.');
-    }
+    
 
     /**
      * Your existing list of submitted titles (finals).

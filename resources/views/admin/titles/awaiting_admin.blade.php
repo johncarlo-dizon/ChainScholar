@@ -158,50 +158,31 @@
                                 @endif
                             </td>
 
-                            {{-- Actions --}}
-                            <td class="px-6 py-4 align-top">
-                                <div class="flex items-center justify-end gap-2">
-                                    {{-- Approve --}}
-                                    <form method="POST" action="{{ route('admin.titles.approve', $t) }}"
-                                          onsubmit="return confirm('Approve this adviser assignment and unlock editing for the student?');">
-                                        @csrf
-                                        <button type="submit"
-                                            class="inline-flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
-                                            Approve
-                                        </button>
-                                    </form>
+                 
+                           {{-- Actions --}}
+                        <td class="px-6 py-4 align-top">
+                        <div class="flex items-center justify-end gap-2">
+                            {{-- Approve --}}
+                            <form method="POST" action="{{ route('admin.titles.approve', $t) }}"
+                                onsubmit="return confirm('Approve this adviser assignment and unlock editing for the student?');">
+                            @csrf
+                            <button type="submit"
+                                class="inline-flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 whitespace-nowrap">
+                                Approve
+                            </button>
+                            </form>
 
-                                    {{-- Return (with reason) --}}
-                                    <details class="relative">
-                                        <summary
-                                            class="cursor-pointer inline-flex list-none items-center px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                                            Return
-                                        </summary>
-                                        <div class="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow p-3 z-10">
-                                            <form method="POST" action="{{ route('admin.titles.return', $t) }}">
-                                                @csrf
-                                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                                    Reason (optional)
-                                                </label>
-                                                <textarea name="reason" rows="3"
-                                                    class="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-                                                    placeholder="What needs to be revised?"></textarea>
-                                                <div class="mt-3 flex items-center justify-end gap-2">
-                                                    <button type="button"
-                                                        onclick="this.closest('details').removeAttribute('open')"
-                                                        class="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">
-                                                        Cancel
-                                                    </button>
-                                                    <button type="submit"
-                                                        class="px-3 py-1.5 text-xs rounded-md bg-red-600 text-white font-semibold hover:bg-red-700">
-                                                        Send Back
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </details>
-                                </div>
-                            </td>
+                            {{-- Return (opens modal) --}}
+                            <button type="button"
+                            class="inline-flex items-center px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 whitespace-nowrap"
+                            data-open-return
+                            data-url="{{ route('admin.titles.return', $t) }}"
+                            data-title="{{ $t->title }}">
+                            Return
+                            </button>
+                        </div>
+                        </td>
+
                         </tr>
                     @empty
                         <tr>
@@ -291,6 +272,94 @@
             </div>
         </div>
     </div>
+
+
+
+
+    {{-- ===== Return Modal (reused for all rows) ===== --}}
+<div id="return-modal" class="fixed inset-0 hidden z-50">
+  <div class="absolute inset-0 bg-black/40" data-close-return></div>
+
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-xl bg-white shadow-lg">
+      <div class="px-5 pt-2 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-base font-semibold text-gray-900">
+          Send Back to Student
+        </h3>
+        <button type="button" class="text-gray-500 hover:text-gray-700" data-close-return>✕</button>
+      </div>
+
+      <form id="return-form" method="POST" action="#">
+        @csrf
+        <div class="p-5 space-y-2">
+          <div class="rounded-md bg-yellow-50 border border-yellow-200 text-yellow-900 text-xs px-3 py-2">
+            <span class="font-semibold">Waiting for: Admin approval</span> • You can include a note before sending back.
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Reason (optional)
+            </label>
+            <textarea name="reason" rows="4"
+              class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+              placeholder="What needs to be revised?"></textarea>
+          </div>
+
+          <div class="text-xs text-gray-500" id="return-context">Title: —</div>
+        </div>
+
+        <div class="px-5 py-3 border-t border-gray-200 flex justify-end gap-2">
+          <button type="button" class="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50" data-close-return>
+            Cancel
+          </button>
+          <button type="submit" class="px-3 py-1.5 text-xs rounded-md bg-red-600 text-white font-semibold hover:bg-red-700">
+            Send Back
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<script>
+(function () {
+  const modal   = document.getElementById('return-modal');
+  const form    = document.getElementById('return-form');
+  const ctx     = document.getElementById('return-context');
+
+  function openReturn(url, title) {
+    form.setAttribute('action', url);
+    ctx.textContent = 'Title: ' + (title || '—');
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+  }
+  function closeReturn() {
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+    form.reset();
+  }
+
+  document.addEventListener('click', (e) => {
+    // open buttons
+    const openBtn = e.target.closest('[data-open-return]');
+    if (openBtn) {
+      openReturn(openBtn.dataset.url, openBtn.dataset.title);
+    }
+    // close (overlay or buttons)
+    if (e.target.matches('[data-close-return]')) {
+      closeReturn();
+    }
+  });
+
+  // ESC closes
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeReturn();
+  });
+})();
+</script>
+
+
 
     {{-- ===== Modal JS (event delegation; no duplicate IDs per row) ===== --}}
     <script>

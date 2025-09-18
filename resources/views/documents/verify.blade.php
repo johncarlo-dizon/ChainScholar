@@ -145,6 +145,38 @@
         </div>
       </div>
 
+
+
+
+
+
+
+
+<!-- Adviser Decision (shown only after both checks pass) -->
+<div id="adviser-decision" class="mt-6 hidden">
+  <label class="block mb-2 font-bold text-blue-600 text-sm sm:text-base">Adviser Decision</label>
+
+  <div class="flex flex-col sm:flex-row gap-2">
+    <label class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-blue-50">
+      <input type="radio" name="adviser_mode" id="adviser_mode_with" value="with" class="accent-blue-600" checked>
+      <span class="text-sm text-gray-800">I have a preferred adviser now</span>
+    </label>
+
+    <label class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-blue-50">
+      <input type="radio" name="adviser_mode" id="adviser_mode_later" value="later" class="accent-blue-600">
+      <span class="text-sm text-gray-800">I’ll choose later</span>
+    </label>
+  </div>
+
+  <p class="text-xs text-gray-500 mt-2">
+    You can request an adviser anytime from your <em>Awaiting Titles</em> page.
+  </p>
+</div>
+
+
+
+
+
       {{-- Adviser chooser (hidden until internal+web pass) --}}
  <div id="adviser-box" class="mt-6 hidden">
   <label for="adviser_id" class="block mb-2 font-bold text-blue-600 text-sm sm:text-base">Choose Adviser</label>
@@ -421,7 +453,7 @@
   <script>
 /* ---------- Thresholds (edit here only) ---------- */
 const INTERNAL_THRESHOLD = 20; // pass if max internal similarity < 20%
-const EXTERNAL_THRESHOLD = 60; // pass if max web similarity < 50%
+const EXTERNAL_THRESHOLD = 60; // pass if max web similarity < 60%
 
 /* ---------- Helpers ---------- */
 function escapeHtml(str){
@@ -447,34 +479,77 @@ function showLoading(message = 'Scanning title for similarity...') {
 function hideLoading() {
   document.getElementById('loading-overlay').classList.add('hidden');
 }
-function showApprovalFields(show){
+function showDecisionBlock(show){
+  const dec = document.getElementById('adviser-decision');
+  if (!dec) return;
+  if (show) dec.classList.remove('hidden'); else dec.classList.add('hidden');
+}
+
+function showSectionsForMode(mode){
   const advBox = document.getElementById('adviser-box');
   const advSel = document.getElementById('adviser_id');
   const authBox = document.getElementById('authors-box');
   const authInp = document.getElementById('authors');
-  if (show) {
-    advBox?.classList.remove('hidden'); if (advSel) { advSel.disabled = false; advSel.setAttribute('required','required'); }
-    authBox?.classList.remove('hidden'); if (authInp) { authInp.disabled = false; authInp.setAttribute('required','required'); }
+
+  // Authors are always required
+  authBox?.classList.remove('hidden');
+  if (authInp) { authInp.disabled = false; authInp.setAttribute('required','required'); }
+
+  if (mode === 'with') {
+    // Adviser required
+    advBox?.classList.remove('hidden');
+    if (advSel) { advSel.disabled = false; advSel.setAttribute('required','required'); }
   } else {
-    advBox?.classList.add('hidden'); if (advSel) { advSel.disabled = true; advSel.removeAttribute('required'); advSel.value = ''; }
-    authBox?.classList.add('hidden'); if (authInp) { authInp.disabled = true; authInp.removeAttribute('required'); authInp.value = ''; }
+    // Adviser hidden
+    advBox?.classList.add('hidden');
+    if (advSel) { advSel.disabled = true; advSel.removeAttribute('required'); advSel.value = ''; }
   }
 }
-function updateProceedButton(){
-  const btn  = document.getElementById('proceed-btn');
-  const adv  = document.getElementById('adviser_id');
-  const auth = document.getElementById('authors');
-  const passed = (window.passedInternal && window.passedExternal);
-  showApprovalFields(passed);
-  const adviserOk = adv ? (adv.value && adv.value !== '') : true;
-  const authorsOk = auth ? (auth.value && auth.value.trim().length > 0) : true;
-  btn.disabled = !(passed && adviserOk && authorsOk);
+
+function getSelectedMode(){
+  const withEl  = document.getElementById('adviser_mode_with');
+  const laterEl = document.getElementById('adviser_mode_later');
+  if (withEl?.checked) return 'with';
+  if (laterEl?.checked) return 'later';
+  return 'with'; // default
 }
+
+function updateProceedButton(){
+  const btn   = document.getElementById('proceed-btn');
+  const adv   = document.getElementById('adviser_id');
+  const auth  = document.getElementById('authors');
+  const passed = (window.passedInternal && window.passedExternal);
+
+  const mode = getSelectedMode();
+  if (passed) {
+    showDecisionBlock(true);       // show radio buttons (with adviser / later)
+    showSectionsForMode(mode);     // show the right inputs
+  } else {
+    showDecisionBlock(false);      // hide radios until they pass verification
+  }
+
+  const authorsOk = auth ? (auth.value && auth.value.trim().length > 0) : true;
+  const adviserOk = (mode === 'later') ? true : (adv ? (adv.value && adv.value !== '') : true);
+
+  btn.disabled = !(passed && authorsOk && adviserOk);
+}
+
+// React when user switches mode
+document.addEventListener('change', (e) => {
+  if (e?.target?.name === 'adviser_mode') {
+    showSectionsForMode(getSelectedMode());
+    updateProceedButton();
+  }
+});
+
+// React when they type in adviser/authors
 document.addEventListener('input', (e) => {
   if (e.target && (e.target.id === 'adviser_id' || e.target.id === 'authors')) {
     updateProceedButton();
   }
 });
+
+
 async function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
 /* ---------- AI Panel: NEW helpers ---------- */
@@ -586,7 +661,8 @@ async function fetchWebSimilarityWithRetries(title, maxTries = 2) {
 
     if (hasResult) return { data: last, attempts: attempt };
 
-    showLoading(`No results yet. Retrying (${attempt}/${maxTries})…`);
+     showLoading(`Searching online sources for similar titles…`);
+
     await sleep(400 * attempt);
   }
   return { data: last ?? { max_similarity: 0, approved: true, results: [] }, attempts: maxTries };
@@ -739,10 +815,13 @@ async function startVerification(event){
 
   // NEW: external pass stored using 50% threshold
   window.passedExternal = externalApproved;
-  updateProceedButton();
 
   const finalPass = (window.passedInternal && window.passedExternal);
   toggleRejectHint(!finalPass);
+
+  updateProceedButton();
+
+
 
   // === NEW: AI feedback respects thresholds 20/50 ===
   if (!finalPass) {

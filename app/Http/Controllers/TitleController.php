@@ -55,74 +55,99 @@ class TitleController extends Controller
   
     public function verifyAndProceed(Request $request)
     {
-    $data = $request->validate([
-        'title'       => 'required|string|max:255',
-        'authors'    => 'required|string|max:255', 
-        'adviser_id'  => 'required|exists:users,id',
-    ]);
-
-    // Ensure the chosen user is actually an ADVISER
-    $adviser = User::where('id', $data['adviser_id'])
-        ->where('role', 'ADVISER')
-        ->first();
-
-    if (! $adviser) {
-        return back()->withErrors(['adviser_id' => 'Selected adviser is invalid.'])->withInput();
-    }
-
-    $title = null;
-
-    DB::transaction(function () use ($data, $adviser, &$title) {
-        // Create the title (already “verified” client-side) → awaiting adviser
-        $title = Title::create([
-            'owner_id'     => auth()->id(),    // ← new schema column (owner_id)
-            'title'        => $data['title'],
-            'authors'      => $data['authors'],   // ✅ new field
-            'status'       => 'awaiting_adviser',
-            'submitted_at' => now(),
-            'verified_at'  => now(),
+        $data = $request->validate([
+            'title'        => 'required|string|max:255',
+            'authors'      => 'required|string|max:255',
+            'adviser_mode' => 'required|in:with,later',
+            'adviser_id'   => 'nullable|integer|exists:users,id',
         ]);
 
-        // Default chapters
-        foreach (['Chapter 1','Chapter 2','Chapter 3','Chapter 4','Chapter 5'] as $chapterName) {
-            Document::create([
-                'user_id'  => auth()->id(),
-                'title_id' => $title->id,
-                'chapter'  => $chapterName,
-                'content'  => '',
-                'format'   => 'separate',
-            ]);
+        // If the user chose "with", enforce that the chosen user is an ADVISER
+        $adviser = null;
+        if ($data['adviser_mode'] === 'with') {
+            if (empty($data['adviser_id'])) {
+                return back()
+                    ->withErrors(['adviser_id' => 'Please choose an adviser or pick “I’ll choose later”.'])
+                    ->withInput();
+            }
+
+            $adviser = User::where('id', $data['adviser_id'])
+                ->where('role', 'ADVISER')
+                ->first();
+
+            if (! $adviser) {
+                return back()
+                    ->withErrors(['adviser_id' => 'Selected adviser is invalid.'])
+                    ->withInput();
+            }
         }
 
-        // Create a pending adviser request (student-initiated)
-        AdviserRequest::create([
-            'title_id'     => $title->id,
-            'adviser_id'   => $adviser->id,
-            'requested_by' => 'student',
-            'status'       => 'pending',
-            'message'      => null,
-        ]);
+        $title = null;
 
-        // Notifications
-        Notification::create([
-            'user_id' => auth()->id(),
-            'title'   => 'Title Verified',
-            'message' => 'Your title and default chapters were created. Adviser request sent to '.$adviser->name.'.',
-            'is_read' => false,
-        ]);
+        DB::transaction(function () use ($data, $adviser, &$title) {
+            // Create the title; keep status 'awaiting_adviser' whether they have/none yet.
+            $title = Title::create([
+                'owner_id'     => auth()->id(),
+                'title'        => $data['title'],
+                'authors'      => $data['authors'],
+                'status'       => 'awaiting_adviser', // stays here until adviser is assigned/accepts
+                'submitted_at' => now(),
+                'verified_at'  => now(),
+            ]);
 
-        Notification::create([
-            'user_id' => $adviser->id,
-            'title'   => 'New Adviser Request',
-            'message' => auth()->user()->name.' requested you to advise the title: "'.$title->title.'".',
-            'is_read' => false,
-        ]);
-    });
+            // Default chapters
+            foreach (['Chapter 1','Chapter 2','Chapter 3','Chapter 4','Chapter 5'] as $chapterName) {
+                Document::create([
+                    'user_id'  => auth()->id(),
+                    'title_id' => $title->id,
+                    'chapter'  => $chapterName,
+                    'content'  => '',
+                    'format'   => 'separate',
+                ]);
+            }
 
-    return redirect()
-        ->route('titles.awaiting', $title->id)
-        ->with('status', 'Title created and adviser request sent!');
+            // Create pending adviser request only if they chose "with"
+            if ($data['adviser_mode'] === 'with' && $adviser) {
+                AdviserRequest::create([
+                    'title_id'     => $title->id,
+                    'adviser_id'   => $adviser->id,
+                    'requested_by' => 'student',
+                    'status'       => 'pending',
+                    'message'      => null,
+                ]);
+
+                // Notifications
+                Notification::create([
+                    'user_id' => auth()->id(),
+                    'title'   => 'Title Verified',
+                    'message' => 'Your title and default chapters were created. Adviser request sent to '.$adviser->name.'.',
+                    'is_read' => false,
+                ]);
+
+                Notification::create([
+                    'user_id' => $adviser->id,
+                    'title'   => 'New Adviser Request',
+                    'message' => auth()->user()->name.' requested you to advise the title: "'.$title->title.'".',
+                    'is_read' => false,
+                ]);
+            } else {
+                // No adviser yet – just let the student proceed
+                Notification::create([
+                    'user_id' => auth()->id(),
+                    'title'   => 'Title Verified',
+                    'message' => 'Your title and default chapters were created. You can choose an adviser anytime.',
+                    'is_read' => false,
+                ]);
+            }
+        });
+
+        return redirect()
+            ->route('titles.awaiting', $title->id)
+            ->with('status', $data['adviser_mode'] === 'with'
+                ? 'Title created and adviser request sent!'
+                : 'Title created. You can choose an adviser later.');
     }
+
 
 
 

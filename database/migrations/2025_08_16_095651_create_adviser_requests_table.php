@@ -27,7 +27,7 @@ return new class extends Migration {
             $table->timestamps();
 
             // Prevent duplicate active requests (one open request between a title & adviser)
-            $table->unique(['title_id','adviser_id','status'], 'title_adviser_status_unique');
+           $table->unique(['title_id','adviser_id'], 'title_adviser_unique');
             $table->index(['adviser_id','status']);
         });
     }
