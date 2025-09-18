@@ -27,12 +27,20 @@
                             @endif
                         </div>
                     </div>
-                    <form method="POST" action="{{ route('adviser.titles.request', $t) }}">
-                        @csrf
-                        <button class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
-                            Request to Advise
-                        </button>
-                    </form>
+               @if(is_null($t->primary_adviser_id) && in_array($t->status, ['verified','awaiting_adviser']))
+                <form method="POST" action="{{ route('adviser.titles.request', $t) }}">
+                    @csrf
+                    <button class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+                    Request to Advise
+                    </button>
+                </form>
+                @else
+                <button class="px-4 py-2 bg-gray-200 text-gray-600 rounded cursor-not-allowed" disabled
+                        title="This title is awaiting admin approval for another adviser.">
+                    Awaiting Admin — not requestable
+                </button>
+                @endif
+
                 </div>
                 @if($t->abstract)
                     <p class="text-sm text-gray-700 mt-4 line-clamp-3">{{ $t->abstract }}</p>

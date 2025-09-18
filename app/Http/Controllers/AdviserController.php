@@ -51,33 +51,43 @@ class AdviserController extends Controller
      * Shows titles that are verified/awaiting_adviser, have no primary adviser yet,
      * and where THIS adviser doesn't already have a pending/accepted request.
      */
+    // AdviserController@browse
     public function browse(Request $request)
     {
         $user = $request->user();
 
-        $q = Title::query()
-            ->whereNull('primary_adviser_id')
-            ->whereIn('status', ['verified', 'awaiting_adviser'])
+        $titles = Title::query()
+            // A) no adviser yet (requestable)
+            // B) OR already waiting for admin (NOT requestable, just visible)
+            ->where(function ($q) {
+                $q->whereNull('primary_adviser_id')
+                ->whereIn('status', ['verified','awaiting_adviser'])
+                ->orWhere(function ($qq) {
+                    $qq->whereNotNull('primary_adviser_id')
+                    ->where('status', 'awaiting_admin'); // visible, not requestable
+                });
+            })
             ->when($request->filled('search'), function ($qq) use ($request) {
                 $s = $request->string('search')->toString();
                 $qq->where(function ($w) use ($s) {
                     $w->where('title', 'like', "%{$s}%")
-                      ->orWhere('keywords', 'like', "%{$s}%")
-                      ->orWhere('category', 'like', "%{$s}%")
-                      ->orWhere('sub_category', 'like', "%{$s}%");
+                    ->orWhere('keywords', 'like', "%{$s}%")
+                    ->orWhere('category', 'like', "%{$s}%")
+                    ->orWhere('sub_category', 'like', "%{$s}%");
                 });
             })
+            // Hide rows where THIS adviser already has an active request
             ->whereDoesntHave('adviserRequests', function ($r) use ($user) {
-                $r->where('adviser_id', $user->id)
-                  ->whereIn('status', ['pending', 'accepted']);
+                $r->where('adviser_id', $user->id)->whereIn('status', ['pending','accepted']);
             })
             ->with('owner')
             ->orderByDesc('verified_at')
             ->paginate(10)
             ->withQueryString();
 
-        return view('adviser.browse', ['titles' => $q]);
+        return view('adviser.browse', ['titles' => $titles]);
     }
+
 
     /**
      * View requests addressed to this adviser that are still pending.
@@ -99,45 +109,64 @@ class AdviserController extends Controller
     /**
      * Adviser creates a request to advise a specific title.
      */
+ // AdviserController@requestToAdvise
     public function requestToAdvise(Request $request, Title $title)
     {
-        $user = $request->user();
+        $user = $request->user(); // adviser
 
-        // Guard: already assigned
         if ($title->primary_adviser_id) {
             return back()->with('error', 'This title already has a primary adviser.');
         }
-
-        // Guard: status must allow requesting
         if (! in_array($title->status, ['verified', 'awaiting_adviser'])) {
             return back()->with('error', 'This title is not open for advisers.');
         }
 
-        // Prevent duplicate pending/accepted request from same adviser
-        $exists = AdviserRequest::where('title_id', $title->id)
-            ->where('adviser_id', $user->id)
-            ->whereIn('status', ['pending', 'accepted'])
-            ->exists();
+        $message = $request->string('message')->toString() ?: null;
 
-        if ($exists) {
-            return back()->with('info', 'You already have a request for this title.');
-        }
+        return DB::transaction(function () use ($title, $user, $message) {
+            // lock single lifecycle row
+            $req = \App\Models\AdviserRequest::where('title_id', $title->id)
+                ->where('adviser_id', $user->id)
+                ->lockForUpdate()
+                ->first();
 
-        AdviserRequest::create([
-            'title_id'     => $title->id,
-            'adviser_id'   => $user->id,
-            'requested_by' => 'adviser',
-            'status'       => 'pending',
-            'message'      => $request->string('message')->toString() ?: null,
-        ]);
+            if ($req && in_array($req->status, ['pending', 'accepted'])) {
+                return back()->with('info', 'You already have a request for this title.');
+            }
 
-        // Optionally nudge title to awaiting_adviser
-        if ($title->status === 'verified') {
-            $title->update(['status' => 'awaiting_adviser']);
-        }
+            if (! $req) {
+                $req = new \App\Models\AdviserRequest([
+                    'title_id'   => $title->id,
+                    'adviser_id' => $user->id,
+                ]);
+            }
 
-        return back()->with('success', 'Request sent.');
+            // adviser-initiated → waits for student to accept
+            $req->requested_by = 'adviser';
+            $req->status       = 'pending';
+            $req->message      = $message;
+            $req->decided_at   = null;
+            $req->save();
+
+            // keep title searchable for advisers; optionally normalize to awaiting_adviser
+            if ($title->status === 'verified') {
+                $title->update(['status' => 'awaiting_adviser']);
+            }
+
+            // notify the student
+            if (class_exists(\App\Models\Notification::class)) {
+                \App\Models\Notification::create([
+                    'user_id' => $title->owner_id,
+                    'title'   => 'Adviser Request',
+                    'message' => $user->name.' requested to advise your title "'.$title->title.'". Review and accept/decline.',
+                    'is_read' => false,
+                ]);
+            }
+
+            return back()->with('success', 'Request sent. The student will need to accept.');
+        });
     }
+
 
     /**
      * Accept a pending request that was addressed to this adviser.

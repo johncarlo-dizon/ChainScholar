@@ -352,48 +352,69 @@ class TitleController extends Controller
 
     /** Student ACCEPTS an incoming adviser-initiated request */
     public function acceptIncoming(Request $request, Title $title, AdviserRequest $adviserRequest)
-    {
-        $user = $request->user();
-        abort_if($title->owner_id !== $user->id, 403);
-        abort_if($adviserRequest->title_id !== $title->id, 404);
+{
+    $user = $request->user();
+    abort_if($title->owner_id !== $user->id, 403);
+    abort_if($adviserRequest->title_id !== $title->id, 404);
 
-        if ($adviserRequest->requested_by !== 'adviser' || $adviserRequest->status !== 'pending') {
+    return DB::transaction(function () use ($title, $adviserRequest) {
+        // Lock the title row to avoid concurrent assignment
+        $t = Title::whereKey($title->id)->lockForUpdate()->first();
+
+        // Lock & refresh the specific request
+        $req = AdviserRequest::whereKey($adviserRequest->id)->lockForUpdate()->first();
+
+        // Validate state after locking
+        if (! $req || $req->requested_by !== 'adviser' || $req->status !== 'pending') {
             return back()->with('error', 'This request is no longer pending.');
         }
-        if ($title->primary_adviser_id) {
+        if ($t->primary_adviser_id) {
             return back()->with('error', 'A primary adviser is already assigned.');
         }
 
-        DB::transaction(function () use ($title, $adviserRequest) {
-            $adviserRequest->update([
-                'status'     => 'accepted',
+        // Accept this request
+        $req->update([
+            'status'     => 'accepted',
+            'decided_at' => now(),
+        ]);
+
+        // Assign adviser and move to admin approval
+        $t->update([
+            'primary_adviser_id'  => $req->adviser_id,
+            'adviser_assigned_at' => now(),
+            'status'              => 'awaiting_admin',
+        ]);
+
+        // Close other pending requests for this title
+        AdviserRequest::where('title_id', $t->id)
+            ->where('id', '!=', $req->id)
+            ->where('status', 'pending')
+            ->update([
+                'status'     => 'declined',
                 'decided_at' => now(),
             ]);
 
-            $title->update([
-                'primary_adviser_id'  => $adviserRequest->adviser_id,
-                'adviser_assigned_at' => now(),
-                'status'              => 'awaiting_admin', // ← admin gate
+        // Notify both parties (if your Notification model exists)
+        if (class_exists(\App\Models\Notification::class)) {
+            \App\Models\Notification::create([
+                'user_id' => $req->adviser_id,
+                'title'   => 'Student Accepted Your Request',
+                'message' => 'The student accepted your request to advise: "'.$t->title.'". Waiting for admin approval.',
+                'is_read' => false,
             ]);
 
-            AdviserRequest::where('title_id', $title->id)
-                ->where('id', '!=', $adviserRequest->id)
-                ->where('status', 'pending')
-                ->update(['status' => 'declined', 'decided_at' => now()]);
-
-            // Optional notify student
-            if (class_exists(\App\Models\Notification::class)) {
-                \App\Models\Notification::create([
-                    'user_id' => $title->owner_id,
-                    'title'   => 'Adviser Accepted',
-                    'message' => 'Adviser accepted. Waiting for admin approval.',
-                    'is_read' => false,
-                ]);
-            }
-        });
+            \App\Models\Notification::create([
+                'user_id' => $t->owner_id,
+                'title'   => 'Adviser Assigned',
+                'message' => 'You accepted the adviser request for "'.$t->title.'". Waiting for admin approval.',
+                'is_read' => false,
+            ]);
+        }
 
         return back()->with('success', 'Adviser accepted. Now waiting for admin approval.');
-    }
+    });
+}
+
 
 
     /** Student DECLINES an incoming adviser-initiated request */
@@ -403,17 +424,31 @@ class TitleController extends Controller
         abort_if($title->owner_id !== $user->id, 403);
         abort_if($adviserRequest->title_id !== $title->id, 404);
 
-        if ($adviserRequest->requested_by !== 'adviser' || $adviserRequest->status !== 'pending') {
-            return back()->with('error', 'This request is no longer pending.');
-        }
+        return DB::transaction(function () use ($adviserRequest, $title) {
+            $req = AdviserRequest::whereKey($adviserRequest->id)->lockForUpdate()->first();
 
-        $adviserRequest->update([
-            'status'     => 'declined',
-            'decided_at' => now(),
-        ]);
+            if (! $req || $req->requested_by !== 'adviser' || $req->status !== 'pending') {
+                return back()->with('error', 'This request is no longer pending.');
+            }
 
-        return back()->with('success', 'Adviser request declined.');
+            $req->update([
+                'status'     => 'declined',
+                'decided_at' => now(),
+            ]);
+
+            if (class_exists(\App\Models\Notification::class)) {
+                \App\Models\Notification::create([
+                    'user_id' => $req->adviser_id,
+                    'title'   => 'Student Declined Your Request',
+                    'message' => 'The student declined your request to advise: "'.$title->title.'".',
+                    'is_read' => false,
+                ]);
+            }
+
+            return back()->with('success', 'Adviser request declined.');
+        });
     }
+
 
     /** Withdraw your pending student-initiated request */
     public function cancelAdviserRequest(Request $request, Title $title)
