@@ -243,48 +243,75 @@
   </div>
 
   {{-- incoming adviser-initiated requests (optional compact list) --}}
-  @if($incomingFromAdvisers->isNotEmpty())
-    <div class="mt-3">
-      <ul class="space-y-2">
-        @foreach($incomingFromAdvisers as $req)
-          <li class="border border-gray-200 rounded-md p-2">
-            <div class="flex items-center justify-between gap-2">
-              <div class="truncate">
-                <span class="text-sm font-medium text-gray-900">{{ $req->adviser->name }}</span>
-                @if(optional($req->adviser)->department)
-                  <span class="text-xs text-gray-500"> • {{ $req->adviser->department }}</span>
-                @endif
+@if($incomingFromAdvisers->isNotEmpty())
+  <div class="mt-3">
+    <ul class="space-y-2">
+      @foreach($incomingFromAdvisers as $req)
+        @php
+          // Reuse the same meta shape used in the Change Adviser select
+          $advMeta = $buildMeta($req->adviser);
+        @endphp
+        <li class="border border-gray-200 rounded-md p-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <img class="h-8 w-8 rounded-full object-cover"
+                     src="{{ $advMeta['avatar'] }}" alt="Adviser avatar">
+                <div class="truncate">
+                  <span class="text-sm font-semibold text-gray-900">{{ $req->adviser->name }}</span>
+                  @if(($advMeta['profile']['department'] ?? null))
+                    <span class="text-xs text-gray-500">• {{ $advMeta['profile']['department'] }}</span>
+                  @endif
+                </div>
               </div>
-              <div class="flex gap-1">
-                <form id="acceptForm-{{ $t->id }}-{{ $req->id }}" method="POST" action="{{ route('titles.incoming.accept', [$t, $req]) }}">
-                  @csrf
-                  <button type="button"
-                          class="px-2.5 py-1 rounded-md bg-green-600 text-white text-xs hover:bg-green-700"
-                          data-confirm
-                          data-title="Accept Adviser"
-                          data-message="Accept {{ $req->adviser->name }} as adviser for “{{ $t->title }}”?"
-                          data-form="acceptForm-{{ $t->id }}-{{ $req->id }}">
-                    Accept
-                  </button>
-                </form>
-                <form id="declineForm-{{ $t->id }}-{{ $req->id }}" method="POST" action="{{ route('titles.incoming.decline', [$t, $req]) }}">
-                  @csrf
-                  <button type="button"
-                          class="px-2.5 py-1 rounded-md bg-red-600 text-white text-xs hover:bg-red-700"
-                          data-confirm
-                          data-title="Decline Adviser"
-                          data-message="Decline {{ $req->adviser->name }}’s request for “{{ $t->title }}”?"
-                          data-form="declineForm-{{ $t->id }}-{{ $req->id }}">
-                    Decline
-                  </button>
-                </form>
-              </div>
+              @if(($advMeta['profile']['field_of_expertise'] ?? null))
+                <div class="text-xs text-gray-600 mt-0.5 line-clamp-1">
+                  {{ $advMeta['profile']['field_of_expertise'] }}
+                </div>
+              @endif
             </div>
-          </li>
-        @endforeach
-      </ul>
-    </div>
-  @endif
+
+            <div class="flex items-center gap-1 sm:gap-2">
+              <button type="button"
+                      class="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 text-xs hover:bg-gray-50"
+                      data-adv-profile='@json($advMeta)'
+                      data-open-adv-profile>
+                View profile
+              </button>
+
+              <form id="acceptForm-{{ $t->id }}-{{ $req->id }}" method="POST"
+                    action="{{ route('titles.incoming.accept', [$t, $req]) }}">
+                @csrf
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md bg-green-600 text-white text-xs hover:bg-green-700"
+                        data-confirm
+                        data-title="Accept Adviser"
+                        data-message="Accept {{ $req->adviser->name }} as adviser for “{{ $t->title }}”?"
+                        data-form="acceptForm-{{ $t->id }}-{{ $req->id }}">
+                  Accept
+                </button>
+              </form>
+
+              <form id="declineForm-{{ $t->id }}-{{ $req->id }}" method="POST"
+                    action="{{ route('titles.incoming.decline', [$t, $req]) }}">
+                @csrf
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md bg-red-600 text-white text-xs hover:bg-red-700"
+                        data-confirm
+                        data-title="Decline Adviser"
+                        data-message="Decline {{ $req->adviser->name }}’s request for “{{ $t->title }}”?"
+                        data-form="declineForm-{{ $t->id }}-{{ $req->id }}">
+                  Decline
+                </button>
+              </form>
+            </div>
+          </div>
+        </li>
+      @endforeach
+    </ul>
+  </div>
+@endif
+
 </li>
 
 {{-- per-row script (unchanged logic, works with full-width card) --}}
@@ -401,6 +428,179 @@
       </div>
     </div>
   </div>
+
+
+
+
+  {{-- Adviser Profile Modal (global, reusable) --}}
+<div id="adviserProfileModal" class="fixed inset-0 hidden items-center justify-center z-[60]">
+  <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" data-adv-prof-close></div>
+  <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 p-5">
+    <div class="flex items-start gap-4">
+      <img id="apm-avatar" class="h-16 w-16 rounded-full object-cover"
+           src="{{ asset('storage/avatars/default.png') }}" alt="Adviser avatar">
+      <div class="min-w-0">
+        <div id="apm-name" class="text-lg font-semibold text-gray-900">—</div>
+        <div id="apm-dept" class="text-sm text-gray-600">—</div>
+        <div id="apm-field" class="text-sm text-gray-600">—</div>
+      </div>
+      <button type="button" class="ml-auto text-gray-400 hover:text-gray-600" data-adv-prof-close>
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="mt-4 grid gap-3 sm:grid-cols-3">
+      <div class="rounded-lg border bg-gray-50 p-3">
+        <div class="text-xs text-gray-500">Highest Degree</div>
+        <div id="apm-degree" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
+      </div>
+      <div class="rounded-lg border bg-gray-50 p-3">
+        <div class="text-xs text-gray-500">Advisory Years</div>
+        <div id="apm-years" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
+      </div>
+      <div class="rounded-lg border bg-gray-50 p-3">
+        <div class="text-xs text-gray-500">Projects</div>
+        <div id="apm-projects" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <div class="text-xs text-gray-500 mb-1">Interests</div>
+      <div id="apm-interests" class="flex flex-wrap gap-1.5">
+        <span class="text-[11px] text-gray-400 italic">—</span>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <div class="text-xs text-gray-500 mb-1">Achievements</div>
+      <ul id="apm-achievements" class="space-y-1">
+        <li class="text-[11px] text-gray-400 italic">—</li>
+      </ul>
+    </div>
+
+    <div class="mt-4">
+      <div class="text-xs text-gray-500 mb-1">Notes</div>
+      <p id="apm-notes" class="text-sm text-gray-700">—</p>
+    </div>
+
+    <div class="mt-5 flex justify-end">
+      <button type="button"
+              class="px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm"
+              data-adv-prof-close>
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+
+<script>
+  (function () {
+    const modal = document.getElementById('adviserProfileModal');
+    const avatar = document.getElementById('apm-avatar');
+    const nameEl = document.getElementById('apm-name');
+    const deptEl = document.getElementById('apm-dept');
+    const fieldEl = document.getElementById('apm-field');
+    const degreeEl = document.getElementById('apm-degree');
+    const yearsEl = document.getElementById('apm-years');
+    const projectsEl = document.getElementById('apm-projects');
+    const interestsEl = document.getElementById('apm-interests');
+    const achievementsEl = document.getElementById('apm-achievements');
+    const notesEl = document.getElementById('apm-notes');
+
+    function chips(el, arr){
+      el.innerHTML = '';
+      if (!Array.isArray(arr) || arr.length === 0) {
+        const s = document.createElement('span');
+        s.className = 'text-[11px] text-gray-400 italic';
+        s.textContent = '—';
+        el.appendChild(s);
+        return;
+      }
+      arr.forEach(t => {
+        const s = document.createElement('span');
+        s.className = 'text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100';
+        s.textContent = t;
+        el.appendChild(s);
+      });
+    }
+
+    function listAchievements(el, arr){
+      el.innerHTML = '';
+      if (!Array.isArray(arr) || arr.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'text-[11px] text-gray-400 italic';
+        li.textContent = '—';
+        el.appendChild(li);
+        return;
+      }
+      arr.forEach(a => {
+        const li = document.createElement('li');
+        li.className = 'text-sm text-gray-800';
+        const parts = [a.title, a.issuer, a.year].filter(Boolean).join(' • ');
+        li.textContent = parts || a.title || 'Achievement';
+        el.appendChild(li);
+      });
+    }
+
+    function openModal(meta){
+      const p = meta && meta.profile ? meta.profile : null;
+
+      avatar.src = (meta && meta.avatar) ? meta.avatar : "{{ asset('storage/avatars/default.png') }}";
+      nameEl.textContent = meta?.name || '—';
+      deptEl.textContent = p?.department || (p === null ? 'No profile yet' : '—');
+      fieldEl.textContent = p?.field_of_expertise || '—';
+
+      const deg = p ? [p.highest_degree, p.degree_school, p.degree_year].filter(Boolean).join(', ') : '';
+      degreeEl.textContent = deg || '—';
+      yearsEl.textContent = (p?.advisory_years ?? '') !== '' ? p.advisory_years : '—';
+      projectsEl.textContent = (p?.projects_handled ?? '') !== '' ? p.projects_handled : '—';
+
+      chips(interestsEl, p?.interests || []);
+      listAchievements(achievementsEl, p?.achievements || []);
+
+      notesEl.textContent = p?.notes || '—';
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal(){
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    document.addEventListener('click', (e) => {
+      // Open profile
+      const btn = e.target.closest('[data-open-adv-profile]');
+      if (btn) {
+        try {
+          const meta = JSON.parse(btn.getAttribute('data-adv-profile') || '{}');
+          openModal(meta);
+        } catch(err) {
+          // fail silently
+        }
+        return;
+      }
+      // Close profile
+      if (e.target.closest('[data-adv-prof-close]')) {
+        closeModal();
+      }
+    });
+
+    // ESC to close
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+  })();
+</script>
+
+
 
   <script>
     // Confirm modal (unchanged)
