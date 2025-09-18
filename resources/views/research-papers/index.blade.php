@@ -571,6 +571,12 @@
                 headerChip.textContent = 'Waiting for PDF';
             });
         })();
+
+
+
+        pdfFileInput.addEventListener('click', () => {
+    pdfFileInput.value = ''; // ensures same file re-triggers change event
+});
     </script>
 
 </x-userlayout>

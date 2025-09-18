@@ -57,6 +57,7 @@ class PdfPlagiarismService
         $max = 0.0;
         foreach ($your as $yc) {
             foreach ($cands as $cc) {
+                $cc = $this->enrichCandidate($cc); // <-- add this
                 $sim = $this->combinedSimilarity($yc, $cc);
                 if ($sim > $max) $max = $sim;
             }
@@ -82,6 +83,7 @@ class PdfPlagiarismService
         foreach ($your as $yc) {
             $best = null;
             foreach ($cands as $cc) {
+                $cc = $this->enrichCandidate($cc); 
                 $simPct = $this->combinedSimilarity($yc, $cc) * self::SCORE_SCALE;
                 if ($simPct > $overall) $overall = $simPct;
                 if ($simPct < $minSim) continue;
@@ -253,60 +255,59 @@ class PdfPlagiarismService
     /** ---------- Candidates: finals + research_papers ---------- */
 
     private function candidateChunksCorpus(): array
-    {
-        $cacheKey = 'plag:candidates:pdf:v1';
-        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () {
+{
+    $cacheKey = 'plag:candidates:pdf:v2'; // bump key to v2
+    $store = $this->cacheStore();
 
-            $out=[];
+    return $store->remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () {
+        $out=[];
 
-            // 1) Final documents from Titles
-            $titles = Title::query()
-                ->where('status','submitted')
-                ->whereNotNull('final_document_id')
-                ->with(['finalDocument:id,title_id,chapter,content'])
-                ->get(['id','title','final_document_id']);
+        // 1) Final documents
+        $titles = Title::query()
+            ->where('status','submitted')
+            ->whereNotNull('final_document_id')
+            ->with(['finalDocument:id,title_id,chapter,content'])
+            ->get(['id','title','final_document_id']);
 
-            foreach($titles as $t){
-                $final = $t->finalDocument ?: Document::find($t->final_document_id);
-                if (!$final || empty($final->content)) continue;
+        foreach($titles as $t){
+            $final = $t->finalDocument ?: Document::find($t->final_document_id);
+            if (!$final || empty($final->content)) continue;
 
-                $src = $this->stripBoilerplate($this->htmlToCleanText($final->content));
-                foreach($this->makeChunks($src) as $c){
-                    $out[] = [
-                        'document_id'    => $final->id,
-                        'source_title'   => $t->title ?? 'Untitled',
-                        'source_chapter' => $final->chapter ?? 'Final',
-                        'source_type'    => 'FinalDocument',
-                        'text'           => $c['text'],
-                        'tf'             => $c['tf'],
-                        'ngrams'         => $c['ngrams'],
-                    ];
-                }
+            $src = $this->stripBoilerplate($this->htmlToCleanText($final->content));
+            foreach($this->makeChunks($src) as $c){
+                $out[] = [
+                    'document_id'    => $final->id,
+                    'source_title'   => $t->title ?? 'Untitled',
+                    'source_chapter' => $final->chapter ?? 'Final',
+                    'source_type'    => 'FinalDocument',
+                    'text'           => $c['text'],   // keep only text
+                    // no 'tf' / 'ngrams' in cache
+                ];
             }
+        }
 
-            // 2) Research papers (already uploaded PDFs with extracted_text)
-            $papers = ResearchPaper::query()
-                ->whereNotNull('extracted_text')
-                ->get(['id','title','extracted_text']);
+        // 2) Research papers
+        $papers = ResearchPaper::query()
+            ->whereNotNull('extracted_text')
+            ->get(['id','title','extracted_text']);
 
-            foreach($papers as $p){
-                $src = $this->stripBoilerplate((string)$p->extracted_text);
-                foreach($this->makeChunks($src) as $c){
-                    $out[] = [
-                        'document_id'    => $p->id,
-                        'source_title'   => $p->title ?? 'Untitled',
-                        'source_chapter' => 'ResearchPaper',
-                        'source_type'    => 'ResearchPaper',
-                        'text'           => $c['text'],
-                        'tf'             => $c['tf'],
-                        'ngrams'         => $c['ngrams'],
-                    ];
-                }
+        foreach($papers as $p){
+            $src = $this->stripBoilerplate((string)$p->extracted_text);
+            foreach($this->makeChunks($src) as $c){
+                $out[] = [
+                    'document_id'    => $p->id,
+                    'source_title'   => $p->title ?? 'Untitled',
+                    'source_chapter' => 'ResearchPaper',
+                    'source_type'    => 'ResearchPaper',
+                    'text'           => $c['text'],
+                ];
             }
+        }
 
-            return $out;
-        });
-    }
+        return $out;
+    });
+}
+
 
     /** ---------- Cleaning ---------- */
 
@@ -356,68 +357,67 @@ class PdfPlagiarismService
 
     /** ---------- Corpus stats (IDF + common 5-grams) ---------- */
 
-    private function ensureCorpusStats(): void
-    {
-        if (!empty($this->idf)) return;
+ private function ensureCorpusStats(): void
+{
+    if (!empty($this->idf)) return;
 
-        $stats = Cache::remember('plag:stats:pdf:v1', now()->addMinutes(self::CACHE_MINUTES), function () {
-            // Build over BOTH finals + research_papers
-            $texts = [];
+    $store = $this->cacheStore(); // <-- use file/redis instead of DB
 
-            $titles = Title::query()
-                ->where('status','submitted')
-                ->whereNotNull('final_document_id')
-                ->with(['finalDocument:id,title_id,content'])
-                ->get(['id','final_document_id']);
+    $stats = $store->remember('plag:stats:pdf:v2', now()->addMinutes(self::CACHE_MINUTES), function () { // bump key to v2
+        // Build over BOTH finals + research_papers
+        $texts = [];
 
-            foreach($titles as $t){
-                $final = $t->finalDocument;
-                if ($final && !empty($final->content)) {
-                    $texts[] = $this->stripBoilerplate($this->htmlToCleanText($final->content));
-                }
+        $titles = Title::query()
+            ->where('status','submitted')
+            ->whereNotNull('final_document_id')
+            ->with(['finalDocument:id,title_id,content'])
+            ->get(['id','final_document_id']);
+
+        foreach($titles as $t){
+            $final = $t->finalDocument;
+            if ($final && !empty($final->content)) {
+                $texts[] = $this->stripBoilerplate($this->htmlToCleanText($final->content));
             }
+        }
 
-            $papers = ResearchPaper::query()
-                ->whereNotNull('extracted_text')
-                ->get(['id','extracted_text']);
+        $papers = ResearchPaper::query()
+            ->whereNotNull('extracted_text')
+            ->get(['id','extracted_text']);
 
-            foreach($papers as $p){
-                $texts[] = $this->stripBoilerplate((string)$p->extracted_text);
-            }
+        foreach($papers as $p){
+            $texts[] = $this->stripBoilerplate((string)$p->extracted_text);
+        }
 
-            $docCount=0; $tokenDF=[]; $ngDF=[];
-            foreach($texts as $txt){
-                if (!$txt) continue;
-                $docCount++;
-                $words = $this->splitWords($txt);
+        $docCount=0; $tokenDF=[]; $ngDF=[];
+        foreach($texts as $txt){
+            if (!$txt) continue;
+            $docCount++;
+            $words = $this->splitWords($txt);
 
-                $tokens  = array_unique($this->normalizeTokens($words));
-                $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
+            $tokens  = array_unique($this->normalizeTokens($words));
+            $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
 
-                foreach($tokens as $tok){ $tokenDF[$tok]=($tokenDF[$tok]??0)+1; }
-                foreach($ngrams5 as $g){ $ngDF[$g]=($ngDF[$g]??0)+1; }
-            }
+            foreach($tokens as $tok){ $tokenDF[$tok]=($tokenDF[$tok]??0)+1; }
+            foreach($ngrams5 as $g){ $ngDF[$g]=($ngDF[$g]??0)+1; }
+        }
 
-            $idf=[]; $N=max(1,$docCount);
-            foreach($tokenDF as $tok=>$df){
-                $idf[$tok] = log((1+$N)/(1+$df)) + 1.0;
-            }
+        $idf=[]; $N=max(1,$docCount);
+        foreach($tokenDF as $tok=>$df){
+            $idf[$tok] = log((1+$N)/(1+$df)) + 1.0;
+        }
 
-            // More permissive small-corpus boilerplate flag
-            $common=[]; 
-            if ($N < 25) {
-                $minDF = max(2, (int)ceil($N*0.30));
-            } else {
-                $minDF = max(3, (int)ceil($N*0.40));
-            }
-            foreach($ngDF as $g=>$df){ if ($df >= $minDF) $common[$g]=true; }
+        $common=[];
+        if ($N < 25) { $minDF = max(2, (int)ceil($N*0.30)); }
+        else         { $minDF = max(3, (int)ceil($N*0.40)); }
+        foreach($ngDF as $g=>$df){ if ($df >= $minDF) $common[$g]=true; }
 
-            return ['idf'=>$idf, 'common'=>$common];
-        });
+        return ['idf'=>$idf, 'common'=>$common];
+    });
 
-        $this->idf = $stats['idf'] ?? [];
-        $this->commonNgrams = $stats['common'] ?? [];
-    }
+    $this->idf = $stats['idf'] ?? [];
+    $this->commonNgrams = $stats['common'] ?? [];
+}
+
 
     /** ---------- Optional stemming ---------- */
     private function getStemmer(): ?\Closure
@@ -428,4 +428,23 @@ class PdfPlagiarismService
         }
         return null;
     }
+
+    private function cacheStore()
+    {
+        // If default cache is "database", use file store for big blobs
+        $default = config('cache.default');
+        $store = $default === 'database' ? 'file' : $default;
+        return Cache::store($store);
+    }
+
+    private function enrichCandidate(array $c): array
+    {
+        if (isset($c['tf']) && isset($c['ngrams'])) return $c;
+
+        $words = $this->splitWords($c['text'] ?? '');
+        $c['tf'] = $this->termFreq($this->normalizeTokens($words));
+        $c['ngrams'] = $this->ngrams($words, self::NGRAM_N);
+        return $c;
+    }
+
 }

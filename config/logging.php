@@ -134,6 +134,14 @@ return [
             'days'     => 14,                              // keep 14 days
             'permission' => 0644,
         ],
+        'pdfplag' => [
+            'driver'     => 'daily',
+            'path'       => storage_path('logs/pdfplag.log'),
+            'level'      => 'debug',
+            'days'       => 14,
+            'permission' => 0644,
+        ],
+
 
 
     ],
