@@ -140,11 +140,13 @@
 <div class="shrink-0 w-full sm:w-auto">
   <div class="flex items-center justify-end gap-3">
     {{-- toggle --}}
+        @if($isAwaitingAdviser)
     <label class="inline-flex items-center gap-2">
       <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-400"
              id="toggle-details-{{ $t->id }}">
       <span class="text-xs text-gray-700">Show details</span>
     </label>
+    @endif
 
     {{-- change adviser (show ONLY while awaiting_adviser) --}}
     @if($isAwaitingAdviser)
