@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('department');
             $table->string('program');
             $table->text('abstract');
-            $table->text('extracted_text')->nullable();
+            $table->longText('extracted_text')->nullable();
             $table->string('file_path');
             $table->timestamps();
         });
