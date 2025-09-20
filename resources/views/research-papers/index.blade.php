@@ -211,6 +211,27 @@
     {{-- ===== pdf.js ===== --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
 
+
+
+
+    <script>
+    /** Safely read JSON. Never throws. */
+    async function readJsonSafe(res) {
+    // If the response looks like JSON, parse it; else return empty object
+    try {
+        // Quick guard: non-2xx still allowed, we just try to parse
+        const ct = res.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) {
+        // Try parse anyway (some servers send JSON without the header)
+        try { return await res.json(); } catch { return {}; }
+        }
+        return await res.json();
+    } catch (_) {
+        return {};
+    }
+    }
+    </script>
+
     {{-- ===== Dep/Program linkage ===== --}}
     <script>
         const programs = {
@@ -313,8 +334,8 @@
 
                 // Duplicate filename check
                 try {
-                    const response = await fetch(`{{ route('research-papers.check-filename') }}?filename=${encodeURIComponent(file.name)}`);
-                    const data = await response.json();
+                   const response = await fetch(`{{ route('research-papers.check-filename') }}?filename=${encodeURIComponent(file.name)}`);
+                   const data = await readJsonSafe(response);
                     if (data.exists) {
                         filenameWarning.textContent = `You already have a file named "${file.name}". Please rename your file.`;
                         submitBtn.disabled = true;
@@ -435,7 +456,7 @@
                             method: 'POST',
                             body: fd
                         });
-                        const data = await res.json();
+                       const data = await readJsonSafe(res); 
                         score = Number(data.score ?? 0);
                     } else {
                         const res = await fetch("{{ route('research-papers.check-plagiarism') }}", {
@@ -443,7 +464,7 @@
                             headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
                             body: JSON.stringify({ pdf_text: txt })
                         });
-                        const data = await res.json();
+                        const data = await readJsonSafe(res); 
                         score = Number(data.score ?? 0);
                     }
 
@@ -511,14 +532,22 @@
                             method: 'POST',
                             body: fd
                         });
-                        data = await res.json();
+                        data = await readJsonSafe(res);
+                          if (!res.ok) {
+                           bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Server error (${res.status}). Please try again.</div>`;
+                           return;
+                         }
                     } else {
                         const res = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", {
                             method: 'POST',
                             headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
                             body: JSON.stringify({ pdf_text: txt })
                         });
-                        data = await res.json();
+                            data = await readJsonSafe(res);
+                          if (!res.ok) {
+                            bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Server error (${res.status}). Please try again.</div>`;
+                            return;
+                          }
                     }
 
                     const matches = Array.isArray(data.matches) ? data.matches : [];

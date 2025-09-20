@@ -255,58 +255,78 @@ class PdfPlagiarismService
     /** ---------- Candidates: finals + research_papers ---------- */
 
     private function candidateChunksCorpus(): array
-{
-    $cacheKey = 'plag:candidates:pdf:v2'; // bump key to v2
-    $store = $this->cacheStore();
+    {
+    $ver      = $this->corpusVersion();
+    $cacheKey = "plag:candidates:pdf:{$ver}";
+    $store      = $this->cacheStore();
+    $lockStore  = Cache::store($this->lockStoreName());
+    $lock       = $lockStore->lock('plag:lock:candidates:v2', 60); // 60s build window
 
-    return $store->remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () {
-        $out=[];
+    // Fast path: cached
+    $cached = $store->get($cacheKey);
+    if (is_array($cached) && !empty($cached)) {
+        return $cached;
+    }
 
-        // 1) Final documents
-        $titles = Title::query()
-            ->where('status','submitted')
-            ->whereNotNull('final_document_id')
-            ->with(['finalDocument:id,title_id,chapter,content'])
-            ->get(['id','title','final_document_id']);
+    // Single-writer build
+    if ($lock->get()) {
+        try {
+            $out = [];
 
-        foreach($titles as $t){
-            $final = $t->finalDocument ?: Document::find($t->final_document_id);
-            if (!$final || empty($final->content)) continue;
+            // 1) Final documents
+            $titles = Title::query()
+                ->where('status', 'submitted')
+                ->whereNotNull('final_document_id')
+                ->with(['finalDocument:id,title_id,chapter,content'])
+                ->get(['id', 'title', 'final_document_id']);
 
-            $src = $this->stripBoilerplate($this->htmlToCleanText($final->content));
-            foreach($this->makeChunks($src) as $c){
-                $out[] = [
-                    'document_id'    => $final->id,
-                    'source_title'   => $t->title ?? 'Untitled',
-                    'source_chapter' => $final->chapter ?? 'Final',
-                    'source_type'    => 'FinalDocument',
-                    'text'           => $c['text'],   // keep only text
-                    // no 'tf' / 'ngrams' in cache
-                ];
+            foreach ($titles as $t) {
+                $final = $t->finalDocument ?: Document::find($t->final_document_id);
+                if (!$final || empty($final->content)) continue;
+
+                $src = $this->stripBoilerplate($this->htmlToCleanText($final->content));
+                foreach ($this->makeChunks($src) as $c) {
+                    $out[] = [
+                        'document_id'    => $final->id,
+                        'source_title'   => $t->title ?? 'Untitled',
+                        'source_chapter' => $final->chapter ?? 'Final',
+                        'source_type'    => 'FinalDocument',
+                        'text'           => $c['text'],
+                    ];
+                }
             }
-        }
 
-        // 2) Research papers
-        $papers = ResearchPaper::query()
-            ->whereNotNull('extracted_text')
-            ->get(['id','title','extracted_text']);
+            // 2) Research papers
+            $papers = ResearchPaper::query()
+                ->whereNotNull('extracted_text')
+                ->get(['id', 'title', 'extracted_text']);
 
-        foreach($papers as $p){
-            $src = $this->stripBoilerplate((string)$p->extracted_text);
-            foreach($this->makeChunks($src) as $c){
-                $out[] = [
-                    'document_id'    => $p->id,
-                    'source_title'   => $p->title ?? 'Untitled',
-                    'source_chapter' => 'ResearchPaper',
-                    'source_type'    => 'ResearchPaper',
-                    'text'           => $c['text'],
-                ];
+            foreach ($papers as $p) {
+                $src = $this->stripBoilerplate((string) $p->extracted_text);
+                foreach ($this->makeChunks($src) as $c) {
+                    $out[] = [
+                        'document_id'    => $p->id,
+                        'source_title'   => $p->title ?? 'Untitled',
+                        'source_chapter' => 'ResearchPaper',
+                        'source_type'    => 'ResearchPaper',
+                        'text'           => $c['text'],
+                    ];
+                }
             }
-        }
 
-        return $out;
-    });
+            // Cache for a bit longer to avoid rebuilds on hot pages
+            $store->put($cacheKey, $out, now()->addMinutes(self::CACHE_MINUTES * 3));
+            return $out;
+        } finally {
+            optional($lock)->release();
+        }
+    }
+
+    // Readers wait briefly for the builder, then return whatever is there (or empty)
+    usleep(250 * 1000); // 250ms
+    return $store->get($cacheKey, []);
 }
+
 
 
     /** ---------- Cleaning ---------- */
@@ -357,66 +377,92 @@ class PdfPlagiarismService
 
     /** ---------- Corpus stats (IDF + common 5-grams) ---------- */
 
- private function ensureCorpusStats(): void
+private function ensureCorpusStats(): void
 {
     if (!empty($this->idf)) return;
 
-    $store = $this->cacheStore(); // <-- use file/redis instead of DB
+    $store     = $this->cacheStore();
+    $lockStore = Cache::store($this->lockStoreName());
+    $ver     = $this->corpusVersion();
+    $statsKey= "plag:stats:pdf:{$ver}";
 
-    $stats = $store->remember('plag:stats:pdf:v2', now()->addMinutes(self::CACHE_MINUTES), function () { // bump key to v2
-        // Build over BOTH finals + research_papers
-        $texts = [];
+    $lock      = $lockStore->lock('plag:lock:stats:v2', 60);
 
-        $titles = Title::query()
-            ->where('status','submitted')
-            ->whereNotNull('final_document_id')
-            ->with(['finalDocument:id,title_id,content'])
-            ->get(['id','final_document_id']);
+    $cached = $store->get($statsKey);
+    if (is_array($cached) && isset($cached['idf'], $cached['common'])) {
+        $this->idf = $cached['idf'];
+        $this->commonNgrams = $cached['common'];
+        return;
+    }
 
-        foreach($titles as $t){
-            $final = $t->finalDocument;
-            if ($final && !empty($final->content)) {
-                $texts[] = $this->stripBoilerplate($this->htmlToCleanText($final->content));
+    if ($lock->get()) {
+        try {
+            // Build fresh
+            $texts = [];
+
+            $titles = Title::query()
+                ->where('status', 'submitted')
+                ->whereNotNull('final_document_id')
+                ->with(['finalDocument:id,title_id,content'])
+                ->get(['id', 'final_document_id']);
+
+            foreach ($titles as $t) {
+                $final = $t->finalDocument;
+                if ($final && !empty($final->content)) {
+                    $texts[] = $this->stripBoilerplate($this->htmlToCleanText($final->content));
+                }
             }
+
+            $papers = ResearchPaper::query()
+                ->whereNotNull('extracted_text')
+                ->get(['id', 'extracted_text']);
+
+            foreach ($papers as $p) {
+                $texts[] = $this->stripBoilerplate((string)$p->extracted_text);
+            }
+
+            $docCount = 0; $tokenDF = []; $ngDF = [];
+            foreach ($texts as $txt) {
+                if (!$txt) continue;
+                $docCount++;
+                $words   = $this->splitWords($txt);
+                $tokens  = array_unique($this->normalizeTokens($words));
+                $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
+
+                foreach ($tokens as $tok) { $tokenDF[$tok] = ($tokenDF[$tok] ?? 0) + 1; }
+                foreach ($ngrams5 as $g)  { $ngDF[$g]      = ($ngDF[$g]      ?? 0) + 1; }
+            }
+
+            $idf = []; $N = max(1, $docCount);
+            foreach ($tokenDF as $tok => $df) {
+                $idf[$tok] = log((1 + $N) / (1 + $df)) + 1.0;
+            }
+
+            $common = [];
+            if ($N < 25) { $minDF = max(2, (int)ceil($N * 0.30)); }
+            else         { $minDF = max(3, (int)ceil($N * 0.40)); }
+            foreach ($ngDF as $g => $df) {
+                if ($df >= $minDF) $common[$g] = true;
+            }
+
+            $stats = ['idf' => $idf, 'common' => $common];
+            $store->put($statsKey, $stats, now()->addMinutes(self::CACHE_MINUTES * 3));
+
+            $this->idf = $idf;
+            $this->commonNgrams = $common;
+            return;
+        } finally {
+            optional($lock)->release();
         }
+    }
 
-        $papers = ResearchPaper::query()
-            ->whereNotNull('extracted_text')
-            ->get(['id','extracted_text']);
-
-        foreach($papers as $p){
-            $texts[] = $this->stripBoilerplate((string)$p->extracted_text);
-        }
-
-        $docCount=0; $tokenDF=[]; $ngDF=[];
-        foreach($texts as $txt){
-            if (!$txt) continue;
-            $docCount++;
-            $words = $this->splitWords($txt);
-
-            $tokens  = array_unique($this->normalizeTokens($words));
-            $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
-
-            foreach($tokens as $tok){ $tokenDF[$tok]=($tokenDF[$tok]??0)+1; }
-            foreach($ngrams5 as $g){ $ngDF[$g]=($ngDF[$g]??0)+1; }
-        }
-
-        $idf=[]; $N=max(1,$docCount);
-        foreach($tokenDF as $tok=>$df){
-            $idf[$tok] = log((1+$N)/(1+$df)) + 1.0;
-        }
-
-        $common=[];
-        if ($N < 25) { $minDF = max(2, (int)ceil($N*0.30)); }
-        else         { $minDF = max(3, (int)ceil($N*0.40)); }
-        foreach($ngDF as $g=>$df){ if ($df >= $minDF) $common[$g]=true; }
-
-        return ['idf'=>$idf, 'common'=>$common];
-    });
-
+    // Wait a tick for writer; if still empty, use safe defaults
+    usleep(250 * 1000);
+    $stats = $store->get($statsKey, ['idf' => [], 'common' => []]);
     $this->idf = $stats['idf'] ?? [];
     $this->commonNgrams = $stats['common'] ?? [];
 }
+
 
 
     /** ---------- Optional stemming ---------- */
@@ -429,13 +475,24 @@ class PdfPlagiarismService
         return null;
     }
 
+
     private function cacheStore()
     {
-        // If default cache is "database", use file store for big blobs
+        // Prefer fast, persistent stores. Avoid 'array' (ephemeral) and 'database' (big blobs).
         $default = config('cache.default');
-        $store = $default === 'database' ? 'file' : $default;
-        return Cache::store($store);
+
+        if (in_array($default, ['array', 'database'], true)) {
+            return Cache::store('file');  // or 'redis' if you have it
+        }
+        return Cache::store($default);
     }
+    private function lockStoreName(): string
+    {
+        $default = config('cache.default');
+        return in_array($default, ['array', 'database'], true) ? 'file' : $default;
+    }
+
+
 
     private function enrichCandidate(array $c): array
     {
@@ -446,5 +503,30 @@ class PdfPlagiarismService
         $c['ngrams'] = $this->ngrams($words, self::NGRAM_N);
         return $c;
     }
+
+    private function corpusVersion(): string
+    {
+           $tMaxRaw = Title::query()
+        ->where('status','submitted')
+        ->whereNotNull('final_document_id')
+        ->max('updated_at');
+        $pMaxRaw = ResearchPaper::query()
+            ->whereNotNull('extracted_text')
+            ->max('updated_at');
+        $tMax = $tMaxRaw ? \Illuminate\Support\Carbon::parse($tMaxRaw)->timestamp : 0;
+        $pMax = $pMaxRaw ? \Illuminate\Support\Carbon::parse($pMaxRaw)->timestamp : 0;
+
+        // Also include counts (cheap) to catch inserts/deletes with same timestamps
+         $tCnt = Title::query()
+         ->where('status','submitted')
+         ->whereNotNull('final_document_id')
+         ->count();
+        $pCnt = ResearchPaper::query()
+            ->whereNotNull('extracted_text')
+            ->count();
+
+     return "v3:t{$tCnt}-{$tMax}:p{$pCnt}-{$pMax}";
+    }
+
 
 }

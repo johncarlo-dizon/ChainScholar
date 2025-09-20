@@ -49,7 +49,7 @@ fix the manage part also the delete modal part
 
 
 future fix policy for the sidebars ---------- important note
-
+pdf delete extracted text ---------important note
 
 
 
