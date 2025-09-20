@@ -27,8 +27,17 @@ use App\Http\Controllers\ExternalPlagiarismController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use App\Http\Controllers\AdviserProfileController;
+use App\Http\Controllers\ActivityLogController;
 
 
+
+
+
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/activity', [ActivityLogController::class, 'index'])->name('activity.index'); // One route for all roles
+});
 
 
 // ADVISER PROFILE START

@@ -380,6 +380,15 @@
 @endif
 
                 @endauth
+
+                <li>
+  <a href="{{ route('activity.index') }}"
+     class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('activity.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+     <i data-feather="activity" class="w-4 h-4 mr-3"></i>
+     Activity Logs
+  </a>
+</li>
+
                 <li>
                     <a href="{{route('profile.show')}}"
                        class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('profile.show') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
