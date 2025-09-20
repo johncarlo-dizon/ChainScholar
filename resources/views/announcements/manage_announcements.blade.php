@@ -99,15 +99,16 @@
                                 <a href="{{ route('announcements.edit', $announcement) }}"
                                    class="text-indigo-600 hover:text-indigo-800 font-medium">Edit</a>
 
-                                <button
-                                    type="button"
-                                    class="text-red-600 hover:text-red-800 font-medium btn-delete-ann"
-                                    title="Delete"
-                                    data-action="{{ route('announcements.destroy', $announcement) }}"
-                                    data-title="{{ e(Str::limit($announcement->title, 100)) }}"
-                                >
-                                    Delete
-                                </button>
+                               <button
+    type="button"
+    class="text-red-600 hover:text-red-800 font-medium btn-delete-ann"
+    title="Delete"
+    data-action="{{ route('announcements.destroy', $announcement) }}"
+    data-title="{{ e(Str::limit($announcement->title, 100)) }}"
+>
+    Delete
+</button>
+
                             </td>
                         </tr>
                     @empty
@@ -126,4 +127,94 @@
     </div>
 
     {{-- Keep your existing delete modal + script --}}
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal"
+     class="fixed inset-0 z-[9999] hidden"
+     role="dialog" aria-modal="true" aria-labelledby="del-modal-title" aria-describedby="del-modal-desc">
+  <!-- Backdrop -->
+  <div id="deleteModalBackdrop" class="fixed inset-0 bg-black/40 transition-opacity"></div>
+
+  <!-- Panel -->
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-xl bg-white shadow-xl">
+      <div class="px-6 pt-6 pb-4">
+        <h3 id="del-modal-title" class="text-lg font-semibold text-gray-900">Delete announcement?</h3>
+        <p id="del-modal-desc" class="mt-2 text-sm text-gray-600">
+          This will permanently delete: <span id="delModalTitle" class="font-medium text-gray-900"></span>
+        </p>
+      </div>
+
+      <div class="px-6 pb-6 flex items-center justify-end gap-3">
+        <button type="button"
+                id="btnCancelDelete"
+                class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+          Cancel
+        </button>
+
+        <form id="deleteAnnForm" method="POST">
+          @csrf
+          @method('DELETE')
+          <button type="submit"
+                  id="btnConfirmDelete"
+                  class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+            Yes, delete
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // In case the layout or Livewire/Turbo replaces content, delegate from document:
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.btn-delete-ann');
+    if (!btn) return;
+
+    // Open modal
+    const modal     = document.getElementById('deleteModal');
+    const backdrop  = document.getElementById('deleteModalBackdrop');
+    const titleSpan = document.getElementById('delModalTitle');
+    const form      = document.getElementById('deleteAnnForm');
+
+    form.setAttribute('action', btn.dataset.action);
+    titleSpan.textContent = `“${btn.dataset.title || 'this announcement'}”`;
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('btnConfirmDelete').focus(), 0);
+  });
+
+  // Close handlers
+  function closeModal() {
+    const modal = document.getElementById('deleteModal');
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.target.id === 'btnCancelDelete' || e.target.id === 'deleteModalBackdrop') {
+      closeModal();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !document.getElementById('deleteModal').classList.contains('hidden')) {
+      closeModal();
+    }
+  });
+
+  // Optional: guard against double submit
+  document.addEventListener('submit', function (e) {
+    if (e.target && e.target.id === 'deleteAnnForm') {
+      const confirmBtn = document.getElementById('btnConfirmDelete');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Deleting...';
+    }
+  });
+})();
+</script>
+
+    
 </x-userlayout>

@@ -77,8 +77,11 @@ class AnnouncementController extends Controller
     public function destroy(Announcement $announcement)
     {
         $announcement->delete();
-        return redirect()->route('announcements.index')->with('success', 'Announcement deleted.');
+
+        // Return to the same page (manage or filtered view) preserving query string
+        return back()->with('success', 'Announcement deleted.');
     }
+
 
     // Admin: Manage listing
     public function manage(Request $request)
