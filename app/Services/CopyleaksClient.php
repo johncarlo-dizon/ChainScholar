@@ -121,4 +121,17 @@ public function requestExport(
     }
 
 
+    // Insert BELOW this line: "return $exportId;" from requestExport() or anywhere inside the class
+        public function resendWebhook(string $token, string $scanId): void
+        {
+            // Ask Copyleaks to resend the *completed* status webhook for this scan.
+            // No body required.
+            Http::withToken($token)
+                ->asJson()
+                ->post("https://api.copyleaks.com/v3/scans/resend-webhook/{$scanId}")
+                ->throw();
+        }
+
+
+
 }

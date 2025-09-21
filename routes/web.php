@@ -80,6 +80,8 @@ Route::post('/webhooks/copyleaks/export/completed/{scanId}/{exportId}', [Externa
 Route::post('/webhooks/copyleaks/export/crawled/{scanId}', [ExternalPlagiarismController::class, 'exportCrawled'])
     ->name('webhooks.copyleaks.export.crawled')
     ->withoutMiddleware([VerifyCsrfToken::class]); 
+    Route::post('/documents/copyleaks/resync', [ExternalPlagiarismController::class, 'resync'])
+    ->name('documents.copyleaks.resync');
 // COPYLEAKS END
 
  

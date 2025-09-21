@@ -1002,6 +1002,16 @@ window.checkPlagiarism = checkPlagiarism;
   function openOffcanvas(){ offcanvas.classList.remove('hidden'); }
   function setBody(html){ bodyBox.innerHTML = html; }
 
+
+  // Insert ABOVE any call to pollStatus()
+  async function getCurrentScanId() {
+    const url  = new URL(`{{ route('documents.copyleaks.status', $document) }}`);
+    const res  = await fetch(url);
+    const data = await res.json();
+    return data?.scan_id || null;
+  }
+
+
   // Open + load the latest results; DO NOT start a scan automatically
   btnExternal?.addEventListener('click', openAndLoadLatest);
 
@@ -1087,14 +1097,20 @@ window.checkPlagiarism = checkPlagiarism;
     setBody(`
       <div class="space-y-3 text-gray-700">
         <div class="flex items-center gap-2">
-          <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"/></svg>
-          <span>External scan running…</span>
+          <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+            <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+          </svg>
+          <span>Checking external sources…</span>
         </div>
-        <div class="text-sm text-gray-600">We’ll update results here as soon as they’re ready.</div>
-        ${Array.isArray(data?.matches) && data.matches.length ? renderCardsHTML(data.matches, data) : ``}
+        <div class="text-sm text-gray-600">
+          This may take up to a minute. We’ll update results automatically.
+        </div>
       </div>
     `);
   }
+
+
 
   function renderResults(data) {
     const sourceMax = Number(data.source_max ?? data.score ?? 0);
@@ -1191,36 +1207,99 @@ window.checkPlagiarism = checkPlagiarism;
   }
 
   // ---- Poll current scan by id ----
-  async function pollStatus(scanId){
-    let tries = 0;
-    const maxTries = 60; // ~6 minutes @6s
+  async function pollStatus(scanId, opts = {}) {
+  let tries = 0;
+  const maxTries       = 60;       // ~6 minutes total
+  const pollIntervalMs = 6000;
+  let didResync        = !!opts.afterResync;
 
-    while (tries++ < maxTries){
-      await new Promise(r=>setTimeout(r, 6000));
-      const url  = new URL(`{{ route('documents.copyleaks.status', $document) }}`);
+  while (tries++ < maxTries) {
+    await new Promise(r => setTimeout(r, pollIntervalMs));
+
+    const url = new URL(`{{ route('documents.copyleaks.status', $document) }}`);
+    url.searchParams.set('scan_id', scanId);
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (data.status === 'error') {
+      window.__externalScore = null;
+      updatePlagGate('External scan failed. Please try again.');
+      renderIdle(data, data.error || 'Scan failed.');
+      return;
+    }
+    if (data.status === 'completed' || data.status === 'exported') {
+      renderResults(data);
+      return;
+    }
+
+    renderRunning(data);
+  }
+
+  // === TIMEOUT path ===
+  // If we haven’t tried a resend yet, do one auto-recovery and continue polling a short grace window.
+  if (!didResync) {
+    try {
+      await fetch(`{{ route('documents.copyleaks.resync') }}`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+        body: JSON.stringify({ scan_id: scanId })
+      });
+    } catch {}
+    // Grace period: 10 more polls
+    let grace = 10;
+    while (grace-- > 0) {
+      await new Promise(r => setTimeout(r, pollIntervalMs));
+      const url = new URL(`{{ route('documents.copyleaks.status', $document) }}`);
       url.searchParams.set('scan_id', scanId);
       const res  = await fetch(url);
       const data = await res.json();
-
-      if (data.status === 'error'){
-        // Error -> no valid external score
-        window.__externalScore = null;
-        updatePlagGate('External scan failed. Please try again.');
-        renderIdle(data, data.error || 'Scan failed.');
-        return;
-      }
-      if (data.status === 'completed' || data.status === 'exported'){
+      if (data.status === 'completed' || data.status === 'exported') {
         renderResults(data);
         return;
       }
+      if (data.status === 'error') break;
       renderRunning(data);
     }
-
-    // Timeout -> invalidate external
-    window.__externalScore = null;
-    updatePlagGate('Timeout waiting for Copyleaks.');
-    setBody(`<div class="p-4 rounded border bg-yellow-50 text-yellow-800">Timeout waiting for Copyleaks.</div>`);
   }
+
+  // Still no luck: show timeout
+ // === TIMEOUT path ===
+  window.__externalScore = null;
+  updatePlagGate('Timeout waiting for Copyleaks.');
+
+  setBody(`
+    <div class="space-y-3 text-gray-700">
+      <div class="flex items-center gap-2">
+        <span>Still waiting for external matches…</span>
+      </div>
+      <div class="text-sm text-gray-600">
+        Sometimes results take a little longer. You can check again below.
+      </div>
+      <button id="btnCheckAgain"
+              type="button"
+              class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">
+        Check again
+      </button>
+    </div>
+  `);
+
+  document.getElementById('btnCheckAgain')?.addEventListener('click', async () => {
+    try {
+      const scanId = await getCurrentScanId();
+      if (!scanId) return;
+      await fetch(`{{ route('documents.copyleaks.resync') }}`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+        body: JSON.stringify({ scan_id: scanId })
+      });
+      pollStatus(scanId, { afterResync: true });
+    } catch {}
+  });
+
+}
+
+
+
 })();
 </script>
 

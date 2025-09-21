@@ -115,6 +115,41 @@ class ExternalPlagiarismController extends Controller
         $scannedDoc    = $payload['scannedDocument'] ?? ($payload['data']['scannedDocument'] ?? null);
         $hasScannedDoc = is_array($scannedDoc);
 
+
+
+
+
+
+
+        // Normalize "status: 0" to a completed event
+        $statusCode = $payload['status'] ?? ($payload['data']['status'] ?? null);
+        if ($statusCode === 0 || $statusCode === '0') {
+            $event = 'completed';
+        }
+
+        // If the scanned doc is present and ALL result buckets are empty,
+        // treat this as a completed scan with zero matches.
+        $allBucketsEmpty = empty($resultNode['internet'])
+            && empty($resultNode['database'])
+            && empty($resultNode['repositories'])
+            && empty($resultNode['batch']);
+
+        if ($hasScannedDoc && $allBucketsEmpty) {
+            $credits       = (int)($payload['scannedDocument']['credits'] ?? 0);
+            $aggregated    = (int) $this->extractAggregatedScore($payload); // should be 0 here
+
+            $scan->update([
+                'status'       => 'completed',
+                'score'        => $aggregated, // 0
+                'credits_used' => $credits ?: null,
+            ]);
+
+            // No export necessary (no result IDs).
+            return response()->json(['ok' => true]);
+              
+        }
+
+
         try {
             DB::transaction(function () use ($payload,$event,$inProgress,$done,$hasResults,$hasScannedDoc,$scannedDoc,$resultNode,$scan,$copyleaks) {
 
@@ -424,6 +459,69 @@ class ExternalPlagiarismController extends Controller
 
         return response()->json(['ok'=>true]);
     }
+
+
+    // Insert BELOW this line: "return response()->json(['ok'=>true]);" of exportCompleted() OR anywhere in the class
+    public function resync(Request $req, CopyleaksClient $copyleaks)
+    {
+        $req->validate([
+            'scan_id'     => 'required|string',
+            'document_id' => 'nullable|integer|exists:documents,id',
+        ]);
+
+        $scan = \App\Models\ExternalPlagiarismScan::where('scan_id', $req->scan_id)->first();
+        if (!$scan) {
+            return response()->json(['ok'=>false,'message'=>'Unknown scan id.'], 404);
+        }
+
+        try {
+            $token = $copyleaks->getAccessToken();
+
+            // 1) Ask Copyleaks to resend the final status webhook, in case we missed it.
+            $copyleaks->resendWebhook($token, $scan->scan_id);
+
+            // 2) If we already have a completed payload with result IDs but never exported,
+            //    (rare race) we can re-ensure export is scheduled.
+            $raw = $scan->raw_payload;
+            if (is_string($raw)) $raw = json_decode($raw, true) ?: [];
+            $resultsNode = $raw['results'] ?? ($raw['data']['results'] ?? []);
+            $resultIds   = [];
+            foreach (['internet','database','repositories','batch'] as $b) {
+                if (!empty($resultsNode[$b])) {
+                    foreach ($resultsNode[$b] as $r) {
+                        if (!empty($r['id'])) $resultIds[] = (string) $r['id'];
+                    }
+                }
+            }
+            $resultIds = array_values(array_unique($resultIds));
+
+            $hasScannedDoc = isset($raw['scannedDocument']) || isset(($raw['data'] ?? [])['scannedDocument']);
+            $isCompleted   = in_array(strtolower((string)($raw['event'] ?? $raw['type'] ?? $raw['status'] ?? ($raw['data']['status'] ?? ''))),
+                            ['completed','finished','done','success','finished_successfully','scan.completed'], true);
+
+            if ($isCompleted && $hasScannedDoc && $resultIds) {
+                $cacheKey = 'copyleaks:export-scheduled:'.$scan->scan_id;
+                if (\Illuminate\Support\Facades\Cache::add($cacheKey, 1, now()->addHours(24))) {
+                    try {
+                        $exportBase = (string) config('services.copyleaks.export_base') ?: rtrim((string) config('app.url'), '/');
+                        $completionEndpoint = rtrim($exportBase,'/')
+                        . "/webhooks/copyleaks/export/completed/{$scan->scan_id}/__AUTO__";
+                        $copyleaks->requestExport($token, $scan->scan_id, $resultIds, rtrim($exportBase,'/'), $completionEndpoint);
+                        $this->clog('info','Resync: export re-scheduled',['scan_id'=>$scan->scan_id,'results'=>$resultIds]);
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Cache::forget($cacheKey);
+                        $this->clog('warning','Resync: export schedule failed',['scan_id'=>$scan->scan_id,'err'=>$e->getMessage()]);
+                    }
+                }
+            }
+
+            return response()->json(['ok'=>true]);
+        } catch (\Throwable $e) {
+            $this->clog('warning','Resync failed',['scan_id'=>$scan->scan_id,'err'=>$e->getMessage()]);
+            return response()->json(['ok'=>false,'message'=>'Resync failed.'], 502);
+        }
+    }
+
 
     /* ------------------------ status (collapsed per domain) ------------------------ */
 
