@@ -693,25 +693,141 @@ class ExternalPlagiarismController extends Controller
     $docTotalWords = (int)($raw['scannedDocument']['totalWords']
         ?? ($raw['data']['scannedDocument']['totalWords'] ?? 0));
 
-    return response()->json([
-        'status'              => $scan->status,
-        'scan_id'             => $scan->scan_id,
-        'updated_at_iso'      => optional($scan->updated_at)->toIso8601String(),
-        'sandbox'             => (bool) $scan->sandbox,
-        'credits_used'        => (int) ($scan->credits_used ?? 0),
 
-        'source_max'          => $sourceMax,
-        'doc_aggregated'      => $docAgg,
 
-        'plagiarized_excerpt' => $topExcerpt,
-        'top_source'          => $topMeta,
 
-        'matches'             => $list,                  // ← all, with backfilled titles/links
-        'matches_count'       => $list->count(),
 
-        'doc_total_words'     => $docTotalWords,
-        'error'               => $scan->error_message,
-    ]);
+            // ---------- Phase & progress ----------
+    // 1) Normalize results node from $raw
+    $rawResults = $raw['results'] ?? ($raw['data']['results'] ?? []);
+    $resultNode = [
+        'internet'     => $rawResults['internet']     ?? ($raw['internet']     ?? []),
+        'database'     => $rawResults['database']     ?? ($raw['database']     ?? []),
+        'repositories' => $rawResults['repositories'] ?? ($raw['repositories'] ?? []),
+        'batch'        => $rawResults['batch']        ?? ($raw['batch']        ?? []),
+    ];
+    $resultIds = $this->collectResultIds($resultNode);
+    $totalResults = count($resultIds);
+
+    // 2) How many exported result payloads have been processed?
+    $processedIds = 0;
+    if ($totalResults > 0) {
+        $exportKeys = \App\Models\ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)
+            ->pluck('export_key')
+            ->filter()
+            ->values();
+
+        $seen = [];
+        foreach ($exportKeys as $ek) {
+            if (!is_string($ek)) continue;
+            if (preg_match('/^rid:([^|]+)\|/i', $ek, $m)) {
+                $rid = (string)$m[1];
+                if (in_array($rid, $resultIds, true) && !isset($seen[$rid])) {
+                    $seen[$rid] = true;
+                }
+            }
+        }
+        $processedIds = count($seen);
+    }
+
+    // 3) Have we received your crawled version?
+    $hasCrawled = \Illuminate\Support\Facades\Cache::has("copyleaks:crawled:{$scan->scan_id}");
+
+    // 4) Map to phases (6 steps)
+    //    1 Queued, 2 Scanning, 3 Results ready, 4 Export scheduled, 5 Exporting, 6 Finalizing/Done
+    $phase = 'queued';
+    $stepIndex = 1;  // 1..6
+    $stepTotal = 6;
+
+    $st = strtolower((string)$scan->status);
+    if (in_array($st, ['queued'], true)) {
+        $phase = 'queued'; $stepIndex = 1;
+    } elseif (in_array($st, ['running'], true)) {
+        $phase = 'scanning'; $stepIndex = 2;
+    } elseif (in_array($st, ['completed'], true)) {
+        // webhook completed (we know results exist or zero findings)
+        // If there are resultIds, export will be scheduled by webhook code.
+        $phase = $totalResults > 0 ? 'results_ready' : 'finalizing';
+        $stepIndex = $totalResults > 0 ? 3 : 6;
+    } elseif (in_array($st, ['exported'], true)) {
+        // Export flow underway or finished
+        if ($totalResults === 0) {
+            $phase = 'finalizing'; $stepIndex = 6;
+        } else {
+            if (!$hasCrawled) { // waiting for crawled export
+                $phase = 'export_scheduled'; $stepIndex = 4;
+            } else {
+                if ($processedIds < $totalResults) {
+                    $phase = 'exporting'; $stepIndex = 5;
+                } else {
+                    $phase = 'finalizing'; $stepIndex = 6;
+                }
+            }
+        }
+    } elseif (in_array($st, ['error'], true)) {
+        $phase = 'error'; $stepIndex = 1; // show as stuck at start
+    }
+
+    // 5) Progress percent (coarse baseline by step, then refine on exporting)
+    $basePercent = (int) round((($stepIndex - 1) * 100) / ($stepTotal - 1)); // 0..100
+    $progressPercent = $basePercent;
+
+    if ($phase === 'exporting' && $totalResults > 0) {
+        $exportPct = (int) floor(($processedIds * 100.0) / $totalResults);
+        // Blend: ensure we stay between step 4 (≈80%) and step 5..6 (≈100%)
+        $progressPercent = max($basePercent, min(100, 80 + (int) floor($exportPct * 0.2)));
+    } elseif ($phase === 'export_scheduled') {
+        $progressPercent = max($progressPercent, 70);
+    } elseif ($phase === 'results_ready') {
+        $progressPercent = max($progressPercent, 60);
+    } elseif ($phase === 'finalizing') {
+        $progressPercent = 100;
+    }
+
+    $steps = [
+        ['key'=>'queued',          'label'=>'Queued'],
+        ['key'=>'scanning',        'label'=>'Scanning'],
+        ['key'=>'results_ready',   'label'=>'Results ready'],
+        ['key'=>'export_scheduled','label'=>'Export scheduled'],
+        ['key'=>'exporting',       'label'=>'Exporting results'],
+        ['key'=>'finalizing',      'label'=>'Done'],
+    ];
+
+
+       return response()
+        ->json([
+            'status'              => $scan->status,
+            'scan_id'             => $scan->scan_id,
+            'updated_at_iso'      => optional($scan->updated_at)->toIso8601String(),
+            'sandbox'             => (bool) $scan->sandbox,
+            'credits_used'        => (int) ($scan->credits_used ?? 0),
+
+            'source_max'          => $sourceMax,
+            'doc_aggregated'      => $docAgg,
+
+            'plagiarized_excerpt' => $topExcerpt,
+            'top_source'          => $topMeta,
+
+            'matches'             => $list,
+            'matches_count'       => $list->count(),
+
+            'doc_total_words'     => $docTotalWords,
+            'error'               => $scan->error_message,
+
+            // NEW: phase/progress meta
+            'phase'               => $phase,             // queued|scanning|results_ready|export_scheduled|exporting|finalizing|error
+            'step_index'          => $stepIndex,         // 1..6
+            'step_total'          => $stepTotal,         // 6
+            'progress_percent'    => $progressPercent,   // 0..100
+            'export'              => [
+                'total_results'   => $totalResults,
+                'processed_results'=> $processedIds,
+                'has_crawled'     => $hasCrawled,
+            ],
+            'steps'               => $steps,
+        ])
+        ->header('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
+
 }
 
 

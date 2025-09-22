@@ -935,13 +935,129 @@ window.checkPlagiarism = checkPlagiarism;
   const btnExternal = document.getElementById('btnCopyleaks');
   const offcanvas   = document.getElementById('plagOffcanvas');
   const bodyBox     = document.getElementById('plagBody');
+    // --- polling state ---
+  let pollingTimer = null;
+
+  function stopPolling() {
+    if (pollingTimer) {
+      clearInterval(pollingTimer);
+      pollingTimer = null;
+    }
+  }
+  window.addEventListener('beforeunload', stopPolling);
+
+let lastProgress = 0;
+let lastStepIndex = 1;
+function resetPhaseTracker(){ lastProgress = 0; lastStepIndex = 1; }
+
+function renderPhaseBar(meta) {
+  const steps = Array.isArray(meta?.steps) ? meta.steps : [
+    {key:'queued',label:'Queued'},
+    {key:'scanning',label:'Scanning'},
+    {key:'results_ready',label:'Results ready'},
+    {key:'export_scheduled',label:'Export scheduled'},
+    {key:'exporting',label:'Exporting results'},
+    {key:'finalizing',label:'Done'},
+  ];
+
+  const current  = meta?.phase || 'queued';
+  const rawPct   = Number.isFinite(+meta?.progress_percent) ? +meta.progress_percent : 0;
+  const rawStep  = Number.isFinite(+meta?.step_index)       ? +meta.step_index       : 1;
+
+  // monotonic progress + step
+  const progress = Math.max(lastProgress, Math.max(0, Math.min(100, rawPct)));
+  const stepIdx  = Math.max(lastStepIndex, Math.max(1, Math.min(steps.length, rawStep)));
+  lastProgress   = progress;
+  lastStepIndex  = stepIdx;
+
+  // don’t show 100% until terminal
+  const isTerminal = ['completed','exported','finalizing'].includes(meta?.status) || current === 'finalizing';
+  const shownPct   = isTerminal ? progress : Math.min(progress, 99);
+
+  // dots grid (labels are in the same column as their dot)
+  const colsStyle  = `grid-template-columns: repeat(${steps.length}, minmax(0,1fr));`;
+
+  const dotItems = steps.map((s, i) => {
+    const done    = i < (stepIdx - 1) || isTerminal;
+    const active  = i === (stepIdx - 1) && !isTerminal;
+    const dotCls  = done ? 'bg-emerald-500' : active ? 'bg-blue-600' : 'bg-gray-300';
+    const lblCls  = done ? 'text-emerald-700' : active ? 'text-blue-700' : 'text-gray-500';
+
+    return `
+      <div class="flex flex-col items-center">
+        <div class="relative">
+          <!-- white halo to cleanly cut the background line under the dot -->
+          <span class="absolute -inset-1 rounded-full bg-white"></span>
+          <span class="relative block w-2.5 h-2.5 rounded-full ${dotCls}"></span>
+        </div>
+        <div class="mt-1 text-[11px] leading-tight ${lblCls} whitespace-nowrap">${s.label}</div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="space-y-2 select-none">
+      <div class="flex items-center justify-between">
+        <div class="text-sm font-medium text-gray-800">Status: ${current.replace(/_/g,' ')}</div>
+        <div class="text-xs text-gray-500">${Math.round(shownPct)}%</div>
+      </div>
+
+      <div class="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+        <div class="h-2 bg-blue-600" style="width:${shownPct}%"></div>
+      </div>
+
+      <!-- Steps line + dots -->
+      <div class="relative mt-3">
+        <!-- single continuous connector line -->
+        <div class="absolute left-2 right-2 top-1.5 h-0.5 bg-gray-200"></div>
+
+        <!-- evenly spaced dots with labels underneath -->
+        <div class="grid gap-0" style="${colsStyle}">
+          ${dotItems}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+
+
+
+
+  // Kill polling when offcanvas closes
+  function openOffcanvas(){ 
+    resetPhaseTracker();   
+    offcanvas.classList.remove('hidden'); }
+  function closeOffcanvas(){ 
+    offcanvas.classList.add('hidden'); 
+    stopPolling();
+  }
+
+  // Cache-busting GET
+  async function getJsonNoCache(url) {
+    const u = new URL(url, window.location.origin);
+    u.searchParams.set('_', Date.now().toString());
+    const res = await fetch(u.toString(), {
+      headers: { 'Accept':'application/json', 'Cache-Control':'no-cache, no-store' },
+      cache: 'no-store'
+    });
+    return await res.json();
+  }
+
 
   const esc = s => (s ?? '').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 
-  function openOffcanvas(){ offcanvas.classList.remove('hidden'); }
-  function closeOffcanvas(){ offcanvas.classList.add('hidden'); }
+    // (already defined above)
   document.getElementById('plagDim')?.addEventListener('click', closeOffcanvas);
   document.getElementById('plagClose')?.addEventListener('click', closeOffcanvas);
+  // Optional: refresh when tab regains focus (helps if webhooks landed while user switched tabs)
+  window.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !offcanvas.classList.contains('hidden')) {
+      // soft refresh
+      openAndLoadLatest();
+    }
+  });
+
 
   btnExternal?.addEventListener('click', openAndLoadLatest);
 
@@ -958,19 +1074,37 @@ window.checkPlagiarism = checkPlagiarism;
     `;
 
     try {
-      const url  = new URL(`{{ route('documents.copyleaks.status', $document) }}`);
-      const res  = await fetch(url);
-      const data = await res.json();
+      const url = `{{ route('documents.copyleaks.status', $document) }}`;
+      const data = await getJsonNoCache(url);
+
 
       if (!data || data.status === 'none') {
         renderIdle('No previous external scans yet for this chapter.');
         return;
       }
-      if (data.status === 'running' || data.status === 'queued') {
-        renderRunning();
-        // Optionally poll — or let the user hit Refresh
+           if (data.status === 'running' || data.status === 'queued') {
+         renderRunning(data);
+        // Begin polling every 3s until a terminal state is reached
+        stopPolling();
+        pollingTimer = setInterval(async () => {
+          try {
+            const next = await getJsonNoCache(`{{ route('documents.copyleaks.status', $document) }}`);
+            if (!next || next.status === 'error') {
+              stopPolling();
+              renderIdle(next?.error || 'Scan failed. Try re-running.');
+              return;
+            }
+            if (next.status === 'completed' || next.status === 'exported') {
+              stopPolling();
+              renderResults(next);
+            }
+          } catch {
+            // network hiccup: keep polling
+          }
+        }, 3000);
         return;
       }
+
       if (data.status === 'error') {
         renderIdle(data.error || 'Scan failed. Try re-running.');
         return;
@@ -982,8 +1116,8 @@ window.checkPlagiarism = checkPlagiarism;
   }
 
   function renderIdle(note) {
-    bodyBox.innerHTML = `
-      <div class="space-y-4">
+    bodyBox.innerHTML = `  <div class="space-y-4">
+        ${renderPhaseBar({ phase:'queued', step_index:1, step_total:6, progress_percent:0 })}
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold">External Plagiarism (Copyleaks)</h3>
           <button type="button" class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
@@ -997,9 +1131,10 @@ window.checkPlagiarism = checkPlagiarism;
     document.getElementById('btnRescanExternal')?.addEventListener('click', startExternalScan);
   }
 
-  function renderRunning() {
+      function renderRunning(meta) {
     bodyBox.innerHTML = `
-      <div class="space-y-3 text-gray-700">
+      <div class="space-y-4 text-gray-700">
+        ${renderPhaseBar(meta)}
         <div class="flex items-center gap-2">
           <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
@@ -1007,9 +1142,14 @@ window.checkPlagiarism = checkPlagiarism;
           </svg>
           <span>Checking external sources…</span>
         </div>
+        <div><button type="button" id="btnRefreshExternal" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">Refresh</button></div>
       </div>
     `;
+    document.getElementById('btnRefreshExternal')?.addEventListener('click', openAndLoadLatest);
+    // (polling code remains as you already added)
   }
+
+
 
   function renderResults(data) {
     const sourceMax   = Number(data.source_max ?? 0);
@@ -1023,6 +1163,7 @@ window.checkPlagiarism = checkPlagiarism;
     updatePlagGate();
     bodyBox.innerHTML = `
       <div class="space-y-4">
+        ${renderPhaseBar(data)}
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold">External Plagiarism (Copyleaks)</h3>
           <div class="flex items-center gap-2">
@@ -1082,29 +1223,61 @@ window.checkPlagiarism = checkPlagiarism;
     }).join('');
   }
 
-  async function startExternalScan() {
-    const el = document.querySelector('.ck-content');
-    if (!el) { alert('Editor not ready.'); return; }
+ async function startExternalScan() {
+    resetPhaseTracker();  
+  const el = document.querySelector('.ck-content');
+  if (!el) { alert('Editor not ready.'); return; }
 
-    renderRunning();
+  // Initial running view with unknown progress
+  renderRunning({ phase:'queued', step_index:1, step_total:6, progress_percent:0 });
 
-    try {
-      const resp = await fetch(`{{ route('documents.copyleaks.start') }}`, {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
-        body: JSON.stringify({
-          document_id: {{ $document->id }},
-          content_html: el.innerHTML
-        })
-      });
-      const start = await resp.json();
-      if (!resp.ok || !start?.ok) throw new Error(start?.message || 'Failed to start');
-      // Keep it simple: user can press Refresh after a few seconds
-      setTimeout(openAndLoadLatest, 4000);
-    } catch (e) {
-      renderIdle('Failed to start external scan. Please try again.');
-    }
+  try {
+    const resp = await fetch(`{{ route('documents.copyleaks.start') }}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':'application/json',
+        'X-CSRF-TOKEN':'{{ csrf_token() }}',
+        'Cache-Control':'no-cache, no-store'
+      },
+      cache: 'no-store',
+      body: JSON.stringify({
+        document_id: {{ $document->id }},
+        content_html: el.innerHTML
+      })
+    });
+    const start = await resp.json();
+    if (!resp.ok || !start?.ok) throw new Error(start?.message || 'Failed to start');
+
+    // Poll ONLY the status endpoint and update the current view
+    stopPolling();
+    const statusUrl = `{{ route('documents.copyleaks.status', $document) }}`;
+    pollingTimer = setInterval(async () => {
+      try {
+        const next = await getJsonNoCache(statusUrl);
+        if (!next || next.status === 'error') {
+          stopPolling();
+          renderIdle(next?.error || 'Scan failed. Try re-running.');
+          return;
+        }
+        if (next.status === 'running' || next.status === 'queued') {
+          renderRunning(next); // update bars/counts in place
+          return;
+        }
+        // Terminal states
+        if (next.status === 'completed' || next.status === 'exported') {
+          stopPolling();
+          renderResults(next);
+        }
+      } catch {
+        // transient network error: keep polling
+      }
+    }, 3000);
+  } catch (e) {
+    renderIdle('Failed to start external scan. Please try again.');
   }
+}
+
+
 })();
 </script>
 
