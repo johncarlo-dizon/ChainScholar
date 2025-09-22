@@ -117,10 +117,6 @@ class ExternalPlagiarismController extends Controller
 
 
 
-
-
-
-
         // Normalize "status: 0" to a completed event
         $statusCode = $payload['status'] ?? ($payload['data']['status'] ?? null);
         if ($statusCode === 0 || $statusCode === '0') {
@@ -297,7 +293,7 @@ class ExternalPlagiarismController extends Controller
         ], JSON_UNESCAPED_UNICODE);
 
         $exportKey = 'rid:' . $resultId . '|sha1:' . sha1($rawForHash ?? '');
-        if (ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->where('export_key', $exportKey)->exists()) {
+        if (\App\Models\ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->where('export_key', $exportKey)->exists()) {
             return; // already processed this exact payload
         }
 
@@ -308,34 +304,30 @@ class ExternalPlagiarismController extends Controller
         } elseif (isset($payload['matchedWords'], $payload['totalWords']) && (int) $payload['totalWords'] > 0) {
             $pct = (int) round(((float) $payload['matchedWords'] * 100.0) / (float) $payload['totalWords']);
         } else {
-            // fallback: derive from doc total words if present in original webhook
             $raw = $scan->raw_payload;
             if (is_string($raw)) {
                 $raw = json_decode($raw, true) ?: [];
             }
             $docTotal = (int) ($raw['scannedDocument']['totalWords'] ?? 0);
-            $mw = (int) (
-                ($payload['statistics']['identical'] ?? 0) +
-                ($payload['statistics']['minorChanges'] ?? 0) +
-                ($payload['statistics']['relatedMeaning'] ?? 0)
-            );
+
+            $ident   = (int)($payload['statistics']['identical']          ?? $payload['statistics']['identicalWords']       ?? 0);
+            $minor   = (int)($payload['statistics']['minorChanges']        ?? $payload['statistics']['minorChangedWords']    ?? 0);
+            $related = (int)($payload['statistics']['relatedMeaning']      ?? $payload['statistics']['relatedMeaningWords']  ?? 0);
+            $mw      = $ident + $minor + $related;
+
             if ($docTotal > 0 && $mw > 0) {
                 $pct = (int) round(($mw * 100.0) / max(1, $docTotal));
             }
         }
+        if ($pct <= 0) return;
 
-        if ($pct <= 0) {
-            return; // ignore absolute zeros
-        }
-
-        // ----- load your crawled version (guaranteed present by caller) -----
-        $crawled     = Cache::get("copyleaks:crawled:{$scan->scan_id}", ['html' => '', 'text' => '']);
+        // ----- load your crawled version (for excerpt generation) -----
+        $crawled     = \Illuminate\Support\Facades\Cache::get("copyleaks:crawled:{$scan->scan_id}", ['html' => '', 'text' => '']);
         $htmlFullYou = (string) ($crawled['html'] ?? '');
         $textFullYou = (string) ($crawled['text'] ?? '');
 
-        // ----- figure out the best "your excerpt" (no source excerpt stored) -----
+        // ----- choose an excerpt from "your" doc -----
         $cats = ['identical', 'minorChanges', 'relatedMeaning'];
-
         $yourRangeHtml = $this->bestRangeFromAny(array_map(
             fn($c) => $payload['html']['comparison'][$c]['suspected']['chars']
                 ?? $payload['html']['comparison'][$c]['target']['chars']
@@ -357,60 +349,67 @@ class ExternalPlagiarismController extends Controller
         } elseif ($yourRangeText && $textFullYou !== '') {
             $yourExcerpt = $this->textSanitize($this->sliceByRange($textFullYou, $yourRangeText, 100));
         } else {
-            // last resort: fragment-style fallbacks if present in payload
             [$fragYour] = $this->findBestFragmentPair($payload);
-            if ($fragYour) {
-                $yourExcerpt = $fragYour;
-            }
+            if ($fragYour) $yourExcerpt = $fragYour;
         }
         $yourExcerpt = \Illuminate\Support\Str::limit($this->textSanitize($yourExcerpt ?? ''), 400);
-
-        // Require a meaningful snippet
         if ($yourExcerpt === '') {
-            return;
+            $fallback = $textFullYou !== '' ? $textFullYou : strip_tags($htmlFullYou);
+            $fallback = $this->textSanitize(mb_substr($fallback, 0, 400, 'UTF-8'));
+            $yourExcerpt = $fallback ?: '(excerpt unavailable)';
         }
 
-        // ----- noise gate: drop tiny/boilerplate matches unless the quote is long enough -----
-        $minPct     = (int) (config('services.copyleaks.min_percent', 20)); // default 20%
-        $minWordsOK = 18; // allow low % if contiguous quote is long
-        $longEnough = str_word_count($yourExcerpt) >= $minWordsOK;
-
-        if ($pct < $minPct && !$longEnough) {
-            if ($this->isBoilerplate($yourExcerpt)) {
-                return;
-            }
-        }
-
-        // ----- build source URL/title (for display only; no source excerpt) -----
-        $htmlFullSrc  = (string) ($payload['html']['value'] ?? '');
-        $sourceUrlRaw = $payload['source']['url'] ?? ($payload['url'] ?? null);
-        if (!$sourceUrlRaw) {
-            $sourceUrlRaw = $this->inferUrlFromHtml($htmlFullSrc);
-        }
-        $sourceUrl = $this->normalizeUrl($sourceUrlRaw);
-
+        // ----- robust URL/title resolution (use raw webhook by resultId if export payload is sparse) -----
+        $htmlFullSrc    = (string) ($payload['html']['value'] ?? '');
+        $sourceUrlRaw   = $payload['source']['url']   ?? ($payload['url']   ?? null);
         $sourceTitleRaw = $payload['source']['title'] ?? ($payload['title'] ?? null);
-        if (!is_string($sourceTitleRaw) || trim($sourceTitleRaw) === '') {
-            $sourceTitleRaw = $this->extractTitleFromHtml($htmlFullSrc) ?: $this->titleFromUrl($sourceUrl);
+
+        if (!$sourceUrlRaw || !$sourceTitleRaw) {
+            $meta = $this->lookupRawResultMeta($scan, $resultId); // ← pulls from scan->raw_payload by id
+            $sourceUrlRaw   = $sourceUrlRaw   ?: ($meta['url']   ?? null);
+            $sourceTitleRaw = $sourceTitleRaw ?: ($meta['title'] ?? null);
         }
-        $sourceTitle = $this->tidyTitle($sourceTitleRaw, $htmlFullSrc, $sourceUrl);
+        if (!$sourceUrlRaw)  $sourceUrlRaw  = $this->inferUrlFromHtml($htmlFullSrc);
+        $normUrl = $this->normalizeUrl($sourceUrlRaw);
+        $useUrl  = $normUrl ?: $this->safeRawUrl($sourceUrlRaw);
 
-        // ----- upsert: merge by normalized URL (keep the highest percent) -----
+        if (!is_string($sourceTitleRaw) || trim($sourceTitleRaw) === '') {
+            $sourceTitleRaw = $this->extractTitleFromHtml($htmlFullSrc) ?: $this->titleFromUrl($useUrl);
+        }
+        $sourceTitle = $this->tidyTitle($sourceTitleRaw, $htmlFullSrc, $useUrl);
+
+        // ----- merging precedence: (1) same resultId → (2) same URL → (3) same title -----
         $updated = false;
-        $sourceUrlNorm = $this->normalizeUrl($sourceUrl);
 
-        if ($sourceUrlNorm) {
-            $existing = ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)
-                ->whereRaw('COALESCE(source_url, "") <> ""')
+        // (1) Merge any pre-existing row that has the same resultId in export_key
+        $existingByRid = \App\Models\ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)
+            ->where('export_key', 'like', 'rid:' . $resultId . '|%')
+            ->first();
+
+        if ($existingByRid) {
+            $existingByRid->update([
+                'percent'      => max((int) $existingByRid->percent, (int) $pct),
+                'source_title' => $sourceTitle ?: ($existingByRid->source_title ?: 'External source'),
+                'source_url'   => $useUrl ?: $existingByRid->source_url,
+                'your_excerpt' => $yourExcerpt ?: $existingByRid->your_excerpt,
+                'export_key'   => $exportKey,
+            ]);
+            $updated = true;
+        }
+
+        // (2) Merge by normalized URL
+        if (!$updated && $normUrl) {
+            $existing = \App\Models\ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)
                 ->get()
-                ->first(function ($r) use ($sourceUrlNorm) {
-                    return $this->normalizeUrl($r->source_url) === $sourceUrlNorm;
+                ->first(function ($r) use ($normUrl) {
+                    $n = $this->normalizeUrl($r->source_url);
+                    return $n && $n === $normUrl;
                 });
-
             if ($existing) {
                 $existing->update([
                     'percent'      => max((int) $existing->percent, (int) $pct),
                     'source_title' => $sourceTitle ?: ($existing->source_title ?: 'External source'),
+                    'source_url'   => $useUrl ?: $existing->source_url,
                     'your_excerpt' => $yourExcerpt ?: $existing->your_excerpt,
                     'export_key'   => $exportKey,
                 ]);
@@ -418,13 +417,37 @@ class ExternalPlagiarismController extends Controller
             }
         }
 
+        // (3) Merge by non-generic title
         if (!$updated) {
-            ExternalPlagiarismMatch::create([
+            $normTitle = mb_strtolower($this->tidyTitle($sourceTitle, null, $useUrl), 'UTF-8');
+            if ($normTitle !== 'external source') {
+                $existing = \App\Models\ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)
+                    ->get()
+                    ->first(function ($r) use ($normTitle) {
+                        $t = mb_strtolower($this->tidyTitle($r->source_title ?? '', null, $r->source_url ?? null), 'UTF-8');
+                        return $t !== 'external source' && $t === $normTitle;
+                    });
+                if ($existing) {
+                    $existing->update([
+                        'percent'      => max((int) $existing->percent, (int) $pct),
+                        'source_title' => $sourceTitle ?: $existing->source_title,
+                        'source_url'   => $useUrl ?: $existing->source_url,
+                        'your_excerpt' => $yourExcerpt ?: $existing->your_excerpt,
+                        'export_key'   => $exportKey,
+                    ]);
+                    $updated = true;
+                }
+            }
+        }
+
+        // Create if nothing matched
+        if (!$updated) {
+            \App\Models\ExternalPlagiarismMatch::create([
                 'scan_id_fk'   => $scan->id,
                 'document_id'  => $scan->document_id,
                 'percent'      => (int) $pct,
                 'source_title' => $sourceTitle ?: 'External source',
-                'source_url'   => $sourceUrl ?: null,
+                'source_url'   => $useUrl ?: null,
                 'your_excerpt' => $yourExcerpt ?: null,
                 'export_key'   => $exportKey,
             ]);
@@ -439,6 +462,39 @@ class ExternalPlagiarismController extends Controller
         }
     }
 
+
+    private function resultIdFromExportKey(?string $ek): ?string
+    {
+        if (!is_string($ek)) return null;
+        if (preg_match('/^rid:([^|]+)\|/i', $ek, $m)) {
+            return (string) $m[1];
+        }
+        return null;
+    }
+
+
+
+    private function lookupRawResultMeta(ExternalPlagiarismScan $scan, string $resultId): array
+    {
+        $raw = $scan->raw_payload;
+        if (is_string($raw)) $raw = json_decode($raw, true) ?: [];
+        $buckets = $raw['results'] ?? ($raw['data']['results'] ?? []);
+        foreach (['internet','database','repositories','batch'] as $bucket) {
+            foreach (($buckets[$bucket] ?? []) as $r) {
+                if (!empty($r['id']) && (string)$r['id'] === (string)$resultId) {
+                    $url = $r['url'] ?? ($r['metadata']['finalUrl'] ?? ($r['source']['url'] ?? null));
+                    $title = $r['title'] ?? ($r['source']['title'] ?? null);
+                    return [
+                        'url'   => $this->normalizeUrl($url) ?: $this->safeRawUrl($url),
+                        'title' => $this->tidyTitle($title ?? '', null, $url),
+                    ];
+                }
+            }
+        }
+        return [];
+    }
+
+
     /* ------------------------ export completed ------------------------ */
 
     public function exportCompleted(Request $req, string $scanId, string $exportId)
@@ -448,7 +504,7 @@ class ExternalPlagiarismController extends Controller
             return response()->json(['error' => 'unauthorized'], 401);
         }
 
-        Log::info('Copyleaks export completed webhook', [
+        Log::channel('copyleaks')->info('Copyleaks export completed webhook', [
             'scanId'=>$scanId,'exportId'=>$exportId, 'payload'=>$req->json()->all()
         ]);
 
@@ -525,68 +581,211 @@ class ExternalPlagiarismController extends Controller
 
     /* ------------------------ status (collapsed per domain) ------------------------ */
 
-    public function status(Request $req, Document $document)
+    public function status(Request $req, \App\Models\Document $document)
+{
+    $scanId = $req->query('scan_id');
+    $q = \App\Models\ExternalPlagiarismScan::where('document_id', $document->id);
+
+    $scan = $scanId
+        ? (clone $q)->where('scan_id', $scanId)->first()
+        : (function() use ($q) {
+            $latestRunning = (clone $q)->whereIn('status', ['queued','running'])
+                ->orderByDesc('updated_at')->orderByDesc('id')->first();
+            $latestTerminal = (clone $q)->whereIn('status', ['completed','exported'])
+                ->orderByDesc('updated_at')->orderByDesc('id')->first();
+            $latestAny = (clone $q)->orderByDesc('updated_at')->orderByDesc('id')->first();
+            $isFreshRunning = $latestRunning
+                ? optional($latestRunning->updated_at)->gt(now()->subMinutes(10))
+                : false;
+            if ($isFreshRunning) return $latestRunning;
+            if ($latestTerminal) return $latestTerminal;
+            return $latestAny;
+        })();
+
+    if (!$scan) return response()->json(['status' => 'none']);
+
+    // Decode raw once for backfill lookups
+    $raw = $scan->raw_payload;
+    if (is_string($raw)) $raw = json_decode($raw, true) ?: [];
+
+    // Pull all rows, then repair any that are missing URL/title using export_key (resultId)
+    $rows = \App\Models\ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)
+        ->orderByDesc('percent')
+        ->limit(800)
+        ->get();
+
+    foreach ($rows as $r) {
+        $urlNorm = $this->normalizeUrl($r->source_url) ?: null;
+        $titleClean = $this->tidyTitle($r->source_title ?? '', null, $urlNorm);
+
+        $needsUrl   = !$urlNorm;
+        $needsTitle = ($titleClean === '' || mb_strtolower($titleClean, 'UTF-8') === 'external source');
+
+        if ($needsUrl || $needsTitle) {
+            // Prefer exact backfill by resultId from export_key
+            $rid = $this->resultIdFromExportKey($r->export_key ?? null);
+            $meta = $rid ? $this->lookupRawResultMeta($scan, $rid) : [];
+
+            $newUrl   = $urlNorm ?: ($meta['url']   ?? null);
+            $newTitle = (!$needsTitle ? $titleClean : ($meta['title'] ?? ''));
+            if (!$newTitle || mb_strtolower($newTitle,'UTF-8') === 'external source') {
+                // Secondary fallback: find by title in raw (if we had some title at all)
+                $fb = $this->fallbackUrlFromRawByTitle((array)$raw, $titleClean);
+                $newUrl = $newUrl ?: $fb;
+                if (!$newTitle && $newUrl) $newTitle = $this->tidyTitle('', null, $newUrl);
+            }
+
+            // Persist best-effort backfill to DB (so future loads don't need to repair again)
+            $toUpdate = [];
+            if ($newUrl && !$urlNorm) {
+                $toUpdate['source_url'] = $newUrl;
+                $urlNorm = $newUrl;
+            }
+            if ($newTitle && ($needsTitle || $r->source_title === null)) {
+                $toUpdate['source_title'] = $newTitle;
+                $titleClean = $newTitle;
+            }
+            if ($toUpdate) {
+                try { $r->update($toUpdate); } catch (\Throwable $e) {}
+            }
+        }
+    }
+
+    // Now build the deduped list (by normalized URL, else by normalized non-generic title)
+    $byKey = [];
+    foreach ($rows as $r) {
+        $url = $this->normalizeUrl($r->source_url) ?: null;
+        $titleClean = $this->tidyTitle($r->source_title ?? '', null, $url);
+
+        $key = $url
+            ? ('u:' . $url)
+            : (mb_strtolower($titleClean,'UTF-8')!=='external source'
+                ? ('t:' . mb_strtolower($titleClean,'UTF-8'))
+                : ('x:' . ($r->id ?? spl_object_id($r))));
+
+        if (!isset($byKey[$key]) || (int)$r->percent > (int)$byKey[$key]['percent']) {
+            $byKey[$key] = [
+                'percent'      => (int)$r->percent,
+                'source_title' => $titleClean ?: 'External source',
+                'source_url'   => $url,
+            ];
+        }
+    }
+
+    $list = collect(array_values($byKey))
+        ->sortByDesc(fn($x) => (int)$x['percent'])
+        ->values();
+
+    // metrics + top excerpt
+    $docAgg    = (int) $this->extractAggregatedScore((array) $raw);
+    $sourceMax = (int) (\App\Models\ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->max('percent') ?? 0);
+
+    $topRow = \App\Models\ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)
+        ->orderByDesc('percent')->first();
+
+    $topExcerpt = $topRow?->your_excerpt ? $this->textSanitize($topRow->your_excerpt) : null;
+    $topMeta = $topRow ? [
+        'percent'      => (int) $topRow->percent,
+        'source_title' => $this->tidyTitle($topRow->source_title ?? '', null, $topRow->source_url ?? null),
+        'source_url'   => $topRow->source_url,
+    ] : null;
+
+    $docTotalWords = (int)($raw['scannedDocument']['totalWords']
+        ?? ($raw['data']['scannedDocument']['totalWords'] ?? 0));
+
+    return response()->json([
+        'status'              => $scan->status,
+        'scan_id'             => $scan->scan_id,
+        'updated_at_iso'      => optional($scan->updated_at)->toIso8601String(),
+        'sandbox'             => (bool) $scan->sandbox,
+        'credits_used'        => (int) ($scan->credits_used ?? 0),
+
+        'source_max'          => $sourceMax,
+        'doc_aggregated'      => $docAgg,
+
+        'plagiarized_excerpt' => $topExcerpt,
+        'top_source'          => $topMeta,
+
+        'matches'             => $list,                  // ← all, with backfilled titles/links
+        'matches_count'       => $list->count(),
+
+        'doc_total_words'     => $docTotalWords,
+        'error'               => $scan->error_message,
+    ]);
+}
+
+
+
+
+
+
+    private function fallbackUrlFromRawByTitle(array $raw, string $title): ?string
     {
-        $scanId = $req->query('scan_id');
-        $q = ExternalPlagiarismScan::where('document_id', $document->id);
-        $scan = $scanId
-            ? $q->where('scan_id', $scanId)->first()
-            : $q->orderByDesc('updated_at')->orderByDesc('id')->first();
+        // Robust title normalizer with suffix trimming (e.g., " | Request PDF")
+        $norm = function ($s) {
+            $s = html_entity_decode((string)$s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $s = preg_replace('/\s+/u', ' ', trim($s)) ?? $s;
 
-        if (!$scan) return response()->json(['status' => 'none']);
+            // Trim obvious site/CTA suffixes after separators
+            $parts = preg_split('/\s*(?:\||–|—|-|•)\s*/u', $s);
+            if ($parts && count($parts) > 1) {
+                $last = mb_strtolower(end($parts), 'UTF-8');
+                if (preg_match('/(request\s*pdf|download|researchgate|semantic\s*scholar|springer|elsevier|mdpi|sciencedirect)/u', $last)) {
+                    $s = $parts[0];
+                }
+            }
 
-// NOTE: we only keep/stabilize your_excerpt; no source excerpt processing.
-        $matchesQ = ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->orderByDesc('percent');
+            // Lowercase and strip punctuation for fuzzy compare
+            $s = mb_strtolower($s, 'UTF-8');
+            $s = preg_replace('/[^\p{L}\p{N}\s]/u', '', $s) ?? $s;
+            $s = preg_replace('/\s+/u', ' ', trim($s)) ?? $s;
+            return $s;
+        };
 
-        // collapse: best per normalized host (www/m/amp stripped; mirrors collapsed)
-        $collapsed = [];
-        if (in_array($scan->status, ['completed','exported','running','queued'])) {
-            foreach ((clone $matchesQ)->limit(250)->get() as $r) {
-                $url  = $this->normalizeUrl($r->source_url);
-                $host = $this->normalizedHostFromUrl($url) ?: '__no_host__';
+        $want = $norm($title);
+        if ($want === '') return null;
 
-                // sanitize before storing
-                $r->source_title   = $this->tidyTitle($r->source_title, null, $url);
-                $r->your_excerpt   = $this->textSanitize($r->your_excerpt ?? '');
+        $buckets = $raw['results'] ?? ($raw['data']['results'] ?? []);
+        foreach (['internet','database','repositories','batch'] as $bucket) {
+            $arr = $buckets[$bucket] ?? [];
+            if (!is_array($arr)) continue;
 
-                // skip completely empty cards
-                if ($r->your_excerpt === '') continue;
+            foreach ($arr as $r) {
+                $t = $r['title'] ?? ($r['source']['title'] ?? null);
+                $urlRaw =
+                    $r['url']
+                    ?? ($r['metadata']['finalUrl'] ?? null)
+                    ?? ($r['source']['finalUrl'] ?? null)
+                    ?? ($r['source']['url'] ?? null);
 
-                if (!isset($collapsed[$host]) || (int)$r->percent > (int)$collapsed[$host]->percent) {
-                    $r->source_url = $url;
-                    $collapsed[$host] = $r;
+                if (!$t || !$urlRaw) continue;
+
+                $cand = $norm($t);
+                if ($cand === '') continue;
+
+                $match =
+                    $cand === $want ||
+                    str_contains($cand, $want) || str_contains($want, $cand);
+
+                if (!$match) {
+                    // similarity fallback (≈ Levenshtein-based percentage)
+                    $p = 0.0; similar_text($cand, $want, $p);
+                    $match = ($p >= 85.0);
+                }
+
+                if ($match) {
+                    // Prefer keeping full raw (incl. query) when safe; else normalized
+                    $u = $this->safeRawUrl($urlRaw) ?: $this->normalizeUrl($urlRaw);
+                    if ($u) return $u;
                 }
             }
         }
-
-        $list = collect($collapsed)->sortByDesc(fn($r) => (int)$r->percent)->values()->take(20);
-
-        $matches = $list->map(fn($r) => [
-            'percent'      => (int) $r->percent,
-            'source_title' => $r->source_title ?: ($this->titleFromUrl($r->source_url) ?: 'External source'),
-            'source_url'   => $r->source_url,
-            'your_excerpt' => $r->your_excerpt,
-        ])->values();
-
-        $sourceMax = (int) (ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->max('percent') ?? 0);
-        $raw = $scan->raw_payload; if (is_string($raw)) $raw = json_decode($raw, true) ?: [];
-        $docAgg = (int) $this->extractAggregatedScore((array) $raw);
-        $totalMatches = ExternalPlagiarismMatch::where('scan_id_fk', $scan->id)->count();
-
-        return response()->json([
-            'status'          => $scan->status,
-            'score'           => (int) $scan->score,
-            'source_max'      => $sourceMax,
-            'doc_aggregated'  => $docAgg,
-            'credits_used'    => (int) ($scan->credits_used ?? 0),
-            'sandbox'         => (bool) $scan->sandbox,
-            'matches'         => $matches,
-            'matches_count'   => $totalMatches,
-            'error'           => $scan->error_message,
-            'scan_id'         => $scan->scan_id,
-            'updated_at_iso'  => optional($scan->updated_at)->toIso8601String(),
-        ]);
+        return null;
     }
+
+
+
+
 
     /* ------------------------ helpers ------------------------ */
 
@@ -636,7 +835,7 @@ class ExternalPlagiarismController extends Controller
         return array_values(array_unique($ids));
     }
 
-    private function collectMatches(array $resultNode, ?int $docTotalWords = null): array
+   private function collectMatches(array $resultNode, ?int $docTotalWords = null): array
     {
         $rows = [];
 
@@ -658,43 +857,40 @@ class ExternalPlagiarismController extends Controller
                 }
                 $pct = max(0, (int) round($pct));
 
-                /** keep only meaningful matches at this stage (no source excerpt work) **/
-                $MIN_PCT = (int) config('services.copyleaks.min_percent', 20);
+                // keep zeros out only
                 if ($pct <= 0) continue;
-                if ($pct < $MIN_PCT) continue;
 
-                // URL + title (unproxy)
-                $urlRaw = $m['url'] ?? ($m['metadata']['finalUrl'] ?? ($m['source']['url'] ?? null));
-                $url    = $this->normalizeUrl($urlRaw);
+                // URL + title (unproxy). Prefer normalized; fall back to safe raw.
+                $urlRaw  = $m['url'] ?? ($m['metadata']['finalUrl'] ?? ($m['source']['url'] ?? null));
+                $normUrl = $this->normalizeUrl($urlRaw);
+                $useUrl  = $normUrl ?: $this->safeRawUrl($urlRaw);
 
-                $titleRaw = $m['title'] ?? ($m['source']['title'] ?? ($url ?: 'External source'));
-                $title    = is_string($titleRaw) ? $this->tidyTitle($titleRaw, null, $url) : 'External source';
+                $titleRaw = $m['title'] ?? ($m['source']['title'] ?? ($useUrl ?: 'External source'));
+                $title    = is_string($titleRaw) ? $this->tidyTitle($titleRaw, null, $useUrl) : 'External source';
 
-                // Your preview only (drop source preview entirely)
-                $yourPreview = $this->textSanitize($m['text']['value']  ?? ($m['preview']['text']  ?? null));
-
-                // REMOVED: source preview building, intro/boilerplate checks based on source excerpt
-
-                if ($yourPreview === '') continue;
+                // Your preview only (no source excerpt)
+                $yourPreview = $this->textSanitize($m['text']['value'] ?? ($m['preview']['text'] ?? null));
 
                 $rows[] = [
-                    'percent'        => $pct,
-                    'source_title'   => Str::limit($title, 300),
-                    'source_url'     => $url,
-                    'your_excerpt'   => $yourPreview,
+                    'percent'      => $pct,
+                    'source_title' => \Illuminate\Support\Str::limit($title, 300),
+                    'source_url'   => $useUrl ?: null,
+                    'your_excerpt' => $yourPreview,
                 ];
             }
         }
 
-        // De-dupe by URL (highest %)
+        // De-dupe by URL (highest % wins). If no URL, de-dupe by title hash.
         $by = [];
         foreach ($rows as $r) {
-            $key = $r['source_url'] ?: md5(($r['source_title'] ?? ''));
-            if (!isset($by[$key]) || $r['percent'] > $by[$key]['percent']) $by[$key] = $r;
+            $key = $r['source_url'] ?: ('t:' . md5((string)($r['source_title'] ?? '')));
+            if (!isset($by[$key]) || $r['percent'] > $by[$key]['percent']) {
+                $by[$key] = $r;
+            }
         }
-
         return array_values($by);
     }
+
 
     /* ------------------------ cleaning / parsing utils ------------------------ */
 
@@ -704,24 +900,54 @@ class ExternalPlagiarismController extends Controller
         $p = @parse_url($url);
         if (!$p || empty($p['host'])) return $url;
         $host = strtolower($p['host']);
-        if (str_ends_with($host, 'copyleaks.com') && !empty($p['query'])) {
-            parse_str($p['query'], $q);
-            if (!empty($q['url'])) return $q['url'];
+
+        if (str_ends_with($host, 'copyleaks.com')) {
+            // If viewer has a real ?url= param, unwrap it
+            if (!empty($p['query'])) {
+                parse_str($p['query'], $q);
+                if (!empty($q['url'])) {
+                    return $q['url'];
+                }
+            }
+            // If it’s ONLY the sandbox viewer with no target → drop
+            return null;
         }
+
+        // For everything else (ResearchGate, SMEOR, etc.) → keep as-is
         return $url;
     }
 
-    private function normalizeUrl(?string $url): ?string
-    {
-        if (!$url) return null;
-        $url = $this->unwrapCopyleaksUrl($url);
-        $p = @parse_url($url);
-        if (!$p || empty($p['host'])) return null;
-        $scheme = ($p['scheme'] ?? 'https');
-        $host   = strtolower($p['host']);
-        $path   = isset($p['path']) ? rtrim($p['path'],'/') : '';
-        return $scheme.'://'.$host.$path; // drop query/fragment
+
+
+   private function normalizeUrl(?string $url): ?string
+{
+    if (!$url) return null;
+
+    $url = $this->unwrapCopyleaksUrl($url);
+    if ($url === null) return null; // only null for sandbox viewer
+
+    $url = html_entity_decode(trim((string)$url), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    if (str_starts_with($url, '//')) {
+        $url = 'https:' . $url;
     }
+    if (!preg_match('~^[a-z][a-z0-9+.-]*://~i', $url)) {
+        $url = 'https://' . ltrim($url, '/');
+    }
+
+    $p = @parse_url($url);
+    if (!$p || empty($p['host'])) {
+        return null;
+    }
+
+    $scheme = strtolower($p['scheme'] ?? 'https');
+    $host   = strtolower($p['host']);
+    $path   = isset($p['path']) ? rtrim($p['path'], '/') : '';
+
+    return $scheme . '://' . $host . $path;
+}
+
+
 
     private function normalizedHostFromUrl(?string $url): ?string
     {
@@ -751,6 +977,8 @@ class ExternalPlagiarismController extends Controller
         }
         return null;
     }
+
+    
 
     private function isBoilerplate(string $s): bool
     {
@@ -807,6 +1035,70 @@ class ExternalPlagiarismController extends Controller
         }
         return $best;
     }
+
+    private function getCrawledTextFromScan(\App\Models\ExternalPlagiarismScan $scan): ?string
+    {
+        // 1) Prefer cache populated by exportCrawled()
+        $cached = \Illuminate\Support\Facades\Cache::get("copyleaks:crawled:{$scan->scan_id}");
+        $html   = is_array($cached) ? (string)($cached['html'] ?? '') : '';
+        $text   = is_array($cached) ? (string)($cached['text'] ?? '') : '';
+
+        // 2) Fallback to raw webhook payload (various shapes)
+        if ($text === '' && $html === '') {
+            $raw = $scan->raw_payload;
+            if (is_string($raw)) $raw = json_decode($raw, true) ?: [];
+
+            // Try text first
+            $text = (string) (
+                $raw['text']['value']
+                ?? ($raw['data']['text']['value'] ?? '')
+                ?? ($raw['scannedDocument']['text']['value'] ?? '')
+                ?? ($raw['data']['scannedDocument']['text']['value'] ?? '')
+            );
+
+            // Try html if still empty
+            if ($text === '') {
+                $html = (string) (
+                    $raw['html']['value']
+                    ?? ($raw['data']['html']['value'] ?? '')
+                    ?? ($raw['scannedDocument']['html']['value'] ?? '')
+                    ?? ($raw['data']['scannedDocument']['html']['value'] ?? '')
+                );
+            }
+        }
+
+        // If only HTML present, strip it to text
+        if ($text === '' && $html !== '') {
+            $html = preg_replace('#<(script|style|noscript)\b[^>]*>.*?</\1>#is', ' ', $html) ?? $html;
+            $text = strip_tags($html);
+        }
+
+        // Clean
+        $text = html_entity_decode($text ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = trim($text);
+        if ($text === '') return null;
+
+        // Normalize whitespace & kill obvious boilerplate via your sanitizer
+        $text = preg_replace("/\r\n|\r|\n/u", "\n", $text) ?? $text;
+        $text = preg_replace("/[ \t]{2,}/u", ' ', $text) ?? $text;
+        $text = preg_replace("/\n{3,}/u", "\n\n", $text) ?? $text;
+        $text = $this->textSanitize($text);
+
+        // Cap size defensively
+        $MAX = 2000; // keep this small – just for status preview fallback
+        if (mb_strlen($text, 'UTF-8') > $MAX) {
+            $text = mb_substr($text, 0, $MAX, 'UTF-8') . '…';
+        }
+
+        // Ensure valid UTF-8
+        if (!mb_check_encoding($text, 'UTF-8')) {
+            $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+        }
+
+        return $text !== '' ? $text : null;
+    }
+
+
 
     private function bestRangeFromAny(array $candidates): ?array
     {
@@ -900,6 +1192,36 @@ class ExternalPlagiarismController extends Controller
         return null;
     }
 
+    private function safeRawUrl(?string $url): ?string
+    {
+        if (!$url) return null;
+
+        // Unwrap Copyleaks viewer first. If it’s a pure viewer (no target), returns null.
+        $u = $this->unwrapCopyleaksUrl($url);
+        if ($u === null) return null;
+
+        // Trim/HTML-decode and accept as-is if it has a host.
+        $u = html_entity_decode(trim((string)$u), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Support protocol-relative //host/path
+        if (str_starts_with($u, '//')) $u = 'https:' . $u;
+
+        // Add scheme if it looks host/path only
+        if (!preg_match('~^[a-z][a-z0-9+.-]*://~i', $u)) {
+            $u = 'https://' . ltrim($u, '/');
+        }
+
+        $p = @parse_url($u);
+        if (!$p || empty($p['host'])) return null;
+
+        // Block Copyleaks viewer domains at this stage too.
+        $host = strtolower($p['host']);
+        if (str_ends_with($host, 'copyleaks.com')) return null;
+
+        return $u; // keep raw (may include query/fragment) — good for “Request PDF” pages
+    }
+
+
     private function titleFromUrl(?string $url): ?string
     {
         if (!$url) return null;
@@ -918,19 +1240,67 @@ class ExternalPlagiarismController extends Controller
     }
 
     private function tidyTitle(?string $title, ?string $html = null, ?string $url = null): string
-    {
-        $t = $this->textSanitize((string)$title);
-        $bad = ['home','login','sign in','sign up','quotes','community','profile','news & interviews'];
-        if (mb_strlen($t, 'UTF-8') < 4 || in_array(mb_strtolower($t, 'UTF-8'), $bad, true)) {
-            $t = '';
-        }
-        $t = preg_replace('/\s{2,}/u', ' ', $t) ?? $t;
-        $t = trim($t, " \t\n\r\0\x0B-|»");
-        if ($t === '' && $html) $t = (string) $this->extractTitleFromHtml($html);
-        if ($t === '' && $url)  $t = (string) $this->titleFromUrl($url);
-        if ($t === '') $t = 'External source';
-        return Str::limit($t, 180);
+{
+    // Start from what we have
+    $t = $this->textSanitize((string) $title);
+
+    // If empty, try the HTML <title> / og:title
+    if ($t === '' && $html) {
+        $t = (string) $this->extractTitleFromHtml($html);
     }
+
+    // Strip noisy prefixes/suffixes like "(PDF) " and " | Request PDF" / " – ResearchGate"
+    $t = $this->stripTitleAffixes($t);
+
+    // If still empty, derive from URL path
+    if ($t === '' && $url) {
+        $t = (string) $this->titleFromUrl($url);
+    }
+
+    // Guard rails
+    if ($t === '' || mb_strlen($t, 'UTF-8') < 4) {
+        $t = 'External source';
+    }
+
+    return \Illuminate\Support\Str::limit($t, 180);
+}
+
+/**
+ * Remove common provider/CTA affixes from titles, and leading markers like "(PDF)".
+ */
+private function stripTitleAffixes(string $t): string
+{
+    if ($t === '') return '';
+    $t = html_entity_decode($t, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $t = preg_replace('/\s+/u', ' ', trim($t)) ?? $t;
+
+    // Drop trivial boilerplate titles entirely
+    $bad = ['home','login','sign in','sign up','quotes','community','profile','news & interviews'];
+    if (in_array(mb_strtolower($t, 'UTF-8'), $bad, true)) return '';
+
+    // Remove leading markers like "(PDF) ", "(Article) – ", etc.
+    $t = preg_replace('/^\s*\(?(?:pdf|article|preprint|chapter|book|thesis)\)?\s*(?:[:\-–—])?\s*/iu', '', $t) ?? $t;
+
+    // Remove trailing provider / CTA suffixes. Repeat until stable.
+    $suffixRe = '/\s*(?:[\|\-–—•]\s*)?'
+        .'(?:request\s*pdf|researchgate|springer(?:link)?|springer\s*nature|elsevier|'
+        .'science(?:direct)?|mdpi|wiley(?:\s*online\s*library)?|taylor\s*&\s*francis(?:\s*online)?|'
+        .'sage\s*journals|ieee(?:\s*xplore)?|acm(?:\s*digital\s*library)?|jstor|ssrn|academia\.edu|'
+        .'semantic\s*scholar|scopus|web\s*of\s*science|frontiers|hindawi|pubmed|ncbi)'
+        .'\s*$/iu';
+    $prev = null;
+    while ($prev !== $t) {
+        $prev = $t;
+        $t = preg_replace($suffixRe, '', $t) ?? $t;
+    }
+
+    // Trim leftover separators at the ends
+    $t = trim($t, " \t\n\r\0\x0B-|•–—");
+    $t = preg_replace('/\s{2,}/u', ' ', $t) ?? $t;
+
+    return trim($t);
+}
+
 
     private function htmlToPlainText(string $html): string
     {
