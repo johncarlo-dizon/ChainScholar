@@ -91,7 +91,7 @@ public function requestExport(
                 'headers'  => [ ['Authentication', $secret] ],
                 'endpoint' => rtrim($resultEndpointBase,'/') . "/webhooks/copyleaks/export/result/{$scanId}/{$rid}",
                 // ask for multiple formats so we can compute nicer snippets
-                'formats'  => ['comparison'],
+                 'formats'  => ['html','text','comparison'],
 
             ];
         }

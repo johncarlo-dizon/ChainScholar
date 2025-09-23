@@ -1151,50 +1151,125 @@ function renderPhaseBar(meta) {
 
 
 
+
+
+
   function renderResults(data) {
     const sourceMax   = Number(data.source_max ?? 0);
     const docAgg      = Number(data.doc_aggregated ?? 0);
     const matches     = Array.isArray(data.matches) ? data.matches : [];
-    const plagBlock   = (data.plagiarized_excerpt || '').trim();
     const wordsTotal  = Number(data.doc_total_words ?? 0);
+
+
+      const highlightHtml = (data.plagiarized_highlight_html || '').trim();
+const plainExcerpt  = (data.plagiarized_excerpt || '').trim();
+const hasHighlight  = highlightHtml.length > 0;
+
+const topBlock = `
+  <div class="border rounded-lg bg-rose-50/60 border-rose-200">
+    <div class="px-4 py-2 border-b border-rose-200/70 bg-rose-100/70 flex items-center justify-between">
+      <div class="text-sm font-semibold text-rose-800">Plagiarized content detected</div>
+      <div class="text-xs text-rose-700">
+        Max source coverage: <strong>${isNaN(sourceMax) ? '—' : sourceMax + '%'}</strong>
+
+        <span class="text-gray-400">• Doc score: ${isNaN(docAgg) ? '—' : docAgg + '%'}</span>
+        ${wordsTotal ? `<span class="text-gray-400">• Words: ${wordsTotal}</span>` : ``}
+      </div>
+    </div>
+
+    ${hasHighlight ? `
+      <!-- tab header -->
+      <div class="px-4 pt-3 flex items-center gap-2 text-sm">
+        <button type="button" id="tabExact"
+          class="px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700">Exact overlaps</button>
+        <button type="button" id="tabPlain"
+          class="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Plain excerpt</button>
+      </div>
+    ` : ``}
+
+    <div class="p-4">
+      ${hasHighlight ? `
+        <!-- highlighted HTML (already script-stripped server-side) -->
+         <iframe id="panelExactFrame"
+         class="w-full rounded border bg-white"
+        style="height: 20rem; border: 1px solid #e5e7eb;"></iframe>
+        <pre id="panelPlain" class="whitespace-pre-wrap text-sm leading-relaxed text-gray-900 hidden"
+             style="max-height: 20rem; overflow:auto;">${esc(plainExcerpt || '(no crawled text available)')}</pre>
+      ` : `
+        <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-900">${esc(plainExcerpt || '(no crawled text available)')}</pre>
+      `}
+    </div>
+  </div>
+`;
+
     window.__externalScore = Number.isFinite(sourceMax) && sourceMax > 0
       ? sourceMax
       : (Number.isFinite(docAgg) ? docAgg : null);
     updatePlagGate();
     bodyBox.innerHTML = `
       <div class="space-y-4">
-        ${renderPhaseBar(data)}
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold">External Plagiarism (Copyleaks)</h3>
-          <div class="flex items-center gap-2">
-            <button type="button" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
-                    id="btnRefreshExternal">Refresh</button>
-            <button type="button" class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                    id="btnRescanExternal">Rescan</button>
-          </div>
-        </div>
-
-        <!-- TOP: Plagiarized block -->
-        <div class="border rounded-lg bg-rose-50/60 border-rose-200">
-          <div class="px-4 py-2 border-b border-rose-200/70 bg-rose-100/70 flex items-center justify-between">
-            <div class="text-sm font-semibold text-rose-800">Plagiarized content detected</div>
-            <div class="text-xs text-rose-700">
-              Max source similarity: <strong>${isNaN(sourceMax) ? '—' : sourceMax + '%'}</strong>
-              <span class="text-gray-400">• Doc score: ${isNaN(docAgg) ? '—' : docAgg + '%'}</span>
-              ${wordsTotal ? `<span class="text-gray-400">• Words: ${wordsTotal}</span>` : ``}
-            </div>
-          </div>
-          <div class="p-4">
-            <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-900">${esc(plagBlock || '(no crawled text available)')}</pre>
-          </div>
-        </div>
-
-        <!-- Cards -->
-        <div class="space-y-3">
-          ${renderCards(matches) || `<div class="p-4 rounded bg-gray-50 text-gray-700">No external matches to show.</div>`}
-        </div>
+    ${renderPhaseBar(data)}
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold">External Plagiarism (Copyleaks)</h3>
+      <div class="flex items-center gap-2">
+        <button type="button" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                id="btnRefreshExternal">Refresh</button>
+        <button type="button" class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                id="btnRescanExternal">Rescan</button>
       </div>
+    </div>
+
+    ${topBlock}
+
+    <!-- Cards -->
+    <div class="space-y-3">
+      ${renderCards(matches) || `<div class="p-4 rounded bg-gray-50 text-gray-700">No external matches to show.</div>`}
+    </div>
+  </div>
     `;
+
+if (hasHighlight) {
+  const frame = document.getElementById('panelExactFrame');
+  const btnExact = document.getElementById('tabExact');
+  const btnPlain = document.getElementById('tabPlain');
+  const panelPlain = document.getElementById('panelPlain');
+
+  // inject sanitized HTML into the iframe document
+  if (frame) {
+    const idoc = frame.contentDocument || frame.contentWindow?.document;
+    if (idoc) {
+      idoc.open();
+idoc.write(highlightHtml);   // it's already a complete sanitized HTML doc
+idoc.close();
+
+    }
+  }
+
+  function showExact() {
+    frame?.classList.remove('hidden');
+    panelPlain.classList.add('hidden');
+    btnExact.classList.add('bg-blue-600','text-white');
+    btnExact.classList.remove('border','border-gray-300','text-gray-700','bg-white');
+    btnPlain.classList.remove('bg-blue-600','text-white');
+    btnPlain.classList.add('border','border-gray-300','text-gray-700','bg-white');
+  }
+  function showPlain() {
+    frame?.classList.add('hidden');
+    panelPlain.classList.remove('hidden');
+    btnPlain.classList.add('bg-blue-600','text-white');
+    btnPlain.classList.remove('border','border-gray-300','text-gray-700','bg-white');
+    btnExact.classList.remove('bg-blue-600','text-white');
+    btnExact.classList.add('border','border-gray-300','text-gray-700','bg-white');
+  }
+
+  btnExact?.addEventListener('click', showExact);
+  btnPlain?.addEventListener('click', showPlain);
+
+  // default tab
+  showExact();
+}
+
+
 
     document.getElementById('btnRefreshExternal')?.addEventListener('click', openAndLoadLatest);
     document.getElementById('btnRescanExternal')?.addEventListener('click', startExternalScan);
