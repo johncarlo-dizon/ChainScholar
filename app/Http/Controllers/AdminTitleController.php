@@ -69,7 +69,7 @@ class AdminTitleController extends Controller
             }
         });
 
-        return back()->with('success', 'Title returned to student. They must choose an adviser again.');
+        return back()->with('status', 'Title returned to student. They must choose an adviser again.');
     }
     public function awaiting(Request $request)
     {
@@ -120,7 +120,7 @@ class AdminTitleController extends Controller
             }
         });
 
-        return back()->with('success', 'Title moved to advising (editing unlocked).');
+        return back()->with('status', 'Title moved to advising (editing unlocked).');
     }
 
     /**

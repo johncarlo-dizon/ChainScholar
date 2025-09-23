@@ -42,16 +42,18 @@
                     placeholder="Confirm new password">
             </div>
             
-            <div class="mb-4">
-                <label for="position" class="block text-gray-500 text-sm font-bold mb-2">Position</label>
-                <select name="position" id="position" required
-                    class="shadow appearance-none border  border-white rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                    <option value="" disabled>Select position</option>
-                    <option value="user" {{ old('position', $user->position) == 'user' ? 'selected' : '' }}>User</option>
-                    <option value="admin" {{ old('position', $user->position) == 'admin' ? 'selected' : '' }}>Admin</option>
+          <div class="mb-4">
+  <label for="role" class="block text-gray-500 text-sm font-bold mb-2">Role</label>
+  <select name="role" id="role" required
+      class="shadow appearance-none border border-white rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      <option value="" disabled>Select role</option>
+      <option value="STUDENT" {{ old('role', $user->role) === 'STUDENT' ? 'selected' : '' }}>Student</option>
+      <option value="ADVISER" {{ old('role', $user->role) === 'ADVISER' ? 'selected' : '' }}>Adviser</option>
+      <option value="ADMIN"   {{ old('role', $user->role) === 'ADMIN'   ? 'selected' : '' }}>Admin</option>
+  </select>
+</div>
 
-                </select>
-            </div>
+
             
             <div class="flex items-center justify-end mt-4">
                 <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded focus:outline-none focus:shadow-outline">

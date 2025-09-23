@@ -36,7 +36,6 @@
       >
         @php $selectedRole = $filters['role'] ?? ''; @endphp
         <option value="">All</option>
-        <option value="ALL" {{ $selectedRole === 'ALL' ? 'selected' : '' }}>All</option>
         @foreach($roles as $r)
           <option value="{{ $r }}" {{ $selectedRole === $r ? 'selected' : '' }}>
             {{ $r }}
@@ -71,7 +70,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -90,41 +89,18 @@
     <a href="{{ route('admin.users.edit', $user) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
 
     <!-- Delete button triggers modal -->
-    <div x-data="{ open: false }" class="inline-block">
-        <button
-            type="button"
-            class="text-red-600 hover:text-red-900" 
-            onclick="showModal({{ $user->id }})"
-        >
-            
-            Delete
-        </button>
-    </div>
+   <!-- Delete button triggers the single global modal -->
+<!-- Delete button triggers the single global modal -->
+<button
+    type="button"
+    class="text-red-600 hover:text-red-900 js-open-delete"
+    data-action="{{ route('admin.users.destroy', $user) }}"
+    data-name="{{ $user->name }}"
+>
+    Delete
+</button>
 
-    <!-- Modal -->
-    <div id="delete-modal" class="fixed inset-0 hidden items-center justify-center z-50">
-        <!-- The blur overlay -->
-        <div id="modal-overlay" class="absolute inset-0 backdrop-blur-sm bg-transparent"></div>
 
-        <!-- Modal content -->
-        <div class="relative bg-white rounded-lg shadow-lg p-6 max-w-lg w-full mx-4 z-10">
-            <p class="text-lg font-semibold mb-5 text-gray-900">Are you sure you want to delete this user?</p>
-            <div class="flex justify-end space-x-3">
-                <button id="cancel-btn"
-                    class="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 transition">
-                    Cancel
-                </button>
-                <form id="delete-form" method="POST">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit"
-                        class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 transition">
-                        Delete
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
 
   
 </td>
@@ -145,38 +121,121 @@
 
         </div>
 {{ $users->appends(request()->query())->links() }}
+<!-- Global Delete Modal (single instance) -->
+
 
 
     </div>
 
 
+<div id="delete-modal" class="fixed inset-0 hidden items-center justify-center z-50">
+  <div id="modal-overlay" class="absolute inset-0 backdrop-blur-sm bg-black/10"></div>
+  <div class="relative bg-white rounded-lg shadow-lg p-6 max-w-lg w-full mx-4 z-10">
+    <p class="text-lg font-semibold mb-5 text-gray-900">Are you sure you want to delete this user?</p>
+    <div class="flex justify-end space-x-3">
+      <button id="cancel-btn"
+        class="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 transition">
+        Cancel
+      </button>
+      <form id="delete-form" method="POST">
+        @csrf
+        @method('DELETE')
+        <button type="submit"
+          class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 transition">
+          Delete
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
     
     <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script>
-        const modal = document.getElementById('delete-modal');
-        const overlay = document.getElementById('modal-overlay');
-        const cancelBtn = document.getElementById('cancel-btn');
-        const deleteForm = document.getElementById('delete-form');
+<script>
+(function () {
+  const modal         = document.getElementById('delete-modal');
+  const overlay       = document.getElementById('modal-overlay');
+  const cancelBtn     = document.getElementById('cancel-btn');
+  const deleteForm    = document.getElementById('delete-form');
+  const promptEl      = document.getElementById('delete-prompt');
 
-        // Show modal and set form action dynamically
-        function showModal(userId) {
-            deleteForm.action = `/admin/users/${userId}`; // Match your route
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
+  function ensureInBody() {
+    if (modal && modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+  }
 
-        // Hide modal helper
-        function hideModal() {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
+  function showModalWith(action, name) {
+    if (!modal || !deleteForm) {
+      console.error('[DeleteModal] Missing modal or form.');
+      return;
+    }
+    ensureInBody();
 
-        // Cancel button closes modal
-        cancelBtn.addEventListener('click', hideModal);
+    if (!action) {
+      console.error('[DeleteModal] No data-action on clicked button.');
+      return;
+    }
 
-        // Clicking outside modal closes modal
-        overlay.addEventListener('click', hideModal);
-    </script>
+    deleteForm.action = action;
+
+    if (promptEl) {
+      promptEl.textContent = name
+        ? `Are you sure you want to delete “${name}”?`
+        : 'Are you sure you want to delete this user?';
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    modal.style.zIndex = '9999';
+    cancelBtn && cancelBtn.focus();
+  }
+
+  function hideModal() {
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  function bindHandlers() {
+    // Delegate clicks for all current/future delete buttons
+    document.addEventListener('click', function (e) {
+      const btn = e.target.closest('.js-open-delete');
+      if (btn) {
+        e.preventDefault();
+        const action = btn.dataset.action;
+        const name   = btn.dataset.name || '';
+        console.log('[DeleteModal] Open for:', action, name);
+        showModalWith(action, name);
+      }
+    });
+
+    // Overlay click closes
+    overlay && overlay.addEventListener('click', hideModal);
+    // Cancel button closes
+    cancelBtn && cancelBtn.addEventListener('click', hideModal);
+    // ESC closes
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideModal();
+    });
+    // Prevent Enter in form accidentally submitting early
+    deleteForm && deleteForm.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') e.preventDefault();
+    });
+  }
+
+  // Bind on normal load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindHandlers);
+  } else {
+    bindHandlers();
+  }
+
+  // Re-bind on Turbo/Livewire navigation if present
+  document.addEventListener('turbo:load', bindHandlers);
+  document.addEventListener('livewire:load', bindHandlers);
+})();
+</script>
+
 @if (session('success'))
     <script>
         Swal.fire({

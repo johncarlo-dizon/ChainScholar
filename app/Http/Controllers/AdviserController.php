@@ -173,63 +173,82 @@ class AdviserController extends Controller
      * Locks this adviser as the primary adviser and closes other pending requests.
      */
    public function accept(Request $request, AdviserRequest $adviserRequest)
-    {
-        $user = $request->user();
+{
+    $user = $request->user();
 
-        if ($adviserRequest->adviser_id !== $user->id) {
-            abort(403, 'Forbidden');
-        }
-        if ($adviserRequest->status !== 'pending') {
-            return back()->with('error', 'This request is no longer pending.');
-        }
+    if ($adviserRequest->adviser_id !== $user->id) {
+        abort(403, 'Forbidden');
+    }
+    if ($adviserRequest->status !== 'pending') {
+        return back()->with('error', 'This request is no longer pending.');
+    }
 
-        DB::transaction(function () use ($adviserRequest, $user) {
-            $title = $adviserRequest->title()->lockForUpdate()->first();
+    // Optional message to student on accept
+    $data = $request->validate([
+        'note' => 'nullable|string|max:2000',
+    ]);
 
-            // If title already assigned, just mark request as declined
-            if ($title->primary_adviser_id) {
-                $adviserRequest->update([
-                    'status'     => 'declined',
-                    'decided_at' => now(),
-                ]);
-                return;
-            }
+    DB::transaction(function () use ($adviserRequest, $user, $data) {
+        $title = $adviserRequest->title()->lockForUpdate()->with('owner')->first();
 
-            // Accept this request
+        // If title already assigned, just mark this request as declined (race-safety)
+        if ($title->primary_adviser_id) {
             $adviserRequest->update([
-                'status'     => 'accepted',
+                'status'     => 'declined',
+                'decided_at' => now(),
+            ]);
+            return;
+        }
+
+        // Accept this request
+        $acceptNote = trim((string)($data['note'] ?? ''));
+
+        // If you have a dedicated column for accept notes, store it there.
+        // Otherwise reuse message with a prefix (like in decline).
+        $newMessage = $adviserRequest->message
+            ? rtrim($adviserRequest->message) . "\n[ACCEPT_NOTE] " . $acceptNote
+            : ($acceptNote ? '[ACCEPT_NOTE] ' . $acceptNote : null);
+
+        $adviserRequest->update([
+            'status'     => 'accepted',
+            'decided_at' => now(),
+            'message'    => $newMessage,
+        ]);
+
+        // Assign adviser to title and move to admin gate
+        $title->update([
+            'primary_adviser_id'  => $user->id,
+            'adviser_assigned_at' => now(),
+            'status'              => 'awaiting_admin',
+        ]);
+
+        // Close other pending requests
+        AdviserRequest::where('title_id', $title->id)
+            ->where('id', '!=', $adviserRequest->id)
+            ->where('status', 'pending')
+            ->update([
+                'status'     => 'declined',
                 'decided_at' => now(),
             ]);
 
-            // Assign adviser to title and move to admin gate
-            $title->update([
-                'primary_adviser_id'  => $user->id,
-                'adviser_assigned_at' => now(),
-                'status'              => 'awaiting_admin', // ← admin gate
-            ]);
-
-            // Close other pending requests
-            AdviserRequest::where('title_id', $title->id)
-                ->where('id', '!=', $adviserRequest->id)
-                ->where('status', 'pending')
-                ->update([
-                    'status'     => 'declined',
-                    'decided_at' => now(),
-                ]);
-
-            // Optional: notify student
-            if (class_exists(\App\Models\Notification::class)) {
-                \App\Models\Notification::create([
-                    'user_id' => $title->owner_id,
-                    'title'   => 'Adviser Accepted',
-                    'message' => 'Your adviser accepted. Waiting for admin approval.',
-                    'is_read' => false,
-                ]);
+        // Notify the student (include note if present)
+        if (class_exists(\App\Models\Notification::class)) {
+            $msg = 'Your adviser accepted your request for the title “' . $title->title . '”.';
+            if ($acceptNote) {
+                $msg .= ' Message: ' . $acceptNote;
             }
-        });
+            \App\Models\Notification::create([
+                'user_id' => $title->owner_id,
+                'title'   => 'Adviser Accepted',
+                'message' => $msg,
+                'is_read' => false,
+            ]);
+        }
+    });
 
-        return back()->with('success', 'Request accepted. Waiting for admin approval.');
-    }
+    return back()->with('status', 'Request accepted. Waiting for admin approval.');
+}
+
 
 
     /**
@@ -246,13 +265,36 @@ class AdviserController extends Controller
             return back()->with('error', 'This request is no longer pending.');
         }
 
-        $adviserRequest->update([
-            'status'     => 'declined',
-            'decided_at' => now(),
+        $data = $request->validate([
+            'reason' => 'required|string|min:5',
         ]);
 
-        return back()->with('success', 'Request declined.');
+        DB::transaction(function () use ($adviserRequest, $user, $data) {
+            $title = $adviserRequest->title()->lockForUpdate()->with('owner')->first();
+
+            // Store the reason. If you don't have a dedicated column, reuse "message".
+            // Prefix to distinguish from initial request message.
+            $reasonText = trim($data['reason']);
+            $adviserRequest->update([
+                'status'        => 'declined',
+                'decided_at'    => now(),
+                'message'       => '[DECLINE] ' . $reasonText, // change to ->decline_reason if you add a column
+            ]);
+
+            // Notify the student
+            if (class_exists(\App\Models\Notification::class)) {
+                \App\Models\Notification::create([
+                    'user_id' => $title->owner_id,
+                    'title'   => 'Adviser Declined Your Request',
+                    'message' => $user->name . ' declined the title “' . $title->title . '”. Reason: ' . $reasonText,
+                    'is_read' => false,
+                ]);
+            }
+        });
+
+        return back()->with('status', 'Request declined and student notified.');
     }
+
 
 
 

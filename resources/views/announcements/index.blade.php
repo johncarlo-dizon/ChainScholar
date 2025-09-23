@@ -105,15 +105,15 @@
                            class="bg-yellow-500 text-white px-4 py-1.5 rounded-lg shadow hover:bg-yellow-600 transition">
                             Edit
                         </a>
-                        <form action="{{ route('announcements.destroy', $announcement) }}" method="POST"
-                              onsubmit="return confirm('Are you sure you want to delete this announcement?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit"
-                                    class="bg-red-600 text-white px-4 py-1.5 rounded-lg shadow hover:bg-red-700 transition">
-                                Delete
-                            </button>
-                        </form>
+                      <button
+                    type="button"
+                    class="bg-red-600 text-white px-4 py-1.5 rounded-lg shadow hover:bg-red-700 transition js-open-delete"
+                    data-action="{{ route('announcements.destroy', $announcement) }}"
+                    data-name="{{ $announcement->title }}"
+                >
+                    Delete
+                </button>
+
                     </div>
                 @endif
             </div>
@@ -127,4 +127,95 @@
     <div class="mt-6">
         {{ $announcements->links() }}
     </div>
+
+
+    <!-- Global Delete Modal -->
+<div id="delete-modal" class="fixed inset-0 hidden items-center justify-center z-50">
+  <div id="modal-overlay" class="absolute inset-0 backdrop-blur-sm bg-black/10"></div>
+  <div class="relative bg-white rounded-lg shadow-lg p-6 max-w-lg w-full mx-4 z-10">
+    <p id="delete-prompt" class="text-lg font-semibold mb-5 text-gray-900">
+      Are you sure you want to delete this item?
+    </p>
+    <div class="flex justify-end space-x-3">
+      <button id="cancel-btn"
+        class="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 transition">
+        Cancel
+      </button>
+      <form id="delete-form" method="POST">
+        @csrf
+        @method('DELETE')
+        <button type="submit"
+          class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 transition">
+          Delete
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+
+<script>
+(function () {
+  const modal      = document.getElementById('delete-modal');
+  const overlay    = document.getElementById('modal-overlay');
+  const cancelBtn  = document.getElementById('cancel-btn');
+  const deleteForm = document.getElementById('delete-form');
+  const promptEl   = document.getElementById('delete-prompt');
+
+  function ensureInBody() {
+    if (modal && modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+  }
+
+  function showModalWith(action, name) {
+    if (!modal || !deleteForm) return;
+    ensureInBody();
+    deleteForm.action = action;
+    if (promptEl) {
+      promptEl.textContent = name
+        ? `Are you sure you want to delete “${name}”?`
+        : 'Are you sure you want to delete this item?';
+    }
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    modal.style.zIndex = '9999';
+    cancelBtn && cancelBtn.focus();
+  }
+
+  function hideModal() {
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  function bindHandlers() {
+    // Open modal from any Delete button
+    document.addEventListener('click', function (e) {
+      const btn = e.target.closest('.js-open-delete');
+      if (!btn) return;
+      e.preventDefault();
+      const action = btn.dataset.action;
+      const name   = btn.dataset.name || '';
+      if (!action) return;
+      showModalWith(action, name);
+    });
+
+    overlay && overlay.addEventListener('click', hideModal);
+    cancelBtn && cancelBtn.addEventListener('click', hideModal);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideModal(); });
+    deleteForm && deleteForm.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindHandlers);
+  } else {
+    bindHandlers();
+  }
+  document.addEventListener('turbo:load', bindHandlers);
+  document.addEventListener('livewire:load', bindHandlers);
+})();
+</script>
+
 </x-userlayout>

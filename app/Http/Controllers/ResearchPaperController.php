@@ -127,7 +127,7 @@ class ResearchPaperController extends Controller
         $researchPaper->delete();
 
         return redirect()->route('research-papers.admin-index')
-            ->with('success', 'Research paper deleted successfully.');
+            ->with('status', 'Research paper deleted successfully.');
     }
 
 
@@ -144,7 +144,7 @@ class ResearchPaperController extends Controller
         $researchPaper->delete();
 
         return redirect()->route('research-papers.student-index')
-            ->with('success', 'Research paper deleted successfully.');
+            ->with('status', 'Research paper deleted successfully.');
     }
 
 
@@ -284,7 +284,7 @@ class ResearchPaperController extends Controller
 
         return redirect()
             ->route('research-papers.create')
-            ->with('success', 'Research paper uploaded successfully!');
+            ->with('status', 'Research paper uploaded successfully!');
     }
 
     public function checkFilename(Request $request)

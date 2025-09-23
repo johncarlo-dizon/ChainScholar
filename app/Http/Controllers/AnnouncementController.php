@@ -70,7 +70,7 @@ class AnnouncementController extends Controller
             'user_id'    => Auth::id(),
         ]);
 
-        return redirect()->route('announcements.index')->with('success', 'Announcement posted successfully!');
+        return redirect()->route('announcements.index')->with('status', 'Announcement posted successfully!');
     }
 
     // Admin: Delete announcement
@@ -79,7 +79,7 @@ class AnnouncementController extends Controller
         $announcement->delete();
 
         // Return to the same page (manage or filtered view) preserving query string
-        return back()->with('success', 'Announcement deleted.');
+        return back()->with('status', 'Announcement deleted.');
     }
 
 
@@ -132,6 +132,6 @@ class AnnouncementController extends Controller
             'audience'   => $request->audience,
         ]);
 
-        return redirect()->route('announcements.index')->with('success', 'Announcement updated successfully!');
+        return redirect()->route('announcements.index')->with('status', 'Announcement updated successfully!');
     }
 }
