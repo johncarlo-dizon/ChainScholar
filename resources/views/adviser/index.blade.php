@@ -28,32 +28,52 @@
             <h3 class="font-semibold mb-3">Incoming Pending Requests</h3>
             <ul class="space-y-3">
                 @forelse($incomingRequests as $r)
-                    <li class="shadow rounded-lg p-3">
-                        <div class="font-medium">{{ $r->title->title }}</div>
-                        <div class="text-sm text-gray-500">Owner: {{ $r->title->owner->name }}</div>
-                        <div class="mt-2 flex gap-2">
-                            <button
-                                type="button"
-                                class="px-3 py-1 bg-green-600 text-white rounded js-open-accept"
-                                data-action="{{ route('adviser.requests.accept', $r) }}"
-                                data-title="{{ $r->title->title }}"
-                                data-student="{{ $r->title->owner->name }}"
-                            >
-                                Accept
-                            </button>
+                    @php
+  $isStudentRequest = ($r->requested_by === 'student') && ($r->status === 'pending') && is_null($r->decided_at);
+  $isAlreadyAssigned = !is_null($r->title->primary_adviser_id);
+@endphp
 
-                            <button
-                                type="button"
-                                class="px-3 py-1 bg-red-600 text-white rounded js-open-decline"
-                                data-action="{{ route('adviser.requests.decline', $r) }}"
-                                data-title="{{ $r->title->title }}"
-                                data-student="{{ $r->title->owner->name }}"
-                            >
-                                Decline
-                            </button>
+@if(!$isStudentRequest)
+  @continue
+@endif
 
-                        </div>
-                    </li>
+          <li class="shadow rounded-lg p-3">
+            <div class="font-medium">{{ $r->title->title }}</div>
+            <div class="text-sm text-gray-500">Owner: {{ $r->title->owner->name }}</div>
+
+            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              @if($isAlreadyAssigned)
+                <span class="px-2 py-1 rounded bg-gray-100 text-gray-700">
+                  Assigned to: {{ optional($r->title->primaryAdviser ?? null)->name ?? 'another adviser' }}
+                </span>
+              @endif
+            </div>
+
+            <div class="mt-2 flex gap-2">
+              <button
+                type="button"
+                class="px-3 py-1 bg-green-600 text-white rounded js-open-accept"
+                data-action="{{ route('adviser.requests.accept', $r) }}"
+                data-title="{{ $r->title->title }}"
+                data-student="{{ $r->title->owner->name }}"
+                @if($isAlreadyAssigned) disabled title="Title already assigned" class="px-3 py-1 rounded bg-gray-300 text-gray-600 cursor-not-allowed" @endif
+              >
+                Accept
+              </button>
+
+              <button
+                type="button"
+                class="px-3 py-1 bg-red-600 text-white rounded js-open-decline"
+                data-action="{{ route('adviser.requests.decline', $r) }}"
+                data-title="{{ $r->title->title }}"
+                data-student="{{ $r->title->owner->name }}"
+                @if($isAlreadyAssigned) disabled title="Title already assigned" class="px-3 py-1 rounded bg-gray-300 text-gray-600 cursor-not-allowed" @endif
+              >
+                Decline
+              </button>
+            </div>
+          </li>
+
                 @empty
                     <li class="text-gray-500">No pending requests.</li>
                 @endforelse
@@ -64,11 +84,29 @@
             <h3 class="font-semibold mb-3">My Pending Sent Requests</h3>
             <ul class="space-y-3">
                 @forelse($myPendingSent as $r)
-                    <li class="shadow rounded-lg p-3">
-                        <div class="font-medium">{{ $r->title->title }}</div>
-                        <div class="text-sm text-gray-500">Owner: {{ $r->title->owner->name }}</div>
-                        <span class="inline-block text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">Pending</span>
-                    </li>
+                   @php
+  $isAdviserRequest = ($r->requested_by === 'adviser') && ($r->status === 'pending') && is_null($r->decided_at);
+  $isAlreadyAssigned = !is_null($r->title->primary_adviser_id);
+@endphp
+
+@if(!$isAdviserRequest)
+  @continue
+@endif
+
+<li class="shadow rounded-lg p-3">
+  <div class="font-medium">{{ $r->title->title }}</div>
+  <div class="text-sm text-gray-500">Owner: {{ $r->title->owner->name }}</div>
+
+  <div class="mt-2 flex flex-wrap gap-2 text-xs">
+    <span class="px-2 py-1 rounded bg-yellow-100 text-yellow-800">Request sent</span>
+    @if($isAlreadyAssigned)
+      <span class="px-2 py-1 rounded bg-gray-100 text-gray-700">
+        Assigned to: {{ optional($r->title->primaryAdviser ?? null)->name ?? 'another adviser' }}
+      </span>
+    @endif
+  </div>
+</li>
+
                 @empty
                     <li class="text-gray-500">You have not requested any titles yet.</li>
                 @endforelse

@@ -17,26 +17,33 @@ class AdviserController extends Controller
     {
         $user = $request->user();
 
-        $pendingCount = AdviserRequest::where('adviser_id', $user->id)
-            ->where('status', 'pending')
-            ->count();
+       $pendingCount = AdviserRequest::where('adviser_id', $user->id)
+        ->where('requested_by', 'student')
+        ->where('status', 'pending')
+        ->whereNull('decided_at')
+        ->count();
 
         $myAdvisedCount = Title::where('primary_adviser_id', $user->id)->count();
 
         $myPendingSent = AdviserRequest::where('adviser_id', $user->id)
-            ->where('requested_by', 'adviser')
-            ->where('status', 'pending')
-            ->with('title.owner')
-            ->latest()
-            ->take(5)
-            ->get();
+        ->where('requested_by', 'adviser')
+        ->where('status', 'pending')
+        ->whereNull('decided_at')
+        ->with('title.owner')
+        ->latest()
+        ->take(5)
+        ->get();
 
-        $incomingRequests = AdviserRequest::where('adviser_id', $user->id)
-            ->where('status', 'pending')
-            ->with('title.owner')
-            ->latest()
-            ->take(5)
-            ->get();
+
+            $incomingRequests = AdviserRequest::where('adviser_id', $user->id)
+        ->where('requested_by', 'student')   // ← only items you should respond to
+        ->where('status', 'pending')
+        ->whereNull('decided_at')
+        ->with('title.owner')
+        ->latest()
+        ->take(5)
+        ->get();
+
 
         return view('adviser.index', compact(
             'pendingCount',
@@ -52,21 +59,18 @@ class AdviserController extends Controller
      * and where THIS adviser doesn't already have a pending/accepted request.
      */
     // AdviserController@browse
-    public function browse(Request $request)
+   public function browse(Request $request)
     {
         $user = $request->user();
 
+        $status  = $request->string('status')->toString() ?: 'all';      // all|verified|awaiting_adviser|awaiting_admin
+        $assign  = $request->string('assign')->toString() ?: 'all';      // all|unassigned|assigned
+        $orderBy = $request->string('sort')->toString()   ?: 'verified'; // verified|title|owner
+
         $titles = Title::query()
-            // A) no adviser yet (requestable)
-            // B) OR already waiting for admin (NOT requestable, just visible)
-            ->where(function ($q) {
-                $q->whereNull('primary_adviser_id')
-                ->whereIn('status', ['verified','awaiting_adviser'])
-                ->orWhere(function ($qq) {
-                    $qq->whereNotNull('primary_adviser_id')
-                    ->where('status', 'awaiting_admin'); // visible, not requestable
-                });
-            })
+            // Always show these 3 states
+            ->whereIn('status', ['verified','awaiting_adviser','awaiting_admin'])
+            // Search
             ->when($request->filled('search'), function ($qq) use ($request) {
                 $s = $request->string('search')->toString();
                 $qq->where(function ($w) use ($s) {
@@ -76,17 +80,30 @@ class AdviserController extends Controller
                     ->orWhere('sub_category', 'like', "%{$s}%");
                 });
             })
-            // Hide rows where THIS adviser already has an active request
-            ->whereDoesntHave('adviserRequests', function ($r) use ($user) {
-                $r->where('adviser_id', $user->id)->whereIn('status', ['pending','accepted']);
-            })
-            ->with('owner')
-            ->orderByDesc('verified_at')
+            // Status filter
+            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+            // Assignment filter
+            ->when($assign === 'unassigned', fn ($q) => $q->whereNull('primary_adviser_id'))
+            ->when($assign === 'assigned', fn ($q) => $q->whereNotNull('primary_adviser_id'))
+            // Flags for this adviser
+            ->withExists(['adviserRequests as has_my_pending_request' => function ($r) use ($user) {
+                $r->where('adviser_id', $user->id)->where('status', 'pending')->whereNull('decided_at');
+            }])
+            ->withExists(['adviserRequests as has_my_accepted_request' => function ($r) use ($user) {
+                $r->where('adviser_id', $user->id)->where('status', 'accepted');
+            }])
+            ->with(['owner','primaryAdviser']) // to show "Assigned to: ..."
+            // Sorting
+            ->when($orderBy === 'title', fn ($q) => $q->orderBy('title'))
+            ->when($orderBy === 'owner', fn ($q) => $q->orderBy(
+                \DB::raw("(select name from users where users.id = titles.owner_id)")))
+            ->when($orderBy === 'verified', fn ($q) => $q->orderByDesc('verified_at'))
             ->paginate(10)
             ->withQueryString();
 
-        return view('adviser.browse', ['titles' => $titles]);
+        return view('adviser.browse', compact('titles'));
     }
+
 
 
     /**
@@ -98,10 +115,12 @@ class AdviserController extends Controller
         $user = $request->user();
 
         $requests = AdviserRequest::with(['title.owner'])
-            ->where('adviser_id', $user->id)
-            ->where('status', 'pending')
-            ->latest()
-            ->paginate(10);
+    ->where('adviser_id', auth()->id())
+    ->whereNull('decided_at')
+    ->where('requested_by', 'student') // show only items you should respond to
+    ->orderByDesc('created_at')
+    ->paginate(10);
+
 
         return view('adviser.pending', compact('requests'));
     }
@@ -223,13 +242,31 @@ class AdviserController extends Controller
         ]);
 
         // Close other pending requests
-        AdviserRequest::where('title_id', $title->id)
+        // Grab other pending advisers first (so we can notify them)
+        $otherPending = AdviserRequest::where('title_id', $title->id)
             ->where('id', '!=', $adviserRequest->id)
             ->where('status', 'pending')
+            ->get(['id','adviser_id']);
+
+        // Close other pending requests
+        AdviserRequest::whereIn('id', $otherPending->pluck('id'))
             ->update([
                 'status'     => 'declined',
                 'decided_at' => now(),
             ]);
+
+        // Notify those advisers that the title was taken
+        if (class_exists(\App\Models\Notification::class) && $otherPending->isNotEmpty()) {
+            foreach ($otherPending as $op) {
+                \App\Models\Notification::create([
+                    'user_id' => $op->adviser_id,
+                    'title'   => 'Title Taken',
+                    'message' => 'The title “'.$title->title.'” has been assigned to another adviser.',
+                    'is_read' => false,
+                ]);
+            }
+        }
+
 
         // Notify the student (include note if present)
         if (class_exists(\App\Models\Notification::class)) {
