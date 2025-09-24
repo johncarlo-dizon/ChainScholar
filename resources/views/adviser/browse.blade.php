@@ -73,37 +73,40 @@
               </div>
             @endif
 
-            {{-- Chips --}}
-            @php
-              $requestable  = is_null($t->primary_adviser_id) && in_array($t->status, ['verified','awaiting_adviser']);
-              $sentPending  = !empty($t->has_my_pending_request);
-              $sentAccepted = !empty($t->has_my_accepted_request);
-              $assignedNow  = !is_null($t->primary_adviser_id);
-            @endphp
+           {{-- Chips --}}
+@php
+  $requestable    = is_null($t->primary_adviser_id) && in_array($t->status, ['verified','awaiting_adviser']);
+  $sentPending    = !empty($t->has_my_pending_request);
+  $sentAccepted   = !empty($t->has_my_accepted_request);
+  $assignedNow    = !is_null($t->primary_adviser_id);
+  $assignedToMe   = $assignedNow && ((int)$t->primary_adviser_id === (int)auth()->id());
+@endphp
 
-            <div class="text-xs mt-2 flex flex-wrap gap-2">
-              <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">{{ $t->status }}</span>
+<div class="text-xs mt-2 flex flex-wrap gap-2">
+  <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">{{ $t->status }}</span>
 
-              @if($t->verified_at)
-                <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700">
-                  Verified: {{ $t->verified_at->format('M d, Y') }}
-                </span>
-              @endif
+  @if($t->verified_at)
+    <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+      Verified: {{ $t->verified_at->format('M d, Y') }}
+    </span>
+  @endif
 
-              @if($assignedNow && $t->status === 'awaiting_admin')
-                <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700">
-                  Assigned to: {{ optional($t->primaryAdviser)->name ?? 'another adviser' }}
-                </span>
-              @endif
+  {{-- show "Assigned to: ..." only if assigned to someone ELSE --}}
+  @if($assignedNow && $t->status === 'awaiting_admin' && !$assignedToMe)
+    <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+      Assigned to: {{ optional($t->primaryAdviser)->name ?? 'another adviser' }}
+    </span>
+  @endif
 
-              @if($sentPending)
-                <span class="px-2 py-0.5 rounded bg-yellow-100 text-yellow-800">Request sent</span>
-              @endif
+  @if($sentPending)
+    <span class="px-2 py-0.5 rounded bg-yellow-100 text-yellow-800">Request sent</span>
+  @endif
 
-              @if($sentAccepted)
-                <span class="px-2 py-0.5 rounded bg-green-100 text-green-800">You were accepted</span>
-              @endif
-            </div>
+  @if($sentAccepted)
+    <span class="px-2 py-0.5 rounded bg-green-100 text-green-800">You were accepted</span>
+  @endif
+</div>
+
           </div>
 
           {{-- Right-side action --}}
@@ -122,9 +125,10 @@
               </button>
             @else
               <button class="px-4 py-2 bg-gray-200 text-gray-600 rounded cursor-not-allowed" disabled
-                      title="{{ $assignedNow ? 'Already assigned to another adviser.' : 'Not requestable right now.' }}">
-                {{ $assignedNow ? 'Assigned' : 'Not Requestable' }}
-              </button>
+                    title="{{ $assignedNow ? ($assignedToMe ? 'You are the assigned adviser.' : 'Already assigned to another adviser.') : 'Not requestable right now.' }}">
+            {{ $assignedNow ? ($assignedToMe ? 'Already Accepted' : 'Assigned') : 'Not Requestable' }}
+            </button>
+
             @endif
           </div>
         </div>
