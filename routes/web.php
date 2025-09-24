@@ -28,9 +28,14 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use App\Http\Controllers\AdviserProfileController;
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\BlockchainController;
 
 
-
+Route::middleware(['auth'])->group(function () {
+    Route::post('/papers/{paper}/hash',     [BlockchainController::class, 'computeHash'])->name('papers.hash');
+    Route::post('/papers/{paper}/register', [BlockchainController::class, 'saveRegistration'])->name('papers.register');
+    Route::post('/papers/{paper}/confirm',  [BlockchainController::class, 'confirm'])->name('papers.confirm');
+});
 
 
 

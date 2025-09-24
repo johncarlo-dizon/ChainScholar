@@ -1,4 +1,5 @@
 <x-userlayout>
+    {{-- Header --}}
     <div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 shadow mb-6">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -8,11 +9,10 @@
         </div>
     </div>
 
+    {{-- Filters --}}
     <div class="bg-white rounded-xl shadow-sm p-6">
-        <!-- Search and Filters -->
         <div class="mb-6">
             <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <!-- Search -->
                 <div>
                     <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
                     <input type="text" name="search" id="search" value="{{ request('search') }}"
@@ -20,7 +20,6 @@
                            placeholder="Search papers...">
                 </div>
 
-                <!-- Department Filter -->
                 <div>
                     <label for="department" class="block text-sm font-medium text-gray-700 mb-1">Department</label>
                     <select name="department" id="department"
@@ -34,7 +33,6 @@
                     </select>
                 </div>
 
-                <!-- Program Filter -->
                 <div>
                     <label for="program" class="block text-sm font-medium text-gray-700 mb-1">Program</label>
                     <select name="program" id="program"
@@ -48,7 +46,6 @@
                     </select>
                 </div>
 
-                <!-- Year Filter -->
                 <div>
                     <label for="year" class="block text-sm font-medium text-gray-700 mb-1">Year</label>
                     <select name="year" id="year"
@@ -62,7 +59,6 @@
                     </select>
                 </div>
 
-                <!-- Filter Buttons -->
                 <div class="md:col-span-4 flex gap-2">
                     <button type="submit"
                             class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700">
@@ -76,7 +72,7 @@
             </form>
         </div>
 
-        <!-- Papers Table -->
+        {{-- Table --}}
         <div class="overflow-hidden border border-gray-200 rounded-lg">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -85,6 +81,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Authors</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -99,13 +96,33 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $paper->program }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $paper->year }}</td>
+
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium {{ $paper->status_badge_color }}">
+                                    {{ $paper->chain_status ?? 'NONE' }}
+                                </span>
+                                @php
+                                    $tx = $paper->tx_hash;
+                                    $explorer = match ((int)($paper->chain_id ?? 0)) {
+                                        80002     => 'https://amoy.polygonscan.com/tx/',
+                                        11155111  => 'https://sepolia.etherscan.io/tx/',
+                                        default   => null,
+                                    };
+                                @endphp
+                                @if($tx && $explorer)
+                                    <a href="{{ $explorer.$tx }}" target="_blank" class="ml-2 text-xs text-indigo-600 hover:underline">
+                                        View tx
+                                    </a>
+                                @endif
+                            </td>
+
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-3">
-                                <!-- View PDF -->
-                                <a href="{{ Storage::url($paper->file_path) }}" target="_blank" class="text-indigo-600 hover:text-indigo-900" title="View PDF">
-                                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                                {{-- View PDF --}}
+                                <a href="{{ Storage::url($paper->file_path) }}" target="_blank" class="hidden text-indigo-600 hover:text-indigo-900" title="View PDF">
+                                    <i data-lucide="eye" class="w-5 h-5"></i>
                                 </a>
 
-                                <!-- Details -->
+                                {{-- Details --}}
                                 <button type="button" class="text-sky-600 hover:text-sky-800 btn-details"
                                     title="Details"
                                     data-title="{{ e($paper->title) }}"
@@ -119,7 +136,45 @@
                                     <i data-lucide="info" class="w-5 h-5"></i>
                                 </button>
 
-                         <!-- Delete -->
+                                {{-- Compute SHA-256 (server) --}}
+                                <form method="POST" action="{{ route('papers.hash', $paper) }}">
+                                    @csrf
+                                    <button class="text-gray-700 hover:text-gray-900" title="Compute SHA-256">
+                                        <i data-lucide="hash" class="w-5 h-5"></i>
+                                    </button>
+                                </form>
+
+                                {{-- Register on-chain (MetaMask) --}}
+                                @if ($paper->sha256)
+                                    <button
+                                      type="button"
+                                      class="text-emerald-600 hover:text-emerald-800 btn-register-chain"
+                                      title="Register on-chain"
+                                      data-action="{{ route('papers.register', $paper) }}"
+                                      data-confirm="{{ route('papers.confirm', $paper) }}"
+                                      data-sha="{{ $paper->sha256 }}"
+                                      data-title="{{ e(Str::limit($paper->title, 80)) }}"
+                                    >
+                                      <i data-lucide="link-2" class="w-5 h-5"></i>
+                                    </button>
+                                @else
+                                    <button type="button" class="text-emerald-600 opacity-40 cursor-not-allowed" title="Compute SHA-256 first" disabled>
+                                        <i data-lucide="link-2" class="w-5 h-5"></i>
+                                    </button>
+                                @endif
+
+                                {{-- Verify (read-only) --}}
+                                <button
+                                  type="button"
+                                  class="text-gray-700 hover:text-gray-900 btn-verify-chain"
+                                  title="Verify on-chain"
+                                  data-sha="{{ $paper->sha256 }}"
+                                  data-title="{{ e(Str::limit($paper->title, 80)) }}"
+                                >
+                                  <i data-lucide="shield-check" class="w-5 h-5"></i>
+                                </button>
+
+                                {{-- Delete --}}
                                 <button
                                     type="button"
                                     class="text-red-600 hover:text-red-900 btn-delete"
@@ -129,12 +184,11 @@
                                 >
                                     <i data-lucide="trash-2" class="w-5 h-5"></i>
                                 </button>
-
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
                                 No research papers found.
                             </td>
                         </tr>
@@ -143,106 +197,71 @@
             </table>
         </div>
 
-        <!-- Pagination -->
+        {{-- Pagination --}}
         <div class="mt-6">
             {{ $papers->links() }}
         </div>
     </div>
 
-
-
-
-    <!-- Delete Confirmation Modal (same design language) -->
-<div id="deleteModal" class="fixed inset-0 z-50 hidden">
-    <!-- Blur overlay -->
-    <div class="absolute inset-0 backdrop-blur-sm bg-transparent" data-close-delete></div>
-
-    <!-- Modal content -->
-    <div class="relative mx-auto my-8 w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
-        <div class="flex items-center justify-between border-b border-gray-200 pb-3">
-            <h3 class="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
-        </div>
-
-        <div class="mt-4 space-y-3">
-            <p class="text-sm text-gray-600">
-                You’re about to delete:
-            </p>
-            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <p id="del-title" class="text-sm font-medium text-gray-900"></p>
+    {{-- Delete Modal --}}
+    <div id="deleteModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 backdrop-blur-sm bg-transparent" data-close-delete></div>
+        <div class="relative mx-auto my-8 w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-gray-200 pb-3">
+                <h3 class="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
             </div>
-
-            <div class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-                This action is irreversible. The file and its metadata will be permanently removed.
+            <div class="mt-4 space-y-3">
+                <p class="text-sm text-gray-600">You’re about to delete:</p>
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p id="del-title" class="text-sm font-medium text-gray-900"></p>
+                </div>
+                <div class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                    This action is irreversible. The file and its metadata will be permanently removed.
+                </div>
             </div>
-        </div>
-
-        <div class="mt-6 flex items-center justify-end gap-3">
-            <button type="button" class="rounded-lg border px-4 py-2 hover:bg-gray-50" data-close-delete>
-                Cancel
-            </button>
-
-            <!-- Hidden form submitted by JS -->
-            <form id="deleteForm" method="POST">
-                @csrf
-                @method('DELETE')
-                <button id="confirmDeleteBtn" type="submit"
-                        class="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50">
-                    <svg id="confirmDeleteSpinner" class="mr-2 hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
-                        <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
-                    </svg>
-                    Delete
-                </button>
-            </form>
+            <div class="mt-6 flex items-center justify-end gap-3">
+                <button type="button" class="rounded-lg border px-4 py-2 hover:bg-gray-50" data-close-delete>Cancel</button>
+                <form id="deleteForm" method="POST">
+                    @csrf
+                    @method('DELETE')
+                    <button id="confirmDeleteBtn" type="submit"
+                            class="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50">
+                        <svg id="confirmDeleteSpinner" class="mr-2 hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+                            <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+                        </svg>
+                        Delete
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
-</div>
 
-
-    <!-- Modal (same design as admin) -->
+    {{-- Details Modal --}}
     <div id="detailsModal" class="fixed inset-0 z-50 hidden">
         <div class="absolute inset-0 backdrop-blur-sm bg-transparent" data-close-modal></div>
-
         <div class="relative mx-auto my-8 w-full max-w-2xl bg-white rounded-xl shadow-lg p-6">
             <div class="flex items-center justify-between border-b pb-3">
                 <h3 class="text-lg font-semibold text-gray-900">Research Paper Details</h3>
                 <button type="button" class="text-gray-500 hover:text-gray-700" data-close-modal>&times;</button>
             </div>
-
             <div class="mt-4 space-y-4 text-sm">
                 <div>
                     <p class="text-gray-500">Title</p>
                     <p id="m-title" class="font-medium text-gray-900"></p>
                 </div>
                 <div class="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <p class="text-gray-500">Authors</p>
-                        <p id="m-authors" class="text-gray-900"></p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500">Department</p>
-                        <p id="m-department" class="text-gray-900"></p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500">Program</p>
-                        <p id="m-program" class="text-gray-900"></p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500">Year</p>
-                        <p id="m-year" class="text-gray-900"></p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500">Uploaded</p>
-                        <p id="m-uploaded" class="text-gray-900"></p>
-                    </div>
+                    <div><p class="text-gray-500">Authors</p><p id="m-authors" class="text-gray-900"></p></div>
+                    <div><p class="text-gray-500">Department</p><p id="m-department" class="text-gray-900"></p></div>
+                    <div><p class="text-gray-500">Program</p><p id="m-program" class="text-gray-900"></p></div>
+                    <div><p class="text-gray-500">Year</p><p id="m-year" class="text-gray-900"></p></div>
+                    <div><p class="text-gray-500">Uploaded</p><p id="m-uploaded" class="text-gray-900"></p></div>
                 </div>
-
                 <div id="m-abstract-wrap" class="hidden">
                     <p class="text-gray-500">Abstract</p>
                     <p id="m-abstract" class="text-gray-900 whitespace-pre-line"></p>
                 </div>
             </div>
-
             <div class="mt-6 flex items-center justify-end gap-3">
                 <a id="m-file-url" href="#" target="_blank"
                    class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
@@ -253,13 +272,256 @@
         </div>
     </div>
 
-    <!-- Scripts -->
+    {{-- Verify Modal --}}
+    <div id="verifyModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 backdrop-blur-sm bg-black/10" data-close-verify></div>
+        <div class="relative mx-auto my-8 w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-gray-200 pb-3">
+                <h3 class="text-lg font-semibold text-gray-900">Verify Registration</h3>
+                <button type="button" class="text-gray-500 hover:text-gray-700" data-close-verify>&times;</button>
+            </div>
+            <div class="mt-4 space-y-3">
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p class="text-xs text-gray-500">Paper</p>
+                    <p id="ver-paper-title" class="text-sm font-medium text-gray-900"></p>
+                </div>
+                <div class="text-sm">
+                    <p class="text-gray-500">Digest (bytes32)</p>
+                    <p id="ver-digest" class="font-mono text-xs break-all"></p>
+                </div>
+                <div id="ver-result" class="rounded-md px-3 py-2 text-sm hidden"></div>
+            </div>
+            <div class="mt-6 flex items-center justify-end gap-3">
+                <button type="button" class="rounded-lg border px-4 py-2 hover:bg-gray-50" data-close-verify>Close</button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Styles for targetable modals (kept if you use :target elsewhere) --}}
+    <style>
+      .tgt-modal { display: none; }
+      .tgt-modal:target { display: flex; }
+    </style>
+
+    {{-- Scripts --}}
     <script src="https://unpkg.com/lucide@latest"></script>
+    {{-- Ethers.js v6 (UMD global) --}}
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.12.1/dist/ethers.umd.min.js"></script>
+
+    {{-- Register (MetaMask) --}}
+    <script>
+    (() => {
+      const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+      // Chain/Contract (Amoy)
+      const CHAIN_ID_DEC = 80002;
+      const CHAIN_ID_HEX = '0x13882';
+      const RPC_URL      = 'https://rpc-amoy.polygon.technology';
+      const CONTRACT_ADDRESS = @json(config('chain.amoy_contract', env('CONTRACT_80002', '0xYourContractHere')));
+      const CONTRACT_ABI = [
+        "function register(bytes32 digest) external",
+        "function getTimestamp(bytes32 digest) view returns (uint256)",
+        "event Registered(bytes32 indexed digest, address indexed sender, uint256 blockTime)"
+      ];
+
+      // EIP-6963-aware provider discovery (Edge-friendly)
+      let discoveredProviders = [];
+      window.addEventListener('eip6963:announceProvider', (event) => {
+        discoveredProviders.push(event.detail.provider);
+      });
+      window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+      const waitForEthereum = () =>
+        new Promise((resolve) => {
+          if (window.ethereum) return resolve(window.ethereum);
+          window.addEventListener('ethereum#initialized', () => resolve(window.ethereum), { once: true });
+          setTimeout(() => resolve(window.ethereum), 1500);
+        });
+
+      async function getMetaMaskProvider() {
+        const mm = discoveredProviders.find(p => p?.isMetaMask);
+        if (mm) return mm;
+        await waitForEthereum();
+        if (window.ethereum?.isMetaMask) return window.ethereum;
+        const list = window.ethereum?.providers;
+        if (Array.isArray(list)) {
+          const mm2 = list.find(p => p?.isMetaMask);
+          if (mm2) return mm2;
+        }
+        return window.ethereum || null;
+      }
+
+      const toBytes32Digest = (sha256Hex) => {
+        if (!sha256Hex) throw new Error('Missing sha256');
+        const h = String(sha256Hex).toLowerCase().replace(/^0x/,'');
+        if (h.length !== 64) throw new Error('sha256 must be 64 hex chars');
+        return '0x' + h;
+      };
+
+      const ensureAmoy = async (eth) => {
+        const current = await eth.request({ method: 'eth_chainId' });
+        if (current === CHAIN_ID_HEX) return;
+        try {
+          await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] });
+        } catch (err) {
+          if (err?.code === 4902) {
+            await eth.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: CHAIN_ID_HEX,
+                chainName: 'Polygon Amoy',
+                nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+                rpcUrls: [RPC_URL],
+                blockExplorerUrls: ['https://amoy.polygonscan.com/']
+              }]
+            });
+          } else { throw err; }
+        }
+      };
+
+      const saveRegistrationToServer = async ({actionUrl, wallet, txHash, chainId}) => {
+        await fetch(actionUrl, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json, text/html'},
+          body: JSON.stringify({ wallet, tx_hash: txHash, chain_id: chainId })
+        });
+      };
+      const confirmOnServer = (confirmUrl) =>
+        fetch(confirmUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': CSRF } });
+
+      // Guard against concurrent MetaMask requests
+      let MM_LOCK = false;
+
+      document.querySelectorAll('.btn-register-chain').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (MM_LOCK || btn.dataset.busy === '1') return;
+          MM_LOCK = true; btn.dataset.busy = '1'; btn.disabled = true;
+          btn.classList.add('opacity-50','pointer-events-none');
+
+          try {
+            if (!CONTRACT_ADDRESS || CONTRACT_ADDRESS === '0xYourContractHere') {
+              throw new Error('Contract address is not configured. Set CONTRACT_80002 in .env and clear config cache.');
+            }
+
+            const digest = toBytes32Digest(btn.dataset.sha);
+            const eth = await getMetaMaskProvider();
+            if (!eth) throw new Error('MetaMask provider not found in Edge. Enable the extension for all sites.');
+
+            // 1) Request accounts
+            const accounts = await eth.request({ method: 'eth_requestAccounts' });
+            const account  = accounts?.[0];
+            if (!account) throw new Error('No account selected in MetaMask.');
+
+            // 2) Ensure Amoy
+            await ensureAmoy(eth);
+
+            // 3) Send tx
+            const provider = new ethers.BrowserProvider(eth);
+            const signer   = await provider.getSigner();
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+            const tx = await contract.register(digest);
+
+            // 4) Save REGISTERED
+            await saveRegistrationToServer({
+              actionUrl: btn.dataset.action,
+              wallet: account,
+              txHash: tx.hash,
+              chainId: CHAIN_ID_DEC
+            });
+
+            // 5) Wait 1 conf → confirm on server → reload
+            const receipt = await tx.wait(1);
+            if (receipt?.status === 1) {
+              await confirmOnServer(btn.dataset.confirm);
+              location.reload();
+            } else {
+              alert('Transaction failed or reverted.');
+            }
+          } catch (e) {
+            const msg = e?.message || String(e);
+            if (e?.code === -32002 || msg.includes('already pending')) {
+              alert('A MetaMask request is already open. Finish/close it, then click Register again.');
+            } else {
+              alert(msg);
+            }
+          } finally {
+            MM_LOCK = false; btn.dataset.busy = '0'; btn.disabled = false;
+            btn.classList.remove('opacity-50','pointer-events-none');
+          }
+        }, { passive: true });
+      });
+    })();
+    </script>
+
+    {{-- Verify (read-only) --}}
+    <script>
+    (() => {
+      const RPC_URL      = 'https://rpc-amoy.polygon.technology';
+      const CONTRACT_ADDRESS = @json(config('chain.amoy_contract', env('CONTRACT_80002', '0xYourContractHere')));
+      const CONTRACT_ABI = [
+        "function register(bytes32 digest) external",
+        "function getTimestamp(bytes32 digest) view returns (uint256)",
+        "event Registered(bytes32 indexed digest, address indexed sender, uint256 blockTime)"
+      ];
+
+      const toBytes32Digest = (sha256Hex) => {
+        if (!sha256Hex) throw new Error('Missing sha256');
+        const h = String(sha256Hex).toLowerCase().replace(/^0x/,'');
+        if (h.length !== 64) throw new Error('sha256 must be 64 hex chars');
+        return '0x' + h;
+      };
+
+      const verifyModal = document.getElementById('verifyModal');
+      const verTitleEl  = document.getElementById('ver-paper-title');
+      const verDigestEl = document.getElementById('ver-digest');
+      const verResult   = document.getElementById('ver-result');
+
+      const openVerify = () => { verifyModal.classList.remove('hidden'); document.documentElement.classList.add('overflow-hidden'); };
+      const closeVerify = () => { verifyModal.classList.add('hidden'); document.documentElement.classList.remove('overflow-hidden'); };
+      verifyModal?.querySelectorAll('[data-close-verify]').forEach(el => el.addEventListener('click', closeVerify));
+      document.addEventListener('keydown', (e) => { if (!verifyModal.classList.contains('hidden') && e.key === 'Escape') closeVerify(); });
+
+      document.querySelectorAll('.btn-verify-chain').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            const digest = toBytes32Digest(btn.dataset.sha);
+            const title  = btn.dataset.title || 'Paper';
+
+            verTitleEl.textContent = title;
+            verDigestEl.textContent = digest;
+            verResult.classList.add('hidden');
+
+            const ro = new ethers.JsonRpcProvider(RPC_URL);
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, ro);
+            const ts = await contract.getTimestamp(digest); // bigint in v6
+
+            verResult.classList.remove('hidden');
+            const tsNum = typeof ts === 'bigint' ? Number(ts) : Number(ts);
+            if (tsNum > 0) {
+              const d = new Date(tsNum * 1000);
+              verResult.className = "rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700";
+              verResult.textContent = `✅ Registered on ${d.toLocaleString()}`;
+            } else {
+              verResult.className = "rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700";
+              verResult.textContent = "❌ Not found on chain";
+            }
+            openVerify();
+          } catch (e) {
+            alert(e?.message || e);
+          }
+        }, { passive: true });
+      });
+    })();
+    </script>
+
+    {{-- Details + Delete modals + icons --}}
     <script>
         lucide.createIcons();
 
-        const modal = document.getElementById("detailsModal");
-        const closeBtns = modal.querySelectorAll("[data-close-modal]");
+        // Details modal
+        const detailsModal = document.getElementById("detailsModal");
+        const detailsCloseBtns = detailsModal.querySelectorAll("[data-close-modal]");
 
         document.querySelectorAll(".btn-details").forEach(btn => {
             btn.addEventListener("click", () => {
@@ -278,69 +540,46 @@
                     document.getElementById("m-abstract-wrap").classList.add("hidden");
                 }
 
-                modal.classList.remove("hidden");
+                detailsModal.classList.remove("hidden");
+            });
+        });
+        detailsCloseBtns.forEach(btn => btn.addEventListener("click", () => detailsModal.classList.add("hidden")));
+
+        // Delete modal
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteForm  = document.getElementById('deleteForm');
+        const delTitleEl  = document.getElementById('del-title');
+        const confirmBtn  = document.getElementById('confirmDeleteBtn');
+        const spinnerEl   = document.getElementById('confirmDeleteSpinner');
+
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                const title  = btn.dataset.title || 'This research paper';
+                deleteForm.setAttribute('action', action);
+                delTitleEl.textContent = title;
+                deleteModal.classList.remove('hidden');
+                document.documentElement.classList.add('overflow-hidden');
             });
         });
 
-        closeBtns.forEach(btn => btn.addEventListener("click", () => modal.classList.add("hidden")));
+        deleteModal.querySelectorAll('[data-close-delete]').forEach(el => {
+            el.addEventListener('click', () => {
+                deleteModal.classList.add('hidden');
+                document.documentElement.classList.remove('overflow-hidden');
+            });
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (!deleteModal.classList.contains('hidden') && e.key === 'Escape') {
+                deleteModal.classList.add('hidden');
+                document.documentElement.classList.remove('overflow-hidden');
+            }
+        });
+
+        deleteForm.addEventListener('submit', () => {
+            confirmBtn.disabled = true;
+            spinnerEl.classList.remove('hidden');
+        });
     </script>
-
-
-    <style>
-  /* Base targetable modal (hidden by default) */
-  .tgt-modal { display: none; }
-  /* When the hash matches the modal's id, show it */
-  .tgt-modal:target { 
-    display: flex; 
-  }
-</style>
-
-
-
-
-<script>
-    // DELETE MODAL
-    const deleteModal = document.getElementById('deleteModal');
-    const deleteForm  = document.getElementById('deleteForm');
-    const delTitleEl  = document.getElementById('del-title');
-    const confirmBtn  = document.getElementById('confirmDeleteBtn');
-    const spinnerEl   = document.getElementById('confirmDeleteSpinner');
-
-    // Open modal with data
-    document.querySelectorAll('.btn-delete').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const action = btn.dataset.action;
-            const title  = btn.dataset.title || 'This research paper';
-
-            deleteForm.setAttribute('action', action);
-            delTitleEl.textContent = title;
-
-            deleteModal.classList.remove('hidden');
-            document.documentElement.classList.add('overflow-hidden'); // lock scroll
-        });
-    });
-
-    // Close handlers (overlay & top-right & Cancel)
-    deleteModal.querySelectorAll('[data-close-delete]').forEach(el => {
-        el.addEventListener('click', () => {
-            deleteModal.classList.add('hidden');
-            document.documentElement.classList.remove('overflow-hidden');
-        });
-    });
-
-    // Optional: ESC key to close
-    document.addEventListener('keydown', (e) => {
-        if (!deleteModal.classList.contains('hidden') && e.key === 'Escape') {
-            deleteModal.classList.add('hidden');
-            document.documentElement.classList.remove('overflow-hidden');
-        }
-    });
-
-    // Submit UX: disable button + show spinner to prevent double-submit
-    deleteForm.addEventListener('submit', () => {
-        confirmBtn.disabled = true;
-        spinnerEl.classList.remove('hidden');
-    });
-</script>
-
 </x-userlayout>

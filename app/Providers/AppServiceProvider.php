@@ -17,8 +17,9 @@ use App\Models\Announcement;
 use App\Models\ResearchPaper;
 use App\Models\Document;
 use App\Models\AdviserRequest;
-
+use Illuminate\Support\Facades\Gate;
 use App\Services\Activity;
+use App\Policies\ResearchPaperPolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,6 +30,19 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+
+        // Map the policy so Gate::authorize('update', $paper) works
+        Gate::policy(ResearchPaper::class, ResearchPaperPolicy::class);
+
+        // (Optional) Let ADMIN bypass all checks globally
+        Gate::before(function ($user, $ability) {
+            return ($user->role ?? null) === 'ADMIN' ? true : null;
+        });
+
+        /** ---------------- Blade helpers ---------------- */
+        Blade::if('admin', function () {
+            return Auth::check() && Auth::user()->role === 'ADMIN';
+        });
         /** ---------------- Blade helpers ---------------- */
         Blade::if('admin', function () {
             return Auth::check() && Auth::user()->role === 'ADMIN';

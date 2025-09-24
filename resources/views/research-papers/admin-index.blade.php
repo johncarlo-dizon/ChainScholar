@@ -94,15 +94,17 @@
      <!-- Papers Table -->
 <div class="overflow-x-auto border border-gray-200 rounded-lg">
     <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-            <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Authors</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yr</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-        </thead>
+       <thead class="bg-gray-50">
+    <tr>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Authors</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yr</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+    </tr>
+    </thead>
+
         <tbody class="bg-white divide-y divide-gray-200">
             @forelse($papers as $paper)
                 <tr>
@@ -119,42 +121,94 @@
                         {{ $paper->year }}
                     </td>
            
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3 flex items-center">
-    <!-- View PDF -->
-    <a href="{{ Storage::url($paper->file_path) }}" target="_blank"
-       class="text-indigo-600 hover:text-indigo-900" title="View PDF">
-        <i data-feather="eye" class="w-5 h-5"></i>
-    </a>
-
-    <!-- Details -->
-    <button type="button"
-            class="text-sky-600 hover:text-sky-800 btn-details"
-            title="Details"
-            data-title="{{ e($paper->title) }}"
-            data-authors="{{ e($paper->authors) }}"
-            data-department="{{ e($paper->department) }}"
-            data-program="{{ e($paper->program) }}"
-            data-year="{{ e($paper->year) }}"
-            data-user-name="{{ e(optional($paper->user)->name) }}"
-            data-user-email="{{ e(optional($paper->user)->email) }}"
-            data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
-            data-file-url="{{ Storage::url($paper->file_path) }}"
-            data-abstract="{{ e($paper->abstract ?? '') }}">
-        <i data-feather="info" class="w-5 h-5"></i>
-    </button>
-
-    <!-- Delete (opens modal) -->
-    <button
-        type="button"
-        class="text-red-600 hover:text-red-900 btn-delete"
-        title="Delete"
-        data-action="{{ route('research-papers.destroy', $paper->id) }}"
-        data-title="{{ e(Str::limit($paper->title, 80)) }}"
-    >
-        <i data-feather="trash-2" class="w-5 h-5"></i>
-    </button>
-
+              {{-- STATUS (badge + optional tx link) --}}
+<td class="px-6 py-4 whitespace-nowrap">
+  <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium
+               {{ $paper->chain_status === 'REGISTERED' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-700' }}">
+    {{ $paper->chain_status ?? 'NONE' }}
+  </span>
+  @php
+    $tx = $paper->tx_hash;
+    $explorer = match ((int)($paper->chain_id ?? 0)) {
+      80002     => 'https://amoy.polygonscan.com/tx/',
+      11155111  => 'https://sepolia.etherscan.io/tx/',
+      default   => null,
+    };
+  @endphp
+  @if($tx && $explorer)
+    <a href="{{ $explorer.$tx }}" target="_blank"
+       class="ml-2 text-xs text-indigo-600 hover:underline">View tx</a>
+  @endif
 </td>
+
+{{-- ACTIONS --}}
+<td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3 flex items-center">
+  {{-- View PDF --}}
+  <a href="{{ Storage::url($paper->file_path) }}" target="_blank"
+     class="text-indigo-600 hover:text-indigo-900 hidden" title="View PDF">
+    <i data-feather="eye" class="w-5 h-5"></i>
+  </a>
+
+  {{-- Details --}}
+  <button type="button" class="text-sky-600 hover:text-sky-800 btn-details"
+          title="Details"
+          data-title="{{ e($paper->title) }}"
+          data-authors="{{ e($paper->authors) }}"
+          data-department="{{ e($paper->department) }}"
+          data-program="{{ e($paper->program) }}"
+          data-year="{{ e($paper->year) }}"
+          data-user-name="{{ e(optional($paper->user)->name) }}"
+          data-user-email="{{ e(optional($paper->user)->email) }}"
+          data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
+          data-file-url="{{ Storage::url($paper->file_path) }}"
+          data-abstract="{{ e($paper->abstract ?? '') }}">
+    <i data-feather="info" class="w-5 h-5"></i>
+  </button>
+
+  {{-- Compute SHA-256 (server) --}}
+  <form method="POST" action="{{ route('papers.hash', $paper) }}" class="inline">
+    @csrf
+    <button class="text-gray-700 hover:text-gray-900" title="Compute SHA-256">
+      <i data-feather="hash" class="w-5 h-5"></i>
+    </button>
+  </form>
+
+  {{-- Register on-chain (MetaMask) --}}
+  @if ($paper->sha256)
+    <button type="button"
+            class="text-emerald-600 hover:text-emerald-800 btn-register-chain"
+            title="Register on-chain"
+            data-action="{{ route('papers.register', $paper) }}"
+            data-confirm="{{ route('papers.confirm', $paper) }}"
+            data-sha="{{ $paper->sha256 }}"
+            data-title="{{ e(Str::limit($paper->title, 80)) }}">
+      <i data-feather="link-2" class="w-5 h-5"></i>
+    </button>
+  @else
+    <button type="button" class="text-emerald-600 opacity-40 cursor-not-allowed" title="Compute SHA-256 first" disabled>
+      <i data-feather="link-2" class="w-5 h-5"></i>
+    </button>
+  @endif
+
+  {{-- Verify (read-only) --}}
+  <button type="button"
+          class="text-gray-700 hover:text-gray-900 btn-verify-chain"
+          title="Verify on-chain"
+          data-sha="{{ $paper->sha256 }}"
+          data-title="{{ e(Str::limit($paper->title, 80)) }}">
+    <i data-feather="shield" class="w-5 h-5"></i>
+  </button>
+
+  {{-- Delete --}}
+  <button type="button"
+          class="text-red-600 hover:text-red-900 btn-delete"
+          title="Delete"
+          data-action="{{ route('research-papers.destroy', $paper->id) }}"
+          data-title="{{ e(Str::limit($paper->title, 80)) }}">
+    <i data-feather="trash-2" class="w-5 h-5"></i>
+  </button>
+</td>
+
 
                 </tr>
             @empty
@@ -283,6 +337,33 @@
 </div>
 
 
+{{-- Verify Modal --}}
+<div id="verifyModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 backdrop-blur-sm bg-black/10" data-close-verify></div>
+  <div class="relative mx-auto my-8 w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
+    <div class="flex items-center justify-between border-b border-gray-200 pb-3">
+      <h3 class="text-lg font-semibold text-gray-900">Verify Registration</h3>
+      <button type="button" class="text-gray-500 hover:text-gray-700" data-close-verify>&times;</button>
+    </div>
+    <div class="mt-4 space-y-3">
+      <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <p class="text-xs text-gray-500">Paper</p>
+        <p id="ver-paper-title" class="text-sm font-medium text-gray-900"></p>
+      </div>
+      <div class="text-sm">
+        <p class="text-gray-500">Digest (bytes32)</p>
+        <p id="ver-digest" class="font-mono text-xs break-all"></p>
+      </div>
+      <div id="ver-result" class="rounded-md px-3 py-2 text-sm hidden"></div>
+    </div>
+    <div class="mt-6 flex items-center justify-end gap-3">
+      <button type="button" class="rounded-lg border px-4 py-2 hover:bg-gray-50" data-close-verify>Close</button>
+    </div>
+  </div>
+</div>
+
+
+
 <script>
 (function () {
     const modal = document.getElementById('detailsModal');
@@ -405,5 +486,183 @@
 })();
 </script>
 
+{{-- Feather icons --}}
+<script src="https://unpkg.com/feather-icons"></script>
+<script>feather.replace();</script>
+
+{{-- Ethers.js v6 (UMD) --}}
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.12.1/dist/ethers.umd.min.js"></script>
+
+<script>
+(() => {
+  const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+  // Chain/Contract (Polygon Amoy by default)
+  const CHAIN_ID_DEC = 80002;
+  const CHAIN_ID_HEX = '0x13882';
+  const RPC_URL      = 'https://rpc-amoy.polygon.technology';
+  const CONTRACT_ADDRESS = @json(config('chain.amoy_contract', env('CONTRACT_80002', '0xYourContractHere')));
+  const CONTRACT_ABI = [
+    "function register(bytes32 digest) external",
+    "function getTimestamp(bytes32 digest) view returns (uint256)",
+    "event Registered(bytes32 indexed digest, address indexed sender, uint256 blockTime)"
+  ];
+
+  const toBytes32Digest = (sha256Hex) => {
+    if (!sha256Hex) throw new Error('Missing sha256');
+    const h = String(sha256Hex).toLowerCase().replace(/^0x/, '');
+    if (h.length !== 64) throw new Error('sha256 must be 64 hex chars');
+    return '0x' + h;
+  };
+
+  const waitForEthereum = () =>
+    new Promise((resolve) => {
+      if (window.ethereum) return resolve(window.ethereum);
+      window.addEventListener('ethereum#initialized', () => resolve(window.ethereum), { once:true });
+      setTimeout(() => resolve(window.ethereum), 1500);
+    });
+
+  async function getMetaMaskProvider() {
+    await waitForEthereum();
+    if (window.ethereum?.isMetaMask) return window.ethereum;
+    const list = window.ethereum?.providers;
+    if (Array.isArray(list)) {
+      const mm = list.find(p => p?.isMetaMask);
+      if (mm) return mm;
+    }
+    return window.ethereum || null;
+  }
+
+  const ensureAmoy = async (eth) => {
+    const current = await eth.request({ method:'eth_chainId' });
+    if (current === CHAIN_ID_HEX) return;
+    try {
+      await eth.request({ method:'wallet_switchEthereumChain', params:[{ chainId: CHAIN_ID_HEX }] });
+    } catch (err) {
+      if (err?.code === 4902) {
+        await eth.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: CHAIN_ID_HEX,
+            chainName: 'Polygon Amoy',
+            nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+            rpcUrls: [RPC_URL],
+            blockExplorerUrls: ['https://amoy.polygonscan.com/']
+          }]
+        });
+      } else { throw err; }
+    }
+  };
+
+  const saveRegistrationToServer = ({actionUrl, wallet, txHash, chainId}) =>
+    fetch(actionUrl, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json, text/html'},
+      body: JSON.stringify({ wallet, tx_hash: txHash, chain_id: chainId })
+    });
+
+  const confirmOnServer = (confirmUrl) =>
+    fetch(confirmUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': CSRF } });
+
+  // REGISTER (admin triggers user’s paper on-chain)
+  let MM_LOCK = false;
+  document.querySelectorAll('.btn-register-chain').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (MM_LOCK || btn.dataset.busy === '1') return;
+      MM_LOCK = true; btn.dataset.busy = '1'; btn.disabled = true;
+
+      try {
+        if (!CONTRACT_ADDRESS || CONTRACT_ADDRESS === '0xYourContractHere') {
+          throw new Error('Contract address is not configured. Set CONTRACT_80002 in .env and clear config cache.');
+        }
+
+        const digest = toBytes32Digest(btn.dataset.sha);
+        const eth = await getMetaMaskProvider();
+        if (!eth) throw new Error('MetaMask provider not found. Enable the extension.');
+
+        const accounts = await eth.request({ method: 'eth_requestAccounts' });
+        const account  = accounts?.[0];
+        if (!account) throw new Error('No account selected in MetaMask.');
+
+        await ensureAmoy(eth);
+
+        const provider = new ethers.BrowserProvider(eth);
+        const signer   = await provider.getSigner();
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+        const tx = await contract.register(digest);
+
+        await saveRegistrationToServer({
+          actionUrl: btn.dataset.action,
+          wallet: account,
+          txHash: tx.hash,
+          chainId: CHAIN_ID_DEC
+        });
+
+        const receipt = await tx.wait(1);
+        if (receipt?.status === 1) {
+          await confirmOnServer(btn.dataset.confirm);
+          location.reload();
+        } else {
+          alert('Transaction failed or reverted.');
+        }
+      } catch (e) {
+        const msg = e?.message || String(e);
+        if (e?.code === -32002 || msg.includes('already pending')) {
+          alert('A MetaMask request is already open. Finish/close it, then try again.');
+        } else {
+          alert(msg);
+        }
+      } finally {
+        MM_LOCK = false; btn.dataset.busy = '0'; btn.disabled = false;
+      }
+    }, { passive:true });
+  });
+
+  // VERIFY (read-only)
+  (function(){
+    const verifyModal = document.getElementById('verifyModal');
+    const verTitleEl  = document.getElementById('ver-paper-title');
+    const verDigestEl = document.getElementById('ver-digest');
+    const verResult   = document.getElementById('ver-result');
+
+    const openVerify = () => { verifyModal.classList.remove('hidden'); document.documentElement.classList.add('overflow-hidden'); };
+    const closeVerify = () => { verifyModal.classList.add('hidden'); document.documentElement.classList.remove('overflow-hidden'); };
+    verifyModal?.querySelectorAll('[data-close-verify]').forEach(el => el.addEventListener('click', closeVerify));
+    document.addEventListener('keydown', (e) => { if (!verifyModal.classList.contains('hidden') && e.key === 'Escape') closeVerify(); });
+
+    document.querySelectorAll('.btn-verify-chain').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          const digest = toBytes32Digest(btn.dataset.sha);
+          const title  = btn.dataset.title || 'Paper';
+
+          verTitleEl.textContent = title;
+          verDigestEl.textContent = digest;
+          verResult.classList.add('hidden');
+
+          const ro = new ethers.JsonRpcProvider(RPC_URL);
+          const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, ro);
+          const ts = await contract.getTimestamp(digest);
+
+          verResult.classList.remove('hidden');
+          const tsNum = typeof ts === 'bigint' ? Number(ts) : Number(ts);
+          if (tsNum > 0) {
+            const d = new Date(tsNum * 1000);
+            verResult.className = "rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700";
+            verResult.textContent = `✅ Registered on ${d.toLocaleString()}`;
+          } else {
+            verResult.className = "rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700";
+            verResult.textContent = "❌ Not found on chain";
+          }
+          openVerify();
+        } catch (e) {
+          alert(e?.message || e);
+        }
+      }, { passive:true });
+    });
+  })();
+})();
+</script>
 
 </x-userlayout>

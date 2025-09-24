@@ -142,6 +142,22 @@ return [
             'permission' => 0644,
         ],
 
+        'pdfupload' => [
+            'driver'     => 'daily',
+            'path'       => storage_path('logs/pdfupload.log'),
+            'level'      => 'debug',
+            'days'       => 14,
+            'permission' => 0644,
+        ],
+
+        'pdfparser' => [
+            'driver'     => 'daily',
+            'path'       => storage_path('logs/pdfparser.log'),
+            'level'      => 'debug',
+            'days'       => 14,
+            'permission' => 0644,
+        ],
+
 
 
     ],

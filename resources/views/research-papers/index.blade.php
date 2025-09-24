@@ -2,37 +2,39 @@
 <x-userlayout>
 
     {{-- ===== Alerts (success / error) ===== --}}
-    @if(session('success'))
-        <div id="success-alert" class="mb-6 rounded-xl border border-green-200 bg-green-50 p-4 shadow-sm">
-            <div class="flex items-start gap-3">
-                <svg class="h-5 w-5 text-green-500 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                </svg>
-                <p class="text-sm font-medium text-green-800">{{ session('success') }}</p>
-                <button type="button" class="ml-auto inline-flex rounded-md p-1.5 text-green-600/80 hover:bg-green-100" data-dismiss="alert" aria-label="Dismiss">
-                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    @endif
+    @if(session('status'))
+  <div id="status-alert" class="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm hidden">
+    <div class="flex items-start gap-3">
+      <svg class="h-5 w-5 text-blue-500 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M18 10A8 8 0 11.001 9.999 8 8 0 0118 10zM9 5a1 1 0 012 0v4a1 1 0 01-.293.707l-2.5 2.5a1 1 0 01-1.414-1.414L9 9.586V5z" clip-rule="evenodd"/>
+      </svg>
+      <p class="text-sm font-medium text-blue-800">{{ session('status') }}</p>
+      <button type="button" class="ml-auto inline-flex rounded-md p-1.5 text-blue-600/80 hover:bg-blue-100" data-dismiss="alert" aria-label="Dismiss">
+        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+  </div>
+@endif
 
-    @if(session('error'))
-        <div id="error-alert" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
-            <div class="flex items-start gap-3">
-                <svg class="h-5 w-5 text-red-500 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                </svg>
-                <p class="text-sm font-medium text-red-800">{!! session('error') !!}</p>
-                <button type="button" class="ml-auto inline-flex rounded-md p-1.5 text-red-600/80 hover:bg-red-100" data-dismiss="alert" aria-label="Dismiss">
-                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    @endif
+
+    @if ($errors->any())
+  <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+    <div class="flex items-start gap-3">
+      <svg class="h-5 w-5 text-red-500 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+      </svg>
+      <div class="text-sm text-red-800">
+        <p class="font-medium mb-1">Please fix the following:</p>
+        <ul class="list-disc ml-5">
+          @foreach ($errors->all() as $error)
+            <li>{{ $error }}</li>
+          @endforeach
+        </ul>
+      </div>
+    </div>
+  </div>
+@endif
+
 
     {{-- ===== Page header ===== --}}
     <div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 shadow">
@@ -65,10 +67,12 @@
                         <p class="mt-1 text-sm text-gray-500">Drag & drop your file here or click to choose. Only <strong>.pdf</strong> is allowed.</p>
 
                         <label
-                            for="pdfFile"
-                            class="mt-3 block cursor-pointer rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/60 p-6 transition hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none"
-                            id="drop-area"
-                        >
+    for="pdfFile"
+    class="mt-3 block cursor-pointer rounded-xl border-2 border-dashed bg-gray-50/60 p-6 transition hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none
+    @error('fileToUpload') border-red-400 bg-red-50/50 @else border-gray-300 @enderror"
+    id="drop-area"
+>
+
                             <div class="flex flex-col items-center justify-center gap-3 text-center">
                                 <svg class="h-10 w-10 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                     <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -81,6 +85,9 @@
                             </div>
                             <input id="pdfFile" name="fileToUpload" type="file" class="sr-only" accept=".pdf" required>
                         </label>
+@error('fileToUpload')
+  <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>
+@enderror
 
                         {{-- Selected file pill + warnings --}}
                         <div class="mt-3 flex flex-wrap items-center gap-3">
