@@ -122,12 +122,21 @@
                     </td>
            
           <td class="px-6 py-4 whitespace-nowrap">
-  <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium
-    {{ $paper->chain_status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-700'
-      : ($paper->chain_status === 'REGISTERED' ? 'bg-amber-50 text-amber-700'
-      : ($paper->chain_status === 'UPLOADED' ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-700')) }}">
-    {{ $paper->chain_status ?? 'NONE' }}
-  </span>
+@php
+  $status = in_array($paper->chain_status, ['REGISTERED','CONFIRMED'], true)
+              ? 'REGISTERED'
+              : ($paper->chain_status ?? 'NONE');
+
+  $cls = match ($status) {
+    'REGISTERED' => 'bg-amber-50 text-amber-700',
+    'UPLOADED'   => 'bg-sky-50 text-sky-700',
+    default      => 'bg-gray-100 text-gray-700',
+  };
+@endphp
+<span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium {{ $cls }}">
+  {{ $status }}
+</span>
+
   @php
     $tx = $paper->tx_hash;
     $explorer = match ((int)($paper->chain_id ?? 0)) {

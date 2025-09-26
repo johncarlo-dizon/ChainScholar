@@ -87,6 +87,21 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($papers as $paper)
+                    @php
+  // Treat CONFIRMED the same as REGISTERED for display/logic
+  $displayStatus = in_array($paper->chain_status, ['REGISTERED','CONFIRMED'], true)
+      ? 'REGISTERED'
+      : ($paper->chain_status ?? 'NONE');
+
+  $isRegistered = ($displayStatus === 'REGISTERED');
+
+  $badgeClass = match ($displayStatus) {
+    'REGISTERED' => 'bg-amber-50 text-amber-700',
+    'UPLOADED'   => 'bg-sky-50 text-sky-700',
+    default      => 'bg-gray-100 text-gray-700',
+  };
+@endphp
+
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900">{{ Str::limit($paper->title, 50) }}</div>
@@ -97,9 +112,9 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $paper->program }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $paper->year }}</td>
 
-                        <td class="px-6 py-4 whitespace-nowrap">
-  <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium {{ $paper->status_badge_color }}">
-    {{ $paper->chain_status ?? 'NONE' }}
+               <td class="px-6 py-4 whitespace-nowrap">
+  <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium {{ $badgeClass }}">
+    {{ $displayStatus }}
   </span>
 
   @php $lr = $paper->lastRequest; @endphp
@@ -110,11 +125,11 @@
       Request: PENDING • {{ $paper->pendingRequest->created_at->diffForHumans() }}
     </span>
   @elseif($lr && $lr->status === 'REFUSED')
-   <span
-    class="ml-2 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-rose-50 text-rose-700"
-    title="{{ $lr->reason ? 'Reason: '.e($lr->reason) : 'No reason provided' }}">
-    Request: DECLINED
-  </span>
+    <span
+      class="ml-2 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-rose-50 text-rose-700"
+      title="{{ $lr->reason ? 'Reason: '.e($lr->reason) : 'No reason provided' }}">
+      Request: DECLINED
+    </span>
   @elseif($lr && $lr->status === 'APPROVED')
     <span class="ml-2 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700">
       Request: APPROVED
@@ -133,6 +148,7 @@
     <a href="{{ $explorer.$tx }}" target="_blank" class="ml-2 text-xs text-indigo-600 hover:underline">View tx</a>
   @endif
 </td>
+
 
 
                       <td class="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-3">
