@@ -97,94 +97,120 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $paper->program }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $paper->year }}</td>
 
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium {{ $paper->status_badge_color }}">
-                                    {{ $paper->chain_status ?? 'NONE' }}
-                                </span>
-                                @php
-                                    $tx = $paper->tx_hash;
-                                    $explorer = match ((int)($paper->chain_id ?? 0)) {
-                                        80002     => 'https://amoy.polygonscan.com/tx/',
-                                        11155111  => 'https://sepolia.etherscan.io/tx/',
-                                        default   => null,
-                                    };
-                                @endphp
-                                @if($tx && $explorer)
-                                    <a href="{{ $explorer.$tx }}" target="_blank" class="ml-2 text-xs text-indigo-600 hover:underline">
-                                        View tx
-                                    </a>
-                                @endif
-                            </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+  <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium {{ $paper->status_badge_color }}">
+    {{ $paper->chain_status ?? 'NONE' }}
+  </span>
 
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-3">
-                                {{-- View PDF --}}
-                                <a href="{{ Storage::url($paper->file_path) }}" target="_blank" class="hidden text-indigo-600 hover:text-indigo-900" title="View PDF">
-                                    <i data-lucide="eye" class="w-5 h-5"></i>
-                                </a>
+  @php $lr = $paper->lastRequest; @endphp
 
-                                {{-- Details --}}
-                                <button type="button" class="text-sky-600 hover:text-sky-800 btn-details"
-                                    title="Details"
-                                    data-title="{{ e($paper->title) }}"
-                                    data-authors="{{ e($paper->authors) }}"
-                                    data-department="{{ e($paper->department) }}"
-                                    data-program="{{ e($paper->program) }}"
-                                    data-year="{{ e($paper->year) }}"
-                                    data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
-                                    data-file-url="{{ Storage::url($paper->file_path) }}"
-                                    data-abstract="{{ e($paper->abstract ?? '') }}">
-                                    <i data-lucide="info" class="w-5 h-5"></i>
-                                </button>
+  {{-- Request state for students/advisers --}}
+  @if($paper->pendingRequest)
+    <span class="ml-2 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-yellow-50 text-yellow-700">
+      Request: PENDING • {{ $paper->pendingRequest->created_at->diffForHumans() }}
+    </span>
+  @elseif($lr && $lr->status === 'REFUSED')
+   <span
+    class="ml-2 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-rose-50 text-rose-700"
+    title="{{ $lr->reason ? 'Reason: '.e($lr->reason) : 'No reason provided' }}">
+    Request: DECLINED
+  </span>
+  @elseif($lr && $lr->status === 'APPROVED')
+    <span class="ml-2 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700">
+      Request: APPROVED
+    </span>
+  @endif
 
-                                {{-- Compute SHA-256 (server) --}}
-                                <form method="POST" action="{{ route('papers.hash', $paper) }}">
-                                    @csrf
-                                    <button class="text-gray-700 hover:text-gray-900" title="Compute SHA-256">
-                                        <i data-lucide="hash" class="w-5 h-5"></i>
-                                    </button>
-                                </form>
+  @php
+    $tx = $paper->tx_hash;
+    $explorer = match ((int)($paper->chain_id ?? 0)) {
+        80002 => 'https://amoy.polygonscan.com/tx/',
+        11155111 => 'https://sepolia.etherscan.io/tx/',
+        default => null,
+    };
+  @endphp
+  @if($tx && $explorer)
+    <a href="{{ $explorer.$tx }}" target="_blank" class="ml-2 text-xs text-indigo-600 hover:underline">View tx</a>
+  @endif
+</td>
 
-                                {{-- Register on-chain (MetaMask) --}}
-                                @if ($paper->sha256)
-                                    <button
-                                      type="button"
-                                      class="text-emerald-600 hover:text-emerald-800 btn-register-chain"
-                                      title="Register on-chain"
-                                      data-action="{{ route('papers.register', $paper) }}"
-                                      data-confirm="{{ route('papers.confirm', $paper) }}"
-                                      data-sha="{{ $paper->sha256 }}"
-                                      data-title="{{ e(Str::limit($paper->title, 80)) }}"
-                                    >
-                                      <i data-lucide="link-2" class="w-5 h-5"></i>
-                                    </button>
-                                @else
-                                    <button type="button" class="text-emerald-600 opacity-40 cursor-not-allowed" title="Compute SHA-256 first" disabled>
-                                        <i data-lucide="link-2" class="w-5 h-5"></i>
-                                    </button>
-                                @endif
 
-                                {{-- Verify (read-only) --}}
-                                <button
-                                  type="button"
-                                  class="text-gray-700 hover:text-gray-900 btn-verify-chain"
-                                  title="Verify on-chain"
-                                  data-sha="{{ $paper->sha256 }}"
-                                  data-title="{{ e(Str::limit($paper->title, 80)) }}"
-                                >
-                                  <i data-lucide="shield-check" class="w-5 h-5"></i>
-                                </button>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-3">
+  {{-- View PDF (kept hidden as before) --}}
+  <a href="{{ Storage::url($paper->file_path) }}" target="_blank" class="hidden text-indigo-600 hover:text-indigo-900" title="View PDF">
+    <i data-lucide="eye" class="w-5 h-5"></i>
+  </a>
 
-                                {{-- Delete --}}
-                                <button
-                                    type="button"
-                                    class="text-red-600 hover:text-red-900 btn-delete"
-                                    title="Delete"
-                                    data-action="{{ route('research-user-papers.destroy', $paper->id) }}"
-                                    data-title="{{ e(Str::limit($paper->title, 80)) }}"
-                                >
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                </button>
-                            </td>
+  {{-- Details --}}
+  <button type="button" class="text-sky-600 hover:text-sky-800 btn-details"
+    title="Details"
+    data-title="{{ e($paper->title) }}"
+    data-authors="{{ e($paper->authors) }}"
+    data-department="{{ e($paper->department) }}"
+    data-program="{{ e($paper->program) }}"
+    data-year="{{ e($paper->year) }}"
+    data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
+    data-file-url="{{ Storage::url($paper->file_path) }}"
+    data-abstract="{{ e($paper->abstract ?? '') }}">
+    <i data-lucide="info" class="w-5 h-5"></i>
+  </button>
+
+  @if(auth()->user()->isAdmin())
+      {{-- ADMIN: show server hash (if NOT hashed), register (if hashed & not registered), verify, delete --}}
+      @if (!$paper->sha256)
+        <form method="POST" action="{{ route('papers.hash', $paper) }}">
+          @csrf
+          <button class="text-gray-700 hover:text-gray-900" title="Compute SHA-256">
+            <i data-lucide="hash" class="w-5 h-5"></i>
+          </button>
+        </form>
+      @endif
+
+      @if ($paper->sha256 && $paper->chain_status !== 'REGISTERED' && $paper->chain_status !== 'CONFIRMED')
+        <button type="button"
+          class="text-emerald-600 hover:text-emerald-800 btn-register-chain"
+          title="Register on-chain"
+          data-action="{{ route('papers.register', $paper) }}"
+          data-confirm="{{ route('papers.confirm', $paper) }}"
+          data-sha="{{ $paper->sha256 }}"
+          data-title="{{ e(Str::limit($paper->title, 80)) }}"
+          @if($paper->pendingRequest) data-request-id="{{ $paper->pendingRequest->id }}" @endif
+        >
+          <i data-lucide="link-2" class="w-5 h-5"></i>
+        </button>
+      @endif
+  @else
+      {{-- STUDENT/ADVISER: only request (hide raw hash/register). Hide if pending or already registered/confirmed --}}
+     @if (!$paper->pendingRequest && $paper->chain_status !== 'REGISTERED' && $paper->chain_status !== 'CONFIRMED')
+    <button type="button"
+            class="text-indigo-600 hover:text-indigo-800 btn-open-request"
+            title="Request blockchain submission"
+            data-action="{{ route('papers.requests.store', $paper) }}"
+            data-title="{{ e(Str::limit($paper->title, 80)) }}">
+      <i data-lucide="send" class="w-5 h-5"></i>
+    </button>
+     @endif
+  @endif
+
+  {{-- Verify (read-only) --}}
+  <button type="button"
+    class="text-gray-700 hover:text-gray-900 btn-verify-chain"
+    title="Verify on-chain"
+    data-sha="{{ $paper->sha256 }}"
+    data-title="{{ e(Str::limit($paper->title, 80)) }}">
+    <i data-lucide="shield-check" class="w-5 h-5"></i>
+  </button>
+
+  {{-- Delete --}}
+  <button type="button"
+    class="text-red-600 hover:text-red-900 btn-delete"
+    title="Delete"
+    data-action="{{ route('research-user-papers.destroy', $paper->id) }}"
+    data-title="{{ e(Str::limit($paper->title, 80)) }}">
+    <i data-lucide="trash-2" class="w-5 h-5"></i>
+  </button>
+</td>
+
                         </tr>
                     @empty
                         <tr>
@@ -297,6 +323,46 @@
         </div>
     </div>
 
+
+    <!-- Request Blockchain Submission Modal -->
+<div id="requestModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 backdrop-blur-sm bg-black/10" data-close-request></div>
+  <div class="relative mx-auto my-8 w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
+    <div class="flex items-center justify-between border-b border-gray-200 pb-3">
+      <h3 class="text-lg font-semibold text-gray-900">Request Blockchain Submission</h3>
+      <button type="button" class="text-gray-500 hover:text-gray-700" data-close-request>&times;</button>
+    </div>
+
+    <form id="requestForm" method="POST" action="">
+      @csrf
+      <div class="mt-4 space-y-3 text-sm">
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p class="text-xs text-gray-500">Paper</p>
+          <p id="req-paper-title" class="text-sm font-medium text-gray-900"></p>
+        </div>
+        <div class="rounded-md bg-sky-50 px-3 py-2 text-sky-700">
+          This will notify the admins. You’ll see the status here as <strong>Pending</strong> until they act.
+        </div>
+      </div>
+
+      <div class="mt-6 flex items-center justify-end gap-3">
+        <button type="button" class="rounded-lg border px-4 py-2 hover:bg-gray-50" data-close-request>Cancel</button>
+        <button id="requestConfirmBtn" type="submit"
+                class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+          <svg id="requestSpinner" class="mr-2 hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+            <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+          </svg>
+          Send Request
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+ 
+
+
     {{-- Styles for targetable modals (kept if you use :target elsewhere) --}}
     <style>
       .tgt-modal { display: none; }
@@ -307,6 +373,64 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     {{-- Ethers.js v6 (UMD global) --}}
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.12.1/dist/ethers.umd.min.js"></script>
+
+
+<script>
+(() => {
+  // Request modal
+  const reqModal = document.getElementById('requestModal');
+  const reqForm  = document.getElementById('requestForm');
+  const reqTitle = document.getElementById('req-paper-title');
+  const reqBtn   = document.getElementById('requestConfirmBtn');
+  const reqSpin  = document.getElementById('requestSpinner');
+
+  const openRequest = (action, title) => {
+    reqForm.setAttribute('action', action);
+    reqTitle.textContent = title || 'This paper';
+    reqModal.classList.remove('hidden');
+    document.documentElement.classList.add('overflow-hidden');
+  };
+  const closeRequest = () => {
+    reqModal.classList.add('hidden');
+    document.documentElement.classList.remove('overflow-hidden');
+  };
+
+  document.querySelectorAll('.btn-open-request').forEach(btn => {
+    btn.addEventListener('click', () => openRequest(btn.dataset.action, btn.dataset.title));
+  });
+  reqModal.querySelectorAll('[data-close-request]').forEach(el => el.addEventListener('click', closeRequest));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !reqModal.classList.contains('hidden')) closeRequest(); });
+
+  reqForm.addEventListener('submit', () => {
+    reqBtn.disabled = true; reqSpin.classList.remove('hidden');
+  });
+
+  // Decline reason modal
+  const reasonModal = document.getElementById('reasonModal');
+  const reasonText  = document.getElementById('declineReasonText');
+  const openReason  = (text) => {
+    reasonText.textContent = text || 'No reason provided.';
+    reasonModal.classList.remove('hidden');
+    document.documentElement.classList.add('overflow-hidden');
+  };
+  const closeReason = () => {
+    reasonModal.classList.add('hidden');
+    document.documentElement.classList.remove('overflow-hidden');
+  };
+
+  document.querySelectorAll('.btn-view-reason').forEach(btn => {
+    btn.addEventListener('click', () => openReason(btn.dataset.reason));
+  });
+  reasonModal.querySelectorAll('[data-close-reason]').forEach(el => el.addEventListener('click', closeReason));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !reasonModal.classList.contains('hidden')) closeReason(); });
+})();
+</script>
+
+
+
+
+
+
 
     {{-- Register (MetaMask) --}}
     <script>

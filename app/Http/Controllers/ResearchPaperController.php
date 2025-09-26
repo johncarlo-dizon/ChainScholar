@@ -27,23 +27,24 @@ class ResearchPaperController extends Controller
     /** Student list */
     public function viewStudentPdf(Request $request)
     {
-        $user = $request->user();
+         $user = $request->user();
 
-        $papers = ResearchPaper::where('user_id', $user->id)
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $s = $request->string('search');
-                $q->where(function ($qq) use ($s) {
-                    $qq->where('title', 'like', "%{$s}%")
-                       ->orWhere('authors', 'like', "%{$s}%")
-                       ->orWhere('abstract', 'like', "%{$s}%");
-                });
-            })
-            ->when($request->filled('department'), fn ($q) => $q->where('department', $request->string('department')))
-            ->when($request->filled('program'),    fn ($q) => $q->where('program',    $request->string('program')))
-            ->when($request->filled('year'),       fn ($q) => $q->where('year',       (int) $request->input('year')))
-            ->orderByDesc('created_at')
-            ->paginate(10)
-            ->withQueryString();
+    $papers = ResearchPaper::with(['pendingRequest','lastRequest']) // <-- add this
+        ->where('user_id', $user->id)
+        ->when($request->filled('search'), function ($q) use ($request) {
+            $s = $request->string('search');
+            $q->where(function ($qq) use ($s) {
+                $qq->where('title', 'like', "%{$s}%")
+                   ->orWhere('authors', 'like', "%{$s}%")
+                   ->orWhere('abstract', 'like', "%{$s}%");
+            });
+        })
+        ->when($request->filled('department'), fn ($q) => $q->where('department', $request->string('department')))
+        ->when($request->filled('program'),    fn ($q) => $q->where('program',    $request->string('program')))
+        ->when($request->filled('year'),       fn ($q) => $q->where('year',       (int) $request->input('year')))
+        ->orderByDesc('created_at')
+        ->paginate(10)
+        ->withQueryString();
 
         // distinct(column) → use select()->distinct()
         $departments = ResearchPaper::select('department')

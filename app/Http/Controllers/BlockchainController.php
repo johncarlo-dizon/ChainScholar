@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ResearchPaper;
+use App\Models\Notification;
+use App\Models\User;
 use App\Services\ChainRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -12,9 +14,8 @@ class BlockchainController extends Controller
 {
     public function computeHash(ResearchPaper $paper)
     {
-        if (auth()->id() !== $paper->user_id && !auth()->user()?->isAdmin()) {
-    abort(403);
-}
+         abort_unless(auth()->user()?->isAdmin(), 403);
+
 
 
         // Compute sha256 from stored file
@@ -32,14 +33,13 @@ class BlockchainController extends Controller
         $paper->chain_status = ResearchPaper::STATUS_UPLOADED;
         $paper->save();
 
-        return back()->with('success','SHA-256 computed.');
+        return back()->with('status','SHA-256 computed.');
     }
 
     public function saveRegistration(Request $req, ResearchPaper $paper)
     {
-          if (auth()->id() !== $paper->user_id && !auth()->user()?->isAdmin()) {
-        abort(403);
-    }
+          abort_unless(auth()->user()?->isAdmin(), 403);
+
 
 
         $data = $req->validate([
@@ -53,29 +53,53 @@ class BlockchainController extends Controller
             'tx_hash'     => strtolower($data['tx_hash']),
             'chain_id'    => $data['chain_id'],
             'chain_status'=> ResearchPaper::STATUS_REGISTERED,
-        ])->save();
+       ])->save();
 
-        return back()->with('success','Registration saved. Awaiting confirmation.');
+// Notify paper owner
+Notification::create([
+    'user_id' => $paper->user_id,
+    'title'   => 'On-chain registration saved',
+    'message' => "Your paper '{$paper->title}' was registered on-chain (tx {$paper->tx_hash}). Awaiting confirmations.",
+]);
+
+return back()->with('status','Registration saved. Awaiting confirmation.');
+
     }
 
     public function confirm(ResearchPaper $paper, ChainRegistry $chain)
     {
-     if (auth()->id() !== $paper->user_id && !auth()->user()?->isAdmin()) {
-    abort(403);
-}
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
 
         $res = $chain->confirm($paper);
         if (!($res['ok'] ?? false)) {
             return back()->with('error', $res['error'] ?? 'Confirmation failed');
         }
 
-        if ($res['confirmed'] ?? false) {
-            return back()->with('success', 'Transaction confirmed on-chain (block '.$res['block'].').');
+       if ($res['confirmed'] ?? false) {
+       // Notify owner
+            Notification::create([
+                'user_id' => $paper->user_id,
+                'title'   => 'On-chain confirmation',
+                'message' => "Your paper '{$paper->title}' is confirmed on-chain (block {$res['block']}).",
+            ]);
+            return back()->with('status', 'Transaction confirmed on-chain (block '.$res['block'].').');
         }
         if ($res['pending'] ?? false) {
-            return back()->with('info', 'Still pending… try again shortly.');
+            Notification::create([
+                'user_id' => $paper->user_id,
+                'title'   => 'On-chain pending',
+                'message' => "Your paper '{$paper->title}' is still pending confirmation.",
+            ]);
+            return back()->with('status', 'Still pending… try again shortly.');
         }
 
-        return back()->with('error', 'Transaction failed on-chain.');
+        Notification::create([
+            'user_id' => $paper->user_id,
+            'title'   => 'On-chain failed',
+            'message' => "Your paper '{$paper->title}' transaction failed on-chain.",
+        ]);
+        return back()->with('status', 'Transaction failed on-chain.');
+
     }
 }

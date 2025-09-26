@@ -29,12 +29,17 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use App\Http\Controllers\AdviserProfileController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BlockchainController;
-
+use App\Http\Controllers\BlockchainRequestController;
 
 Route::middleware(['auth'])->group(function () {
     Route::post('/papers/{paper}/hash',     [BlockchainController::class, 'computeHash'])->name('papers.hash');
     Route::post('/papers/{paper}/register', [BlockchainController::class, 'saveRegistration'])->name('papers.register');
     Route::post('/papers/{paper}/confirm',  [BlockchainController::class, 'confirm'])->name('papers.confirm');
+    Route::post('/papers/{paper}/requests', [BlockchainRequestController::class, 'store'])->name('papers.requests.store');
+Route::post('/requests/{br}/approve', [BlockchainRequestController::class, 'approve'])->name('requests.approve');
+Route::post('/requests/{br}/decline', [BlockchainRequestController::class, 'decline'])->name('requests.decline');
+
+
 });
 
 

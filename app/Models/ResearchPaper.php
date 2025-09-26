@@ -59,4 +59,23 @@ class ResearchPaper extends Model
             default                 => 'bg-gray-100 text-gray-700',
         };
     }
+
+    public function requests()
+    {
+        return $this->hasMany(\App\Models\BlockchainRequest::class, 'paper_id');
+    }
+
+    public function pendingRequest()
+    {
+        return $this->hasOne(\App\Models\BlockchainRequest::class, 'paper_id')
+            ->where('status', 'PENDING')
+            ->latestOfMany();
+    }
+
+
+    public function lastRequest()
+    {
+        return $this->hasOne(\App\Models\BlockchainRequest::class, 'paper_id')->latestOfMany();
+    }
+
 }
