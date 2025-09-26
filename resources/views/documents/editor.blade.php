@@ -772,19 +772,25 @@ const saveBtn   = document.getElementById('saveBtn');
 const submitBtn = document.getElementById('submitBtn');
 const resultBox = document.getElementById('plagiarism-result');
 
-function setButtonsDisabled(disabled, reason = '') {
-  [saveBtn, submitBtn].forEach(btn => {
-    if (!btn) return;
-    btn.disabled = disabled;
-    btn.classList.toggle('opacity-50', disabled);
-    btn.classList.toggle('cursor-not-allowed', disabled);
-    btn.classList.toggle('hover:bg-blue-700', !disabled);
-  });
+function setSubmitDisabled(disabled, reason = '') {
+  if (submitBtn) {
+    submitBtn.disabled = disabled;
+    submitBtn.classList.toggle('opacity-50', disabled);
+    submitBtn.classList.toggle('cursor-not-allowed', disabled);
+    submitBtn.classList.toggle('hover:bg-blue-700', !disabled);
+  }
+  // Save is ALWAYS enabled now
+  if (saveBtn) {
+    saveBtn.disabled = false;
+    saveBtn.classList.remove('opacity-50','cursor-not-allowed');
+    saveBtn.classList.add('hover:bg-blue-700');
+  }
   if (resultBox) {
     resultBox.classList.remove('hidden');
     resultBox.innerHTML = reason ? `<span class="text-gray-600">${reason}</span>` : '';
   }
 }
+
 
 function buildGateReason() {
   const hasInternal = typeof window.__internalScore === 'number';
@@ -808,14 +814,16 @@ function updatePlagGate(optionalReason) {
   const externalOk  = hasExternal && window.__externalScore < PASS_THRESHOLD;
   const enabled     = internalOk && externalOk;
 
-  setButtonsDisabled(!enabled, enabled ? '' : (optionalReason || buildGateReason()));
+  setSubmitDisabled(!enabled, enabled ? '' : (optionalReason || buildGateReason()));
+
 
   // Show combined status line
   if (resultBox) {
     const internalTxt = hasInternal ? `${window.__internalScore}%` : '—';
     const externalTxt = hasExternal ? `${window.__externalScore}%` : '—';
-    const allOk       = enabled ? `<span class="text-green-600">Ready to save/submit ✅</span>` :
-                                   `<span class="text-red-600">Not ready</span>`;
+    const allOk       = enabled ? `<span class="text-green-600">Ready to upload ✅</span>` :
+                               `<span class="text-red-600">Not ready to upload</span>`;
+
     resultBox.classList.remove('hidden');
     resultBox.innerHTML =
       `<div class="text-sm">
@@ -842,7 +850,8 @@ function getEditorVisibleTextLength() {
 async function checkPlagiarism() {
   const html = getEditorHTML();
   if (html === null) {
-    setButtonsDisabled(true, 'Editor not ready yet…');
+      setSubmitDisabled(true, 'Editor not ready yet…');
+
     return;
   }
   if (getEditorVisibleTextLength() < MIN_CHARS_TO_CHECK) {
