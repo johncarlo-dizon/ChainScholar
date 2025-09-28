@@ -75,12 +75,14 @@
 
            {{-- Chips --}}
 @php
-  $requestable    = is_null($t->primary_adviser_id) && in_array($t->status, ['verified','awaiting_adviser']);
-  $sentPending    = !empty($t->has_my_pending_request);
-  $sentAccepted   = !empty($t->has_my_accepted_request);
-  $assignedNow    = !is_null($t->primary_adviser_id);
-  $assignedToMe   = $assignedNow && ((int)$t->primary_adviser_id === (int)auth()->id());
+  $requestable      = is_null($t->primary_adviser_id) && in_array($t->status, ['verified','awaiting_adviser']);
+  $sentPending      = !empty($t->has_my_pending_request);          // YOU → student (pending)
+  $sentAccepted     = !empty($t->has_my_accepted_request);         // YOU → student (accepted)
+  $studentInvited   = !empty($t->has_student_pending_invite);      // student → YOU (pending)
+  $assignedNow      = !is_null($t->primary_adviser_id);
+  $assignedToMe     = $assignedNow && ((int)$t->primary_adviser_id === (int)auth()->id());
 @endphp
+
 
 <div class="text-xs mt-2 flex flex-wrap gap-2">
   <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">{{ $t->status }}</span>
@@ -105,13 +107,18 @@
   @if($sentAccepted)
     <span class="px-2 py-0.5 rounded bg-green-100 text-green-800">You were accepted</span>
   @endif
+  @if($studentInvited)
+  <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800">Student invited you</span>
+@endif
+
 </div>
 
           </div>
 
           {{-- Right-side action --}}
           <div class="shrink-0">
-            @if($requestable && !$sentPending && !$sentAccepted)
+           @if($requestable && !$sentPending && !$sentAccepted && !$studentInvited)
+
               <form method="POST" action="{{ route('adviser.titles.request', $t) }}">
                 @csrf
                 <button class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
@@ -123,6 +130,18 @@
                       title="{{ $sentAccepted ? 'Already accepted for you.' : 'You already sent a request.' }}">
                 {{ $sentAccepted ? 'Already Accepted' : 'Request Sent' }}
               </button>
+              @elseif($requestable && $studentInvited)
+  <div class="flex items-center gap-2">
+    <button class="px-4 py-2 bg-gray-200 text-gray-600 rounded cursor-not-allowed" disabled
+            title="Student already invited you for this title. Review on Pending.">
+      Student invited you
+    </button>
+    <a href="{{ route('adviser.requests.pending') }}"
+      class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+      Review
+    </a>
+  </div>
+
             @else
               <button class="px-4 py-2 bg-gray-200 text-gray-600 rounded cursor-not-allowed" disabled
                     title="{{ $assignedNow ? ($assignedToMe ? 'You are the assigned adviser.' : 'Already assigned to another adviser.') : 'Not requestable right now.' }}">

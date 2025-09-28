@@ -86,12 +86,26 @@ class AdviserController extends Controller
             ->when($assign === 'unassigned', fn ($q) => $q->whereNull('primary_adviser_id'))
             ->when($assign === 'assigned', fn ($q) => $q->whereNotNull('primary_adviser_id'))
             // Flags for this adviser
-            ->withExists(['adviserRequests as has_my_pending_request' => function ($r) use ($user) {
-                $r->where('adviser_id', $user->id)->where('status', 'pending')->whereNull('decided_at');
-            }])
-            ->withExists(['adviserRequests as has_my_accepted_request' => function ($r) use ($user) {
-                $r->where('adviser_id', $user->id)->where('status', 'accepted');
-            }])
+           // Only requests YOU initiated (adviser → student)
+->withExists(['adviserRequests as has_my_pending_request' => function ($r) use ($user) {
+    $r->where('adviser_id', $user->id)
+      ->where('requested_by', 'adviser')
+      ->where('status', 'pending')
+      ->whereNull('decided_at');
+}])
+->withExists(['adviserRequests as has_my_accepted_request' => function ($r) use ($user) {
+    $r->where('adviser_id', $user->id)
+      ->where('requested_by', 'adviser')
+      ->where('status', 'accepted');
+}])
+// Student invited YOU (student → adviser)
+->withExists(['adviserRequests as has_student_pending_invite' => function ($r) use ($user) {
+    $r->where('adviser_id', $user->id)
+      ->where('requested_by', 'student')
+      ->where('status', 'pending')
+      ->whereNull('decided_at');
+}])
+
             ->with(['owner','primaryAdviser']) // to show "Assigned to: ..."
             // Sorting
             ->when($orderBy === 'title', fn ($q) => $q->orderBy('title'))

@@ -291,7 +291,9 @@
         <form action="{{ route('documents.submit', ['title_id' => $document->title_id]) }}" method="POST" enctype="multipart/form-data" id="submit-final-form">
             @csrf
     <input type="hidden" name="finaldocument_id" value="{{ $document->id }}">
-   
+    <input type="hidden" name="plagiarism_internal" id="plagInternal" value="">
+    <input type="hidden" name="plagiarism_external" id="plagExternal" value="">
+
 
 
       <div class="space-y-5">
@@ -527,6 +529,14 @@ function prepareFinalContent() {
 
     // Set to hidden field
     document.getElementById('finalContent').value = cleanHtml;
+    // Push plagiarism scores captured by the checkers:
+    const pInt = (typeof window.__internalScore === 'number') ? window.__internalScore : '';
+    const pExt = (typeof window.__externalScore === 'number') ? window.__externalScore : '';
+    const intEl = document.getElementById('plagInternal');
+    const extEl = document.getElementById('plagExternal');
+    if (intEl) intEl.value = pInt;
+    if (extEl) extEl.value = pExt;
+
 
     return true;
 }
@@ -796,8 +806,8 @@ function buildGateReason() {
   const hasInternal = typeof window.__internalScore === 'number';
   const hasExternal = typeof window.__externalScore === 'number';
   const lines = [];
-  if (!hasInternal) lines.push('Run the internal checker.');
-  if (!hasExternal) lines.push('Run the external (Copyleaks) checker.');
+  if (!hasInternal) lines.push('Internal check.');
+  if (!hasExternal) lines.push('External check.');
   if (hasInternal && window.__internalScore >= PASS_THRESHOLD) {
     lines.push(`Internal score ${window.__internalScore}% must be below ${PASS_THRESHOLD}%.`);
   }

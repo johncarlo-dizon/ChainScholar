@@ -5,11 +5,7 @@
     </div>
 
     <div class="container mx-auto px-4 mt-4">
-        @if(session('success'))
-            <div class="mb-4 p-4 bg-green-100 text-green-800 rounded">
-                {{ session('success') }}
-            </div>
-        @endif
+ 
 
         <div class="bg-white shadow rounded-lg overflow-hidden">
             @if($titles->isEmpty())

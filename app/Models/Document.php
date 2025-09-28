@@ -12,9 +12,18 @@ class Document extends Model
         'chapter',
         'content',
         'file_path',
+        'plagiarism_internal',   // NEW
+        'plagiarism_external', 
         'plagiarism_score',
         'format',
     ];
+
+
+    protected $casts = [
+        'plagiarism_internal' => 'float',
+        'plagiarism_external' => 'float',
+    ];
+
 
     public function user()
     {

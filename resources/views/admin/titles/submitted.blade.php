@@ -51,39 +51,78 @@
             @else
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted At</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                        </thead>
+        <thead class="bg-gray-50">
+  <tr>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Authors</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted At</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Similarity</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+  </tr>
+</thead>
+
+
                         <tbody class="bg-white divide-y divide-gray-200">
-                            @foreach($titles as $t)
-                                <tr>
-                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                                        {{ $t->title }}
-                                    </td>
-                                    <td class="px-6 py-4 text-sm text-gray-700">
-                                        {{ optional($t->owner)->name ?? '—' }}
-                                    </td>
-                                    <td class="px-6 py-4 text-sm text-gray-500">
-                                        {{ optional($t->submitted_at)->format('M d, Y h:i A') ?? '—' }}
-                                    </td>
-                                    <td class="px-6 py-4 text-sm">
-                                        @if($t->finalDocument)
-                                            <a href="{{ route('admin.titles.submitted.view', $t->finalDocument) }}"
-                                               class="inline-flex items-center px-3 py-1.5 border border-indigo-600 text-indigo-600 rounded hover:bg-indigo-50">
-                                                View
-                                            </a>
-                                        @else
-                                            <span class="text-gray-500">No final document attached</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
+@foreach($titles as $t)
+  <tr>
+  <td class="px-6 py-4 text-sm font-medium text-gray-900">
+    {{ $t->title }}
+  </td>
+
+  <td class="px-6 py-4 text-sm text-gray-700">
+    {{ $t->authors ?? '—' }}
+  </td>
+
+  <td class="px-6 py-4 text-sm text-gray-700">
+    {{ optional($t->owner)->name ?? '—' }}
+  </td>
+
+  <td class="px-6 py-4 text-sm text-gray-500">
+    {{ optional($t->submitted_at)->format('M d, Y h:i A') ?? '—' }}
+  </td>
+
+  <td class="px-6 py-4 text-sm">
+    @if($t->finalDocument)
+      @php
+        $int = $t->finalDocument->plagiarism_internal;
+        $ext = $t->finalDocument->plagiarism_external;
+
+        $badge = function($v){
+          if ($v === null) return 'bg-gray-100 text-gray-600';
+          if ($v < 20)     return 'bg-green-100 text-green-800';
+          if ($v < 40)     return 'bg-yellow-100 text-yellow-800';
+          return            'bg-red-100 text-red-800';
+        };
+      @endphp
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $badge($int) }}">
+          Int: {{ is_null($int) ? '—' : number_format($int, 2) . '%' }}
+        </span>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $badge($ext) }}">
+          Ext: {{ is_null($ext) ? '—' : number_format($ext, 2) . '%' }}
+        </span>
+      </div>
+    @else
+      —
+    @endif
+  </td>
+
+  <td class="px-6 py-4 text-sm">
+    @if($t->finalDocument)
+      <a href="{{ route('admin.titles.submitted.view', $t->finalDocument) }}"
+             class="text-indigo-600 hover:text-indigo-900 mr-3 text-sm font-medium">
+        View
+      </a>
+    @else
+      <span class="text-gray-500">No final document</span>
+    @endif
+  </td>
+</tr>
+
+@endforeach
+</tbody>
+
                     </table>
                 </div>
 

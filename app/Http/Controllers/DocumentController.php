@@ -154,12 +154,15 @@ public function __construct(private PlagiarismService $plag) {}
    public function submitFinal(Request $request, $title_id)
     {
     $request->validate([
-        'finaldocument_id' => 'required|exists:documents,id',
-        'authors'          => 'required|string',
-        'abstract'         => 'required|string',
-        'research_type'    => 'required|string',
-        'final_content'    => 'nullable|string',
+        'finaldocument_id'     => 'required|exists:documents,id',
+        'authors'              => 'required|string',
+        'abstract'             => 'required|string',
+        'research_type'        => 'required|string',
+        'final_content'        => 'nullable|string',
+        'plagiarism_internal'  => 'nullable|numeric|min:0|max:100',
+        'plagiarism_external'  => 'nullable|numeric|min:0|max:100',
     ]);
+
 
     $title = Title::findOrFail($title_id);
     $document = Document::findOrFail($request->finaldocument_id);
@@ -176,15 +179,28 @@ public function __construct(private PlagiarismService $plag) {}
     }
 
     $finalHtml = $request->final_content ?? $document->content;
-    $plagPct = $this->plag->quickScore($finalHtml, $document);   // in submitFinal
+    // Internal score (fallback if no posted value)
+    $plagPct  = $this->plag->quickScore($finalHtml, $document);
+
+    // Use the posted numbers if present (set by hidden inputs on upload)
+    $internal = is_numeric($request->plagiarism_internal) ? (float) $request->plagiarism_internal : (float) $plagPct;
+    $external = is_numeric($request->plagiarism_external) ? (float) $request->plagiarism_external : null;
+
   
 
-    DB::transaction(function () use ($document, $title, $finalHtml, $plagPct, $request) {
+    DB::transaction(function () use ($document, $title, $finalHtml, $plagPct, $internal, $external, $request) {
+
         // ✅ Update the chosen chapter/content & similarity
-        $document->update([
-            'content'           => $finalHtml,
-            'plagiarism_score'  => $plagPct,
-        ]);
+       $document->update([
+    'content'              => $finalHtml,
+    // keep legacy field for compatibility
+    'plagiarism_score'     => round((float)$internal, 2),
+    // new detailed fields
+    'plagiarism_internal'  => isset($internal) ? round((float)$internal, 2) : null,
+    'plagiarism_external'  => isset($external) ? round((float)$external, 2) : null,
+]);
+
+
 
         // ✅ Mark the Title as submitted (no admin approval stage)
         $title->update([
@@ -203,7 +219,7 @@ public function __construct(private PlagiarismService $plag) {}
 
     return redirect()
         ->route('titles.index')
-        ->with('success', "Final document submitted! Similarity: {$plagPct}%");
+        ->with('status', "Final document submitted! Similarity: {$plagPct}%");
 }
 
 

@@ -137,7 +137,7 @@
 
                         <li>
                             <a href="{{ route('admin.titles.submitted') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.submitted','admin.titles.submitted.view','admin.documents.review') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.submitted','admin.titles.submitted.view','admin.documents.review','documents.submitted') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="inbox" class="w-4 h-4 mr-3"></i>
                                 Submitted Titles
                             </a>
@@ -206,7 +206,7 @@
 
     <li>
         <a href="{{ route('adviser.advised.index') }}"
-           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.advised.*') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.advised.*','documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="bookmark" class="w-4 h-4 mr-3"></i>
             My Advised Titles
         </a>

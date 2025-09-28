@@ -56,14 +56,39 @@
             {{ ucfirst($document->titleRelation->status) }}
         </span>
     </p>
-    <p><span class="font-semibold">Plagiarism Score:</span> {{ $document->plagiarism_score ?? '—' }}%</p>
+    @php
+  // Prefer new fields; fall back to legacy score for internal
+  $int = $document->plagiarism_internal ?? $document->plagiarism_score;
+  $ext = $document->plagiarism_external;
+
+  // severity colors: <20 green, 20–39 yellow, 40+ red; null = gray
+  $cls = function($v){
+    if ($v === null) return 'bg-gray-100 text-gray-700';
+    if ($v < 20)     return 'bg-green-100 text-green-800';
+    if ($v < 40)     return 'bg-yellow-100 text-yellow-800';
+    return            'bg-red-100 text-red-800';
+  };
+@endphp
+
+<div class="space-y-1">
+  <div class="font-semibold text-gray-700">Similarity</div>
+  <div class="flex items-center gap-2">
+    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $cls($int) }}">
+      Internal: {{ is_null($int) ? '—' : number_format($int, 2) . '%' }}
+    </span>
+    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $cls($ext) }}">
+      External: {{ is_null($ext) ? '—' : number_format($ext, 2) . '%' }}
+    </span>
+  </div>
+</div>
+
 </div>
 
                     </div>
 
 
 
-                       <div class="space-y-4">
+                       <div class="space-y-4 hidden">
                         <div class="flex items-center justify-between">
                             <h3 class="text-lg font-semibold text-gray-700">Comment</h3>
                         </div>
@@ -79,11 +104,15 @@
                             <h3 class="text-lg font-semibold text-gray-700">Actions</h3>
                         </div>
                         <div class="space-y-2">
-                            <a href="{{ route('documents.submitted') }}"
-                               class="text-sm text-blue-500 hover:text-blue-700 transition">
-                                ← Back to Submitted Titles
-                            </a>
-                        </div>
+<a href="{{ auth()->user()->role === 'ADMIN'
+              ? route('admin.titles.submitted')
+              : (auth()->user()->role === 'ADVISER'
+                  ? route('adviser.advised.index')
+                  : route('documents.submitted')) }}"
+   class="text-sm text-blue-500 hover:text-blue-700 transition">
+    ← Back to Submitted Titles
+</a>
+
                     </div>
                 </div>
             </div>
