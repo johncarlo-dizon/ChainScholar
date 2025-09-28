@@ -32,6 +32,22 @@ class PlagiarismController extends Controller
         $html = (string)$request->input('content_html', '');
         $min  = (int)$request->input('min_percent', 0);
 
-        return response()->json($this->plag->detailedMatches($html, $document, $min));
+        try {
+            $out = $this->plag->detailedMatches($html, $document, $min);
+            return response()->json($out, 200);
+        } catch (\Throwable $e) {
+            \Log::error('Plagiarism detailed failed', [
+                'doc_id' => $document->id,
+                'title_id' => $document->title_id,
+                'msg' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Server error while generating matches: ' . $e->getMessage(),
+            ], 500);
+        }
     }
+
 }

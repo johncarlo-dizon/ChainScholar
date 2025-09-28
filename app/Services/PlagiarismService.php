@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Document;
 use App\Models\Title;
+use App\Models\ResearchPaper;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -64,8 +65,25 @@ class PlagiarismService
     /** Detailed matches (cards) + overall score */
     public function detailedMatches(string $html, Document $document, int $minPercent = 0): array
     {
-        $txt    = $this->stripBoilerplate($this->htmlToCleanText($html));
-        $your   = $this->makeChunks($txt);
+        $txt  = $this->stripBoilerplate($this->htmlToCleanText($html));
+        $your = $this->makeChunks($txt);
+
+        // If nothing to analyze, return a calm, empty result instead of progressing further
+        if (empty($your)) {
+            return [
+                'score'   => 0,
+                'matches' => [],
+                'aggregate' => [],
+                'meta' => [
+                    'window'     => self::WINDOW_WORDS,
+                    'stride'     => self::STRIDE_WORDS,
+                    'ngram'      => self::NGRAM_N,
+                    'candidates' => 0,
+                    'note'       => 'No analyzable content (too short).',
+                ],
+            ];
+        }
+
         $cands  = $this->candidateChunks($document);
         $minSim = max(0, $minPercent);
 
@@ -93,11 +111,19 @@ class PlagiarismService
                 ];
                 if ($best === null || $m['percent'] > $best['percent']) $best = $m;
             }
-            if ($best) {
-                $h = substr(md5(mb_strtolower($best['your_excerpt'])), 0, 16);
-                if (!isset($seenYour[$h])) {
-                    $seenYour[$h] = true;
-                    $matches[] = $best;
+           if ($best) {
+            // Compact excerpts to keep payloads reasonable
+            $trim = static function (string $s, int $max = 1200): string {
+                $s = trim($s);
+                return mb_strlen($s) > $max ? (mb_substr($s, 0, $max) . '…') : $s;
+            };
+            $best['your_excerpt']   = $trim((string)$best['your_excerpt']);
+            $best['source_excerpt'] = $trim((string)$best['source_excerpt']);
+
+            $h = substr(md5(mb_strtolower($best['your_excerpt'])), 0, 16);
+            if (!isset($seenYour[$h])) {
+                $seenYour[$h] = true;
+                $matches[] = $best;
 
                     $sid = $best['document_id'];
                     if (!isset($bySource[$sid]) || $best['percent'] > $bySource[$sid]['max_percent']) {
@@ -128,6 +154,28 @@ class PlagiarismService
             ],
         ];
     }
+
+
+    // Limiters for safety
+    private const MAX_PDFS                  = 1000;  // cap how many ResearchPaper rows to pull
+    private const MAX_CHUNKS_PER_SOURCE     = 250;   // cap chunks per source doc
+    private const MAX_EXCERPT_CHARS         = 480;   // trim "text" we store/return
+
+    private function rememberSafe(string $key, int $minutes, \Closure $compute)
+    {
+        $driver = config('cache.default');
+        // If using the DB cache, skip caching this large payload to avoid max_allowed_packet
+        if ($driver === 'database') {
+            return $compute();
+        }
+        try {
+            return Cache::remember($key, now()->addMinutes($minutes), $compute);
+        } catch (\Throwable $e) {
+            // If caching throws (e.g., payload too big even in file/redis), just compute
+            return $compute();
+        }
+    }
+
 
     /** ---------- Similarity ---------- */
 
@@ -252,36 +300,94 @@ class PlagiarismService
     /** ---------- Candidates ---------- */
 
     private function candidateChunks(Document $document): array
-    {
-        $cacheKey = 'plag:candidates:v2:title:'.$document->title_id;
-        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () use ($document) {
-            $titles = Title::query()
-                ->where('id','!=',$document->title_id)
-                ->where('status','submitted')
-                ->whereNotNull('final_document_id')
-                ->with(['finalDocument:id,title_id,chapter,content'])
-                ->get(['id','title','final_document_id']);
+{
+    // Include both: submitted final documents (Titles) + uploaded PDFs (ResearchPaper.extracted_text)
+    // Cache key includes the latest ResearchPaper update time to auto-bust when new PDFs arrive
+    $latestRp = ResearchPaper::query()->max('updated_at');
+    $rpStamp  = $latestRp ? (string)$latestRp : 'none';
 
-            $out=[];
-            foreach($titles as $t){
-                $final = $t->finalDocument ?: Document::find($t->final_document_id);
-                if (!$final || empty($final->content)) continue;
+    $cacheKey = 'plag:candidates:v3:title:' . $document->title_id . ':rp:' . $rpStamp;
 
-                $src = $this->stripBoilerplate($this->htmlToCleanText($final->content));
-                foreach($this->makeChunks($src) as $c){
-                    $out[] = [
-                        'document_id'    => $final->id,
-                        'source_title'   => $t->title ?? 'Untitled',
-                        'source_chapter' => $final->chapter ?? 'Final',
-                        'text'           => $c['text'],
-                        'tf'             => $c['tf'],
-                        'ngrams'         => $c['ngrams'],
-                    ];
-                }
-            }
-            return $out;
-        });
+    return $this->rememberSafe($cacheKey, self::CACHE_MINUTES, function () use ($document) {
+    $out = [];
+
+    // --- Titles (final documents) ---
+    $titles = Title::query()
+        ->where('id', '!=', $document->title_id)
+        ->where('status', 'submitted')
+        ->whereNotNull('final_document_id')
+        ->with(['finalDocument:id,title_id,chapter,content'])
+        ->get(['id','title','final_document_id']);
+
+    foreach ($titles as $t) {
+        $final = $t->finalDocument ?: Document::find($t->final_document_id);
+        if (!$final || empty($final->content)) continue;
+
+        $src = $this->stripBoilerplate($this->htmlToCleanText($final->content));
+        $chunks = $this->makeChunks($src);
+        if (self::MAX_CHUNKS_PER_SOURCE > 0 && count($chunks) > self::MAX_CHUNKS_PER_SOURCE) {
+            $chunks = array_slice($chunks, 0, self::MAX_CHUNKS_PER_SOURCE);
+        }
+        foreach ($chunks as $c) {
+            // Trim text to keep cache small (we only need a short excerpt for UI)
+            $excerpt = mb_strlen($c['text']) > self::MAX_EXCERPT_CHARS
+                ? (mb_substr($c['text'], 0, self::MAX_EXCERPT_CHARS) . '…')
+                : $c['text'];
+
+            $out[] = [
+                'document_id'    => $final->id,
+                'source_title'   => $t->title ?? 'Untitled',
+                'source_chapter' => $final->chapter ?? 'Final',
+                'text'           => $excerpt,
+                'tf'             => $c['tf'],
+                'ngrams'         => $c['ngrams'],
+            ];
+        }
     }
+
+    // --- PDFs (ResearchPaper) ---
+    $papers = ResearchPaper::query()
+        ->whereNotNull('extracted_text')
+        ->whereRaw("TRIM(extracted_text) <> ''")
+        ->latest('updated_at')
+        ->limit(self::MAX_PDFS)
+        ->get(['id','title','year','authors','extracted_text']);
+
+    foreach ($papers as $rp) {
+        $txt = $this->stripBoilerplate((string)$rp->extracted_text);
+        if ($txt === '') continue;
+
+        $label = trim(
+            ($rp->title ?? 'Untitled')
+            . (isset($rp->year) ? " ({$rp->year})" : '')
+            . (isset($rp->authors) && $rp->authors !== '' ? " — {$rp->authors}" : '')
+        );
+
+        $chunks = $this->makeChunks($txt);
+        if (self::MAX_CHUNKS_PER_SOURCE > 0 && count($chunks) > self::MAX_CHUNKS_PER_SOURCE) {
+            $chunks = array_slice($chunks, 0, self::MAX_CHUNKS_PER_SOURCE);
+        }
+        foreach ($chunks as $c) {
+            $excerpt = mb_strlen($c['text']) > self::MAX_EXCERPT_CHARS
+                ? (mb_substr($c['text'], 0, self::MAX_EXCERPT_CHARS) . '…')
+                : $c['text'];
+
+            $out[] = [
+                'document_id'    => 'RP:' . $rp->id,
+                'source_title'   => $label,
+                'source_chapter' => 'PDF',
+                'text'           => $excerpt,
+                'tf'             => $c['tf'],
+                'ngrams'         => $c['ngrams'],
+            ];
+        }
+    }
+
+    return $out;
+});
+
+}
+
 
     /** ---------- Cleaning & boilerplate ---------- */
 
@@ -337,48 +443,85 @@ class PlagiarismService
     /** ---------- Corpus stats (IDF + common 5-grams) ---------- */
 
     private function ensureCorpusStats(): void
-    {
-        if (!empty($this->idf)) return;
+{
+    if (!empty($this->idf)) return;
 
-        $stats = Cache::remember('plag:stats:v1', now()->addMinutes(self::CACHE_MINUTES), function () {
-            $titles = Title::query()
-                ->whereNotNull('final_document_id')
-                ->where('status','submitted')
-                ->with(['finalDocument:id,title_id,content'])
-                ->get(['id','final_document_id']);
+    $latestRp = ResearchPaper::query()->max('updated_at');
+    $rpStamp  = $latestRp ? (string)$latestRp : 'none';
 
-            $docCount=0; $tokenDF=[]; $ngDF=[];
-            foreach($titles as $t){
-                $final = $t->finalDocument;
-                if (!$final || empty($final->content)) continue;
+    // BEFORE:
+    // $stats = Cache::remember('plag:stats:v2:rp:' . $rpStamp, now()->addMinutes(self::CACHE_MINUTES), function () {
 
-                $docCount++;
-                $txt = $this->stripBoilerplate($this->htmlToCleanText($final->content));
-                $words = $this->splitWords($txt);
+    // AFTER:
+    $stats = $this->rememberSafe('plag:stats:v2:rp:' . $rpStamp, self::CACHE_MINUTES, function () {
+        $docCount = 0;
+        $tokenDF  = [];
+        $ngDF     = [];
 
-                $tokens  = array_unique($this->normalizeTokens($words));
-                $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
+        // --- Titles (submitted finals) ---
+        $titles = Title::query()
+            ->whereNotNull('final_document_id')
+            ->where('status','submitted')
+            ->with(['finalDocument:id,title_id,content'])
+            ->get(['id','final_document_id']);
 
-                foreach($tokens as $tok){ $tokenDF[$tok]=($tokenDF[$tok]??0)+1; }
-                foreach($ngrams5 as $g){ $ngDF[$g]=($ngDF[$g]??0)+1; }
-            }
+        foreach ($titles as $t) {
+            $final = $t->finalDocument;
+            if (!$final || empty($final->content)) continue;
 
-            $idf=[]; $N=max(1,$docCount);
-            foreach($tokenDF as $tok=>$df){
-                $idf[$tok] = log((1+$N)/(1+$df)) + 1.0; // smoothed
-            }
+            $docCount++;
+            $txt   = $this->stripBoilerplate($this->htmlToCleanText($final->content));
+            $words = $this->splitWords($txt);
 
-            // Flag boilerplate 5-grams: in ≥3 docs or ≥40% of corpus
-            $common=[]; $hardMin=3; $ratio=0.40;
-            $minDF=max($hardMin, (int)ceil($N*$ratio));
-            foreach($ngDF as $g=>$df){ if ($df >= $minDF) $common[$g]=true; }
+            $tokens  = array_unique($this->normalizeTokens($words));
+            $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
 
-            return ['idf'=>$idf, 'common'=>$common];
-        });
+            foreach ($tokens as $tok) { $tokenDF[$tok] = ($tokenDF[$tok] ?? 0) + 1; }
+            foreach ($ngrams5 as $g) { $ngDF[$g]      = ($ngDF[$g] ?? 0) + 1; }
+        }
 
-        $this->idf = $stats['idf'] ?? [];
-        $this->commonNgrams = $stats['common'] ?? [];
-    }
+        // --- ResearchPaper PDFs ---
+        $papers = ResearchPaper::query()
+            ->whereNotNull('extracted_text')
+            ->whereRaw("TRIM(extracted_text) <> ''")
+            ->latest('updated_at')
+            ->limit(self::MAX_PDFS) // <- cap to match candidate side
+            ->get(['id','extracted_text']);
+
+        foreach ($papers as $rp) {
+            $docCount++;
+            $txt   = $this->stripBoilerplate((string)$rp->extracted_text);
+            $words = $this->splitWords($txt);
+
+            $tokens  = array_unique($this->normalizeTokens($words));
+            $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
+
+            foreach ($tokens as $tok) { $tokenDF[$tok] = ($tokenDF[$tok] ?? 0) + 1; }
+            foreach ($ngrams5 as $g) { $ngDF[$g]      = ($ngDF[$g] ?? 0) + 1; }
+        }
+
+        $idf = [];
+        $N   = max(1, $docCount);
+        foreach ($tokenDF as $tok => $df) {
+            $idf[$tok] = log((1 + $N) / (1 + $df)) + 1.0;
+        }
+
+        $common  = [];
+        $hardMin = 3;
+        $ratio   = 0.40;
+        $minDF   = max($hardMin, (int)ceil($N * $ratio));
+        foreach ($ngDF as $g => $df) {
+            if ($df >= $minDF) $common[$g] = true;
+        }
+
+        return ['idf' => $idf, 'common' => $common];
+    });
+
+    $this->idf          = $stats['idf'] ?? [];
+    $this->commonNgrams = $stats['common'] ?? [];
+}
+
+
 
     /** ---------- Optional stemming ---------- */
     private function getStemmer(): ?\Closure

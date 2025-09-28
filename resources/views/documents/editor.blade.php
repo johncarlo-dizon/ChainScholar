@@ -415,19 +415,35 @@
     `;
 
     try{
-      const res = await fetch("{{ route('documents.checkPlagiarismDetailed') }}", {
-        method: 'POST',
-        headers: {
-          'Content-Type':'application/json',
-          'X-CSRF-TOKEN':'{{ csrf_token() }}'
-        },
-        body: JSON.stringify({
-          content_html: el.innerHTML,          // send HTML for better paragraph context
-          document_id: {{ $document->id }}     // current doc id
-        })
-      });
+     const res = await fetch("{{ route('documents.checkPlagiarismDetailed') }}", {
+  method: 'POST',
+  headers: {
+    'Content-Type':'application/json',
+    'X-CSRF-TOKEN':'{{ csrf_token() }}',
+    'Accept': 'application/json'
+  },
+  body: JSON.stringify({
+    content_html: el.innerHTML,
+    document_id: {{ $document->id }},
+    min_percent: 0
+  })
+});
 
-      const data = await res.json();
+// Try JSON first; if it fails, fall back to text for better error messages
+let data;
+let raw = '';
+try {
+  raw = await res.text();
+  data = raw ? JSON.parse(raw) : {};
+} catch {
+  data = null;
+}
+
+if (!res.ok) {
+  const msg = (data && data.message) ? data.message : (raw || `HTTP ${res.status}`);
+  throw new Error(msg);
+}
+
       const matches = Array.isArray(data.matches) ? data.matches : [];
       const score   = Number(data.score ?? 0);
 
@@ -470,12 +486,14 @@
         </div>
         ${cards}
       `;
-    }catch(err){
-      bodyBox.innerHTML = `
-        <div class="p-4 rounded border bg-red-50 text-red-700">
-          Error generating matches. Please try again.
-        </div>`;
-    }
+   }catch(err){
+  bodyBox.innerHTML = `
+    <div class="p-4 rounded border bg-red-50 text-red-700">
+      <div class="font-semibold mb-1">Error generating matches</div>
+      <div class="text-sm">${(err && err.message) ? err.message : 'Unknown error'}</div>
+    </div>`;
+}
+
   });
 
   // simple HTML escaper to keep excerpts safe
@@ -808,12 +826,7 @@ function buildGateReason() {
   const lines = [];
   if (!hasInternal) lines.push('Internal check.');
   if (!hasExternal) lines.push('External check.');
-  if (hasInternal && window.__internalScore >= PASS_THRESHOLD) {
-    lines.push(`Internal score ${window.__internalScore}% must be below ${PASS_THRESHOLD}%.`);
-  }
-  if (hasExternal && window.__externalScore >= PASS_THRESHOLD) {
-    lines.push(`External score ${window.__externalScore}% must be below ${PASS_THRESHOLD}%.`);
-  }
+  
   return lines.join(' ');
 }
 
