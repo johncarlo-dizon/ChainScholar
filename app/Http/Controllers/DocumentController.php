@@ -10,6 +10,7 @@ use App\Models\Title;
 use App\Models\AdviserNote;
 use Illuminate\Support\Facades\DB;
 use App\Services\PlagiarismService;
+use App\Models\ResearchPaper;
 
 class DocumentController extends Controller
 {
@@ -17,38 +18,286 @@ class DocumentController extends Controller
 
 public function __construct(private PlagiarismService $plag) {}
  
-
+    // CHAIN START
     public function showSearchDashboard()
     {
         return view('documents.dashboard'); // Initial search screen only
     }
 
-    public function searchResearch(Request $request)
-    {
-        $query = $request->input('query');
+public function searchResearch(Request $request)
+{
+    $queryRaw  = (string) $request->query('query', $request->query('q', ''));
+    $query     = $this->searchResearchNormalize($queryRaw); // use helper with the searchResearch* prefix
+    $threshold = 0.30; // tune 0.28–0.38 for recall vs precision
 
-        $approvedTitles = Title::with('user')
-            ->where('status', 'submitted')
-            ->get();
+    // If no query, render explore/empty state
+    if ($query === '') {
+        return view('documents.dashboard', [
+            'results'   => null,
+            'paginator' => null,
+            'query'     => $queryRaw,
+            'filters'   => null,
+        ]);
+    }
 
-        $results = [];
+    // Filters (Scholar-style)
+    $type     = $request->query('type', 'all');       // all|title|paper
+    $sort     = $request->query('sort', 'relevance'); // relevance|date
+    $yearFrom = (int) $request->query('year_from', 0);
+    $yearTo   = (int) $request->query('year_to', 0);
+    $perPage  = (int) $request->query('per_page', 10);
+    $page     = (int) $request->query('page', 1);
 
-        foreach ($approvedTitles as $title) {
-            $similarity = $this->cosSimilarity($query, $title->title);
-            if ($similarity >= 0.3) { // You can adjust this threshold
-                $results[] = [
-                    'title' => $title->title,
-                    'id' => $title->id,
-                    'similarity' => $similarity
-                ];
+    $results = [];
+
+    /* -------------------------------------------------------
+     * 1) Submitted Titles   (status = submitted)
+     * ----------------------------------------------------- */
+    $titles = \App\Models\Title::query()
+        ->where('status', 'submitted')
+        ->select(['id', 'title', 'created_at'])
+        ->get();
+
+    foreach ($titles as $t) {
+        $titleText = (string) $t->title;
+        if ($titleText === '') continue;
+
+        // Fuzzy, typo/phonetic tolerant scorer
+        $sim = $this->searchResearchFuzzyScore($queryRaw, $titleText);
+
+        if ($sim >= $threshold) {
+            $item = [
+                'type'       => 'title',
+                'id'         => $t->id,
+                'title'      => $titleText,
+                'authors'    => null,
+                'abstract'   => null,
+                'similarity' => $sim,
+                'file_url'   => null,
+                'date'       => optional($t->created_at)->toDateString(),
+                'year'       => optional($t->created_at)->year,
+            ];
+            if ($type === 'all' || $type === 'title') {
+                $results[] = $item;
             }
         }
-
-        // Sort by highest similarity
-        usort($results, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
-
-        return view('documents.dashboard', compact('results', 'query'));
     }
+
+    /* -------------------------------------------------------
+     * 2) ResearchPaper PDFs  (title + authors + abstract)
+     * ----------------------------------------------------- */
+    $papers = \App\Models\ResearchPaper::query()
+        ->select(['id','title','authors','abstract','file_path','created_at'])
+        ->get();
+
+    foreach ($papers as $rp) {
+        $haystack = trim(implode(' ', array_filter([
+            (string) $rp->title,
+            (string) $rp->authors,
+            (string) $rp->abstract,
+        ])));
+
+        if ($haystack === '') continue;
+
+        $sim = $this->searchResearchFuzzyScore($queryRaw, $haystack);
+
+        if ($sim >= $threshold) {
+            $item = [
+                'type'       => 'paper',
+                'id'         => $rp->id,
+                'title'      => (string) $rp->title ?: '(Untitled PDF)',
+                'authors'    => (string) $rp->authors ?: null,
+                'abstract'   => (string) $rp->abstract ?: null,
+                'similarity' => $sim,
+                'file_url'   => $rp->file_path ? \Illuminate\Support\Facades\Storage::url($rp->file_path) : null,
+                'date'       => optional($rp->created_at)->toDateString(),
+                'year'       => optional($rp->created_at)->year,
+            ];
+            if ($type === 'all' || $type === 'paper') {
+                $results[] = $item;
+            }
+        }
+    }
+
+    /* -------------------------------------------------------
+     * Year filter (if provided)
+     * ----------------------------------------------------- */
+    if ($yearFrom || $yearTo) {
+        $results = array_values(array_filter($results, function ($r) use ($yearFrom, $yearTo) {
+            $y = (int) ($r['year'] ?? 0);
+            if (!$y) return false;
+            if ($yearFrom && $y < $yearFrom) return false;
+            if ($yearTo && $y > $yearTo) return false;
+            return true;
+        }));
+    }
+
+    /* -------------------------------------------------------
+     * Sort: 'date' or 'relevance' (similarity)
+     * ----------------------------------------------------- */
+    if ($sort === 'date') {
+        usort($results, fn($a, $b) => strcmp($b['date'] ?? '', $a['date'] ?? ''));
+    } else {
+        usort($results, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+    }
+
+    /* -------------------------------------------------------
+     * Pagination (array → LengthAwarePaginator)
+     * ----------------------------------------------------- */
+    $total    = count($results);
+    $offset   = max(0, ($page - 1) * $perPage);
+    $chunks   = array_slice($results, $offset, $perPage);
+    $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+        $chunks,
+        $total,
+        $perPage,
+        $page,
+        ['path' => url()->current(), 'query' => $request->query()]
+    );
+
+    return view('documents.dashboard', [
+        'results'   => $chunks,     // current page only
+        'paginator' => $paginator,  // for links()
+        'query'     => $queryRaw,   // echo original text in UI
+        'filters'   => compact('type','sort','yearFrom','yearTo','perPage'),
+    ]);
+}
+
+
+
+    /** ---------- Search Helpers (searchResearch* prefix) ---------- */
+
+    /** Normalize text: lowercase, strip tags, remove accents, squash spaces */
+    private function searchResearchNormalize(?string $s): string
+    {
+        $s = (string) $s;
+        $s = strip_tags($s);
+        $s = mb_strtolower($s, 'UTF-8');
+        // remove accents
+        $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+        // keep letters/numbers and spaces
+        $s = preg_replace('/[^a-z0-9]+/i', ' ', $s);
+        // collapse spaces
+        $s = trim(preg_replace('/\s+/', ' ', $s));
+        return $s;
+    }
+
+    /** Tokenize normalized text to terms (keeps simple words only) */
+    private function searchResearchTokens(string $s): array
+    {
+        $s = $this->searchResearchNormalize($s);
+        if ($s === '') return [];
+        $raw = explode(' ', $s);
+        // basic stopwords to reduce noise
+        $stop = ['the','a','an','of','and','to','in','for','on','with','by','at','from','is','are','be','as','this','that','these','those','using','use','based'];
+        return array_values(array_filter($raw, fn($t) => $t !== '' && !in_array($t, $stop, true)));
+    }
+
+    /** Build n-gram shingles (character-level) for typo tolerance */
+    private function searchResearchShingles(string $s, int $n = 3): array
+    {
+        $s = $this->searchResearchNormalize($s);
+        if (strlen($s) < $n) return $s === '' ? [] : [$s];
+        $ngrams = [];
+        for ($i = 0; $i <= strlen($s) - $n; $i++) {
+            $ngrams[] = substr($s, $i, $n);
+        }
+        return $ngrams;
+    }
+
+    /** Cosine similarity on token frequency vectors */
+    private function searchResearchCosineTokens(string $a, string $b): float
+    {
+        $ta = $this->searchResearchTokens($a);
+        $tb = $this->searchResearchTokens($b);
+        if (!$ta || !$tb) return 0.0;
+
+        $fa = array_count_values($ta);
+        $fb = array_count_values($tb);
+        $allKeys = array_unique(array_merge(array_keys($fa), array_keys($fb)));
+
+        $dot = 0.0; $na = 0.0; $nb = 0.0;
+        foreach ($allKeys as $k) {
+            $va = $fa[$k] ?? 0;
+            $vb = $fb[$k] ?? 0;
+            $dot += $va * $vb;
+            $na += $va * $va;
+            $nb += $vb * $vb;
+        }
+        if ($na == 0.0 || $nb == 0.0) return 0.0;
+        return $dot / (sqrt($na) * sqrt($nb));
+    }
+
+    /** Jaccard similarity on character n-grams (default 3-grams) */
+    private function searchResearchJaccardNgrams(string $a, string $b, int $n = 3): float
+    {
+        $A = $this->searchResearchShingles($a, $n);
+        $B = $this->searchResearchShingles($b, $n);
+        if (!$A || !$B) return 0.0;
+        $setA = array_values(array_unique($A));
+        $setB = array_values(array_unique($B));
+        $intersect = array_intersect($setA, $setB);
+        $union = array_unique(array_merge($setA, $setB));
+        return count($union) ? count($intersect) / count($union) : 0.0;
+    }
+
+    /** Levenshtein-based similarity for overall string closeness */
+    private function searchResearchLevenshteinSim(string $a, string $b): float
+    {
+        $na = $this->searchResearchNormalize($a);
+        $nb = $this->searchResearchNormalize($b);
+        if ($na === '' || $nb === '') return 0.0;
+        $dist = levenshtein($na, $nb);
+        $maxLen = max(strlen($na), strlen($nb));
+        return $maxLen ? max(0.0, 1.0 - ($dist / $maxLen)) : 0.0;
+    }
+
+    /** Phonetic boost using metaphone on individual tokens (for homophones) */
+    private function searchResearchPhoneticBoost(string $a, string $b): float
+    {
+        $ta = $this->searchResearchTokens($a);
+        $tb = $this->searchResearchTokens($b);
+        if (!$ta || !$tb) return 0.0;
+
+        $ma = array_map(fn($t) => metaphone($t), $ta);
+        $mb = array_map(fn($t) => metaphone($t), $tb);
+
+        $ma = array_values(array_filter($ma));
+        $mb = array_values(array_filter($mb));
+        if (!$ma || !$mb) return 0.0;
+
+        $inter = array_intersect($ma, $mb);
+        $union = array_unique(array_merge($ma, $mb));
+        $jac = count($union) ? count($inter) / count($union) : 0.0;
+        // small boost (not dominant)
+        return min(0.15, $jac * 0.2);
+    }
+
+    /**
+     * Fuzzy score (0..1) blending:
+     * - cosine(tokens)
+     * - jaccard(3-grams)
+     * - levenshtein similarity
+     * then adds a small phonetic boost
+     */
+    private function searchResearchFuzzyScore(string $query, string $haystack): float
+    {
+        $cos = $this->searchResearchCosineTokens($query, $haystack);
+        $jac = $this->searchResearchJaccardNgrams($query, $haystack, 3);
+        $lev = $this->searchResearchLevenshteinSim($query, $haystack);
+
+        // take a weighted max to be tolerant for short vs long strings
+        $core = max($cos, $jac * 0.9, $lev * 0.85);
+
+        // phonetic micro-boost for sound-alike matches
+        $boost = $this->searchResearchPhoneticBoost($query, $haystack);
+
+        $score = min(1.0, $core + $boost);
+        return $score;
+    }
+
+
+    // CHAIN SEARCH ENDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 
     public function viewResearch($id)
     {

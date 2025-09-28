@@ -227,7 +227,8 @@ Route::post('/documents/check-plagiarism-detailed', [PlagiarismController::class
 
 
 Route::get('/dashboard', [DocumentController::class, 'showSearchDashboard'])->name('dashboard');
-Route::post('/dashboard/search', [DocumentController::class, 'searchResearch'])->name('dashboard.search');
+Route::get('/dashboard/search', [DocumentController::class, 'searchResearch'])->name('dashboard.search');
+
 Route::get('/dashboard/view/{id}', [DocumentController::class, 'viewResearch'])->name('dashboard.view');
  
 

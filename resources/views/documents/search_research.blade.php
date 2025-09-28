@@ -1,5 +1,27 @@
 <x-userlayout>
    
+<div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 shadow mb-4">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+
+    <!-- Left: Brand + Search in a row -->
+    <div class="flex items-center gap-6 flex-1">
+      <!-- Brand -->
+      <h2 class="text-2xl md:text-3xl font-semibold text-white shrink-0">
+        ChainScholar
+      </h2>
+
+ 
+    </div>
+
+    <!-- Right: Tip -->
+    <div class="hidden md:block text-right shrink-0">
+ 
+    </div>
+
+  </div>
+</div>
+
+
 
     <div class="container mx-auto px-4 py-4">
         <div class="flex flex-col lg:flex-row gap-6">
@@ -39,23 +61,23 @@
                             <h3 class="text-lg font-semibold text-gray-700">Document Info</h3>
                         </div>
                         <div class="text-sm text-gray-500 space-y-1">
-                            <p><span class="font-semibold">Submitted by:</span> {{ $title->user->name }}</p>
-                            <p><span class="font-semibold">Approved on:</span> {{ $title->submitted_at->format('F d, Y h:i A') }}</p>
+                            <p><span class="font-semibold">Authors:</span> {{ $title->authors}}</p>
+                             <p><span class="font-semibold">Submitted by:</span> {{ $title->user->name }}</p>
+                 <p>
+  <span class="font-semibold">Adviser:</span>
+  {{ optional($title->primaryAdviser)->name ?? '—' }}
+</p>
+
+                            <p><span class="font-semibold">Submitted on:</span> {{ $title->submitted_at->format('F d, Y h:i A') }}</p>
                             <p><span class="font-semibold">Research Type:</span> {{ $title->research_type }}</p>
-                            <p><span class="font-semibold">Category:</span> {{ $title->category }}</p>
-                            <p><span class="font-semibold">Sub-Category:</span> {{ $title->sub_category ?? '—' }}</p>
-                            <p><span class="font-semibold">Status:</span> 
-                                <span class="inline-block px-2 py-1 rounded-full text-xs font-semibold 
-                                    @if($title->status == 'pending') bg-yellow-100 text-yellow-800 
-                                    @elseif($title->status == 'approved') bg-green-100 text-green-800 
-                                    @elseif($title->status == 'returned') bg-red-100 text-red-800 
-                                    @else bg-gray-100 text-gray-600 @endif">
-                                    {{ ucfirst($title->status) }}
-                                </span>
-                            </p>
-                            <p><span class="font-semibold">Plagiarism Score:</span> {{ $title->plagiarism_score ?? '—' }}%</p>
+                            <p><span class="font-semibold hidden">Category:</span> {{ $title->category }}</p>
+                            <p class="hidden"><span class="font-semibold hidden">Sub-Category:</span> {{ $title->sub_category ?? '—' }}</p>
+  
                         </div>
                     </div>
+
+
+ 
 
               
 

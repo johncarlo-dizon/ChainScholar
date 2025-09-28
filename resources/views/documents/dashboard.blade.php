@@ -1,107 +1,250 @@
 <x-userlayout>
     <div class="container mx-auto">
         <!-- Header / Hero -->
-    <!-- Header / Hero -->
-<div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 shadow mb-8">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            <h2 class="text-2xl md:text-3xl font-semibold text-white">ChainScholar</h2>
-            <p class="text-white/90 mt-1 text-sm">Search, compare, and refine your research ideas with ease.</p>
-        </div>
-        <div class="hidden md:block text-right">
-            <span class="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-white/10 text-white">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M8 7V3m8 4V3m-9 8h10m-8 4h6M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2h-2M7 5H5a2 2 0 00-2 2v12a2 2 0 002 2h2"/>
-                </svg>
-                Tip: Press <kbd class="px-1.5 py-0.5 bg-white/20 rounded">/</kbd> to search
-            </span>
-        </div>
+<div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 shadow mb-4">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+
+    <!-- Left: Brand + Search in a row -->
+    <div class="flex items-center gap-6 flex-1">
+      <!-- Brand -->
+      <h2 class="text-2xl md:text-3xl font-semibold text-white shrink-0">
+        ChainScholar
+      </h2>
+
+ 
     </div>
+
+    <!-- Right: Tip -->
+    <div class="hidden md:block text-right shrink-0">
+      <span class="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-white/10 text-white">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8 7V3m8 4V3m-9 8h10m-8 4h6M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2h-2M7 5H5a2 2 0 00-2 2v12a2 2 0 002 2h2"/>
+        </svg>
+        Tip: Press <kbd class="px-1.5 py-0.5 bg-white/20 rounded">/</kbd> to search
+      </span>
+    </div>
+
+  </div>
 </div>
+
+     <!-- Search Bar -->
+      <form method="GET" action="{{ route('dashboard.search') }}" id="search-form" class="flex-1 max-w-2xl mb-4">
+        <div class="flex items-center rounded-lg border border-blue-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-blue-400">
+          <input
+            type="text"
+            name="query"
+            id="queryInput"
+            value="{{ old('query', $query ?? '') }}"
+            autocomplete="off"
+            class="w-full px-4 py-2 rounded-l-lg focus:outline-none text-gray-800 placeholder-gray-400 text-base"
+            placeholder="Search research title…"
+            aria-label="Search research title"
+          />
+          <button type="submit"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-r-lg flex items-center justify-center">
+            <i data-feather="search" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </form>
+
+
+
 
 
         <!-- Search -->
-        <form method="POST" action="{{ route('dashboard.search') }}" class="max-w-3xl mx-auto mb-10" id="search-form">
-            @csrf
-            <div class="group relative flex items-center rounded-2xl border border-blue-200 bg-white focus-within:ring-2 focus-within:ring-blue-400 shadow-sm transition">
-                <span class="pl-4 text-blue-500">
-                    <i data-feather="search" class="w-5 h-5"></i>
-                </span>
-                <input
-                    type="text"
-                    name="query"
-                    id="queryInput"
-                    value="{{ old('query', $query ?? '') }}"
-                    autocomplete="off"
-                    class="w-full px-3 py-3 rounded-2xl focus:outline-none text-gray-800 placeholder-gray-400"
-                    placeholder="Search research title…"
-                    aria-label="Search research title"
-                />
-                <button type="submit"
-                        class="ml-auto bg-blue-600 hover:bg-blue-700 text-white rounded-r-2xl px-5 py-3 transition flex items-center gap-2">
-                    <span class="hidden sm:inline">Search</span>
-                    <i data-feather="search" class="w-5 h-5"></i>
-                </button>
+ 
+
+    <!-- Results -->
+@if(isset($results))
+<div class="">
+  <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+    <!-- LEFT FILTER RAIL -->
+    <!-- LEFT FILTER RAIL (Google Scholar style: no Apply button) -->
+<aside class="md:col-span-3">
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <h4 class="text-sm font-semibold text-gray-700 mb-3">Articles</h4>
+
+    {{-- keep the query in URL --}}
+    @php
+      $q = request('query', $query ?? '');
+      $base = url()->current();
+      $qs = request()->query();
+      $link = fn(array $merge) => $base.'?'.http_build_query(array_merge($qs, $merge, ['query' => $q]));
+    @endphp
+
+    {{-- TIME --}}
+    <div class="mb-5">
+      <div class="text-xs font-semibold text-gray-500 mb-2">Any time</div>
+      <ul class="space-y-1 text-sm">
+        <li>
+          <a href="{{ $link(['year_from'=>null,'year_to'=>null]) }}"
+             class="{{ !request('year_from') ? 'text-blue-700' : 'text-gray-700 hover:underline' }}">
+            Any time
+          </a>
+        </li>
+        <li>
+          <a href="{{ $link(['year_from'=>now()->year, 'year_to'=>null]) }}"
+             class="{{ (int)request('year_from')===now()->year ? 'text-blue-700' : 'text-gray-700 hover:underline' }}">
+            Since {{ now()->year }}
+          </a>
+        </li>
+        <li>
+          <a href="{{ $link(['year_from'=>now()->subYears(3)->year, 'year_to'=>null]) }}"
+             class="{{ (int)request('year_from')===now()->subYears(3)->year ? 'text-blue-700' : 'text-gray-700 hover:underline' }}">
+            Since {{ now()->subYears(3)->year }}
+          </a>
+        </li>
+      </ul>
+
+      {{-- Custom year (Enter to submit, no button) --}}
+      <form method="GET" action="{{ route('dashboard.search') }}" class="mt-2 flex items-center gap-2">
+        @foreach(request()->except(['year_from','year_to']) as $k => $v)
+          <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+        @endforeach
+        <input type="number" name="year_from" placeholder="From"
+               value="{{ request('year_from') && !in_array((int)request('year_from'), [now()->year, now()->subYears(3)->year]) ? request('year_from') : '' }}"
+               class="w-24 border  border-gray-300 rounded px-2 py-1 text-xs"
+               onkeydown="if(event.key==='Enter'){ this.form.submit(); }">
+        <input type="number" name="year_to" placeholder="To"
+               value="{{ request('year_to') }}"
+               class="w-24 border border-gray-300 rounded px-2 py-1 text-xs"
+               onkeydown="if(event.key==='Enter'){ this.form.submit(); }">
+      </form>
+    </div>
+
+    {{-- TYPE (auto submit on change) --}}
+    <div class="mb-5">
+      <div class="text-xs font-semibold text-gray-500 mb-2">Any type</div>
+      <form method="GET" action="{{ route('dashboard.search') }}">
+        @foreach(request()->except(['type']) as $k => $v)
+          <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+        @endforeach
+        <select name="type" class="w-full border  border-gray-300 rounded px-2 py-1 text-sm"
+                onchange="this.form.submit()">
+          <option value="all"   {{ request('type','all')==='all'?'selected':'' }}>All results</option>
+          <option value="paper" {{ request('type')==='paper'?'selected':'' }}>[PDF] only</option>
+          <option value="title" {{ request('type')==='title'?'selected':'' }}>Titles only</option>
+        </select>
+      </form>
+    </div>
+
+    {{-- SORT (auto submit on change) --}}
+    <div>
+      <div class="text-xs font-semibold text-gray-500 mb-2">Sort by</div>
+      <form method="GET" action="{{ route('dashboard.search') }}">
+        @foreach(request()->except(['sort']) as $k => $v)
+          <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+        @endforeach
+        <select name="sort" class="w-full border   border-gray-300 rounded px-2 py-1 text-sm"
+                onchange="this.form.submit()">
+          <option value="relevance" {{ request('sort','relevance')==='relevance'?'selected':'' }}>Relevance</option>
+          <option value="date"      {{ request('sort')==='date'?'selected':'' }}>Date</option>
+        </select>
+      </form>
+    </div>
+  </div>
+</aside>
+
+
+    <!-- RESULTS LIST -->
+    <main class="md:col-span-9">
+      <div class="mb-3 text-sm text-gray-500">
+        About <span class="font-medium">{{ $paginator?->total() ?? count($results) }}</span> results
+        @if(!empty($query)) for “<span class="text-gray-700">{{ $query }}</span>” @endif
+      </div>
+
+      @forelse ($results as $result)
+        @php
+          $isPaper = ($result['type'] ?? 'title') === 'paper';
+          $link    = $isPaper ? ($result['file_url'] ?? 'javascript:void(0)') : route('dashboard.view', $result['id']);
+          $target  = $isPaper ? '_blank' : '_self';
+          $simPct  = number_format(($result['similarity'] ?? 0) * 100, 2);
+        @endphp
+
+        <div class="group border-b border-gray-200/70 py-4">
+          <div class="flex items-start justify-between gap-4">
+            <a href="{{ $link }}" target="{{ $target }}" class="text-[#1a0dab] hover:underline text-lg leading-6 font-medium">
+              {{ $result['title'] }}
+            </a>
+            @if($isPaper)
+              <a href="{{ $link }}" target="_blank"
+                 class="shrink-0 text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">[PDF]</a>
+            @else
+               <a href="{{ $link }}" target="_blank"
+                 class="shrink-0 text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">View</a>
+            @endif
+          </div>
+
+          @if(!empty($result['authors']))
+            <div class="mt-1 text-sm text-gray-600">{{ $result['authors'] }}</div>
+          @endif
+
+          @if(!empty($result['abstract']))
+            <div class="mt-1 text-sm text-gray-700 line-clamp-2">
+              {{ Str::limit(strip_tags($result['abstract']), 220) }}
             </div>
-        </form>
+          @endif
 
-        <!-- Results -->
-        @if(isset($results))
-            <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
-                <div class="flex items-center justify-between flex-wrap gap-2 mb-6">
-                    <h3 class="text-xl md:text-2xl font-semibold text-gray-800">
-                        🔍 Results <span class="text-gray-500">({{ count($results) }})</span>
-                    </h3>
-                    @if(!empty($query))
-                        <span class="text-sm text-gray-500">for “<span class="font-medium text-gray-700">{{ $query }}</span>”</span>
-                    @endif
-                </div>
+          <div class="mt-1 text-xs text-gray-500 flex items-center gap-3">
+            @if(!empty($result['date'])) <span>{{ \Carbon\Carbon::parse($result['date'])->format('Y') }}</span>@endif
+          </div>
+        </div>
+      @empty
+        <div class="bg-white rounded-xl shadow p-8 text-center text-gray-600">
+          <div class="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+            <i data-feather="search" class="w-6 h-6 text-gray-400"></i>
+          </div>
+          <h4 class="text-lg font-semibold mb-1">No results</h4>
+          <p class="text-gray-600">Try broader words or remove uncommon acronyms.</p>
+        </div>
+      @endforelse
 
-                @forelse ($results as $result)
-                    @php
-                        $pct = round(($result['similarity'] ?? 0) * 100, 2);
-                        $isTop = $loop->first;
-                        $badgeColor = $pct >= 70 ? 'bg-green-100 text-green-700' : ($pct >= 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600');
-                    @endphp
+      <!-- PAGINATION -->
+      @if(isset($paginator))
+        <div class="mt-6">
+       {{ $paginator->onEachSide(1)->links() }}
 
-                    <a href="{{ route('dashboard.view', $result['id']) }}"
-                       class="block mb-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition bg-white">
-                        <div class="p-3 md:p-5">
-                        
-                                <div class="min-w-0">
-                                    <h4 class="text-base md:text-lg font-semibold text-blue-700 truncate">
-                                        {{ $result['title'] }}
-                                        @if($isTop)
-                                            <span class="ml-2 align-middle text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">🔥 Highest Match</span>
-                                        @endif
-                                    </h4>
-                                    <div class="mt-2">
-                                        <div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                                            <div class="h-2 bg-blue-500 rounded-full similarity-bar" style="width:0%" data-target="{{ $pct }}"></div>
-                                        </div>
-                                        <div class="mt-1 flex items-center justify-between text-xs text-gray-500">
-                                            <span>Similarity</span>
-                                            <span class="inline-flex items-center gap-2">
-                                                <span class="px-2 py-0.5 rounded {{ $badgeColor }}">{{ number_format($pct, 2) }}%</span>
-                                                <i data-feather="chevron-right" class="w-4 h-4 text-gray-400"></i>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                        </div>
-                    </a>
-                @empty
-                    <div class="text-center py-14">
-                        <div class="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                            <i data-feather="search" class="w-6 h-6 text-gray-400"></i>
-                        </div>
-                        <h4 class="text-lg font-semibold mb-1">No similar titles found</h4>
-                        <p class="text-gray-600 mb-4">Try a broader or alternate phrasing, or remove uncommon acronyms.</p>
-                    </div>
-                @endforelse
-            </div>
-        @endif
+        </div>
+      @endif
+    </main>
+
+  </div>
+</div>
+
+
+@else
+  <!-- Default Explore Content -->
+  <div class="bg-white rounded-xl shadow p-10 text-center">
+    <div class="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+      <i data-feather="book-open" class="w-8 h-8 text-blue-500"></i>
+    </div>
+    <h3 class="text-2xl font-semibold text-gray-800 mb-2">Welcome to ChainScholar</h3>
+    <p class="text-gray-600 mb-6">
+      Start exploring research papers and titles by using the search bar above.  
+      Or browse through featured categories below:
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
+      <div class="p-5 rounded-lg border border-gray-200 hover:shadow transition">
+        <h4 class="text-lg font-semibold text-blue-600 mb-1">Latest Papers</h4>
+        <p class="text-gray-500 text-sm">View recently uploaded research papers by students and advisers.</p>
+      </div>
+
+      <div class="p-5 rounded-lg border border-gray-200 hover:shadow transition">
+        <h4 class="text-lg font-semibold text-blue-600 mb-1">Top Titles</h4>
+        <p class="text-gray-500 text-sm">Explore trending research titles and see what’s popular right now.</p>
+      </div>
+
+      <div class="p-5 rounded-lg border border-gray-200 hover:shadow transition">
+        <h4 class="text-lg font-semibold text-blue-600 mb-1">By Field</h4>
+        <p class="text-gray-500 text-sm">Browse works grouped under IT, Engineering, Education, and more.</p>
+      </div>
+    </div>
+  </div>
+@endif
+
     </div>
 
     <!-- Small helpers -->
@@ -119,18 +262,6 @@
                 }
             });
 
-            // Animate similarity bars
-            document.querySelectorAll('.similarity-bar').forEach(bar => {
-                const target = Number(bar.dataset.target || 0);
-                let cur = 0;
-                const step = () => {
-                    cur += Math.max(1, (target - cur) * 0.12);
-                    if (cur >= target) { cur = target; }
-                    bar.style.width = cur + '%';
-                    if (cur < target) requestAnimationFrame(step);
-                };
-                requestAnimationFrame(step);
-            });
 
       
         });
