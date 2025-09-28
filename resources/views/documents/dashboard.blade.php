@@ -1,22 +1,25 @@
 <x-userlayout>
-    <div class="container mx-auto px-4 py-10">
+    <div class="container mx-auto">
         <!-- Header / Hero -->
-        <div class="rounded-3xl shadow-lg bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-500 p-8 md:p-10 mb-10 text-white">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">ChainScholar</h1>
-                    <p class="mt-2 text-blue-100 text-base md:text-lg">Explore and compare research titles with ease.</p>
-                </div>
-                <div class="hidden md:block text-right">
-                    <span class="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-white/10">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10m-8 4h6M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2h-2M7 5H5a2 2 0 00-2 2v12a2 2 0 002 2h2"/>
-                        </svg>
-                        Tip: Press <kbd class="px-1.5 py-0.5 bg-white/20 rounded">/</kbd> to focus search
-                    </span>
-                </div>
-            </div>
+    <!-- Header / Hero -->
+<div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 shadow mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h2 class="text-2xl md:text-3xl font-semibold text-white">ChainScholar</h2>
+            <p class="text-white/90 mt-1 text-sm">Search, compare, and refine your research ideas with ease.</p>
         </div>
+        <div class="hidden md:block text-right">
+            <span class="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-white/10 text-white">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 7V3m8 4V3m-9 8h10m-8 4h6M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2h-2M7 5H5a2 2 0 00-2 2v12a2 2 0 002 2h2"/>
+                </svg>
+                Tip: Press <kbd class="px-1.5 py-0.5 bg-white/20 rounded">/</kbd> to search
+            </span>
+        </div>
+    </div>
+</div>
+
 
         <!-- Search -->
         <form method="POST" action="{{ route('dashboard.search') }}" class="max-w-3xl mx-auto mb-10" id="search-form">
