@@ -233,6 +233,8 @@ class ResearchPaperController extends Controller
             'department'     => (string) $request->input('department'),
             'program'        => (string) $request->input('program'),
             'abstract'       => (string) $request->input('abstract'),
+            'plagiarism_score' => (int) round($score), // persist server-computed percent
+
             'filename'       => (string) $originalFilename,
             'file_path'      => (string) $path,
             'file_disk'      => (string) $disk,

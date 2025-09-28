@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('department');
             $table->string('program');
             $table->text('abstract');
+            $table->unsignedTinyInteger('plagiarism_score');
             $table->longText('extracted_text')->nullable();
             $table->string('file_path');
             $table->timestamps();

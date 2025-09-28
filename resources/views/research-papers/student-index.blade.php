@@ -158,18 +158,20 @@
   </a>
 
   {{-- Details --}}
-  <button type="button" class="text-sky-600 hover:text-sky-800 btn-details"
-    title="Details"
-    data-title="{{ e($paper->title) }}"
-    data-authors="{{ e($paper->authors) }}"
-    data-department="{{ e($paper->department) }}"
-    data-program="{{ e($paper->program) }}"
-    data-year="{{ e($paper->year) }}"
-    data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
-    data-file-url="{{ Storage::url($paper->file_path) }}"
-    data-abstract="{{ e($paper->abstract ?? '') }}">
-    <i data-lucide="info" class="w-5 h-5"></i>
-  </button>
+<button type="button" class="text-sky-600 hover:text-sky-800 btn-details"
+  title="Details"
+  data-title="{{ e($paper->title) }}"
+  data-authors="{{ e($paper->authors) }}"
+  data-department="{{ e($paper->department) }}"
+  data-program="{{ e($paper->program) }}"
+  data-year="{{ e($paper->year) }}"
+  data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
+  data-file-url="{{ Storage::url($paper->file_path) }}"
+  data-abstract="{{ e($paper->abstract ?? '') }}"
+  data-plagiarism="{{ is_null($paper->plagiarism_score) ? '' : (int)$paper->plagiarism_score }}">
+  <i data-lucide="info" class="w-5 h-5"></i>
+</button>
+
 
   @if(auth()->user()->isAdmin())
       {{-- ADMIN: show server hash (if NOT hashed), register (if hashed & not registered), verify, delete --}}
@@ -293,12 +295,21 @@
                     <p id="m-title" class="font-medium text-gray-900"></p>
                 </div>
                 <div class="grid sm:grid-cols-2 gap-4">
-                    <div><p class="text-gray-500">Authors</p><p id="m-authors" class="text-gray-900"></p></div>
-                    <div><p class="text-gray-500">Department</p><p id="m-department" class="text-gray-900"></p></div>
-                    <div><p class="text-gray-500">Program</p><p id="m-program" class="text-gray-900"></p></div>
-                    <div><p class="text-gray-500">Year</p><p id="m-year" class="text-gray-900"></p></div>
-                    <div><p class="text-gray-500">Uploaded</p><p id="m-uploaded" class="text-gray-900"></p></div>
-                </div>
+  <div><p class="text-gray-500">Authors</p><p id="m-authors" class="text-gray-900"></p></div>
+  <div><p class="text-gray-500">Department</p><p id="m-department" class="text-gray-900"></p></div>
+  <div><p class="text-gray-500">Program</p><p id="m-program" class="text-gray-900"></p></div>
+  <div><p class="text-gray-500">Year</p><p id="m-year" class="text-gray-900"></p></div>
+  <div><p class="text-gray-500">Uploaded</p><p id="m-uploaded" class="text-gray-900"></p></div>
+
+  <!-- NEW: Plagiarism -->
+  <div class="sm:col-span-2">
+    <p class="text-gray-500">Plagiarism</p>
+    <span id="m-plag"
+          class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700">—</span>
+    <span class="ml-2 text-xs text-gray-500">(Saved score)</span>
+  </div>
+</div>
+
                 <div id="m-abstract-wrap" class="hidden">
                     <p class="text-gray-500">Abstract</p>
                     <p id="m-abstract" class="text-gray-900 whitespace-pre-line"></p>
@@ -679,6 +690,23 @@
                 } else {
                     document.getElementById("m-abstract-wrap").classList.add("hidden");
                 }
+
+                // Plagiarism badge (uses saved server value)
+              const plagEl = document.getElementById("m-plag");
+              let cls = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ";
+              let txt = "—";
+              const raw = btn.dataset.plagiarism;
+              if (raw !== undefined && raw !== "" && !Number.isNaN(Number(raw))) {
+                const val = Number(raw);
+                txt = `${val}%`;
+                // Same threshold as upload gate
+                cls += (val >= 45) ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700";
+              } else {
+                cls += "bg-gray-100 text-gray-700";
+              }
+              plagEl.textContent = txt;
+              plagEl.className = cls;
+
 
                 detailsModal.classList.remove("hidden");
             });

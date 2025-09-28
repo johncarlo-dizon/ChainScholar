@@ -8,34 +8,37 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ResearchPaper extends Model
 {
     protected $fillable = [
-    'user_id',
-    'title',
-    'year',
-    'authors',
-    'filename',
-    'department',
-    'program',
-    'abstract',
-    'extracted_text',
-    'text_hash',
-    'file_path',
-    'file_disk',
-    'sha256',
-    'wallet',
-    'tx_hash'
-    ,'chain_id',
-    'chain_status',
-    'block_number',
-    'confirmed_at',
+        'user_id',
+        'title',
+        'year',
+        'authors',
+        'filename',
+        'department',
+        'program',
+        'abstract',
+        'plagiarism_score', // <— added
+        'extracted_text',
+        'text_hash',
+        'file_path',
+        'file_disk',
+        'sha256',
+        'wallet',
+        'tx_hash',
+        'chain_id',
+        'chain_status',
+        'block_number',
+        'confirmed_at',
     ];
 
 
 
     protected $casts = [
-        'confirmed_at' => 'datetime',
-        'block_number' => 'integer',
-        'chain_id'     => 'integer',
+        'confirmed_at'      => 'datetime',
+        'block_number'      => 'integer',
+        'chain_id'          => 'integer',
+        'plagiarism_score'  => 'integer', // <— added
     ];
+
 
     // Status helpers
     public const STATUS_NONE       = 'NONE';
