@@ -269,50 +269,70 @@
 
 
  <hr class="mx-auto w-[90%] border-gray-200">
- 
+ @php
+    $isAnnouncementsActive = request()->routeIs('announcements.*');
+@endphp
+
 <!-- Announcements Section -->
-<nav class="p-4">
-    <div class="flex items-center justify-between mb-2 hidden">
-        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Announcements</h3>
-    </div>
-    <ul class="space-y-2">
-        <!-- View Announcements -->
-        <li>
-            <a href="{{ route('announcements.index') }}"
-               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+@if(auth()->check() && auth()->user()->isAdmin())
+    <nav class="p-4">
+        <details class="group" {{ $isAnnouncementsActive ? 'open' : '' }}>
+            <summary class="flex items-center p-2 rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 {{ $isAnnouncementsActive ? 'bg-indigo-50 text-indigo-600' : '' }}">
                 <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
-                View Announcements
+                <span>Announcements</span>
+
                 @if($announcementsCount > 0)
                     <span class="ml-auto inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-indigo-500 rounded-full">
                         {{ $announcementsCount }}
                     </span>
+                @else
+                    <i data-feather="chevron-down" class="ml-auto w-4 h-4 transition-transform group-open:rotate-180"></i>
                 @endif
-            </a>
-        </li>
-        
-        <!-- Admin-only create announcement link -->
-        @if(auth()->check() && auth()->user()->isAdmin())
-            <li>
-                <a href="{{ route('announcements.create') }}"
-                   class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                    <i data-feather="plus-circle" class="mr-3 w-4 h-4"></i>
-                    Create Announcement
-                </a>
-            </li>
-            @if(auth()->check() && auth()->user()->isAdmin())
+            </summary>
+
+            <ul class="mt-2 space-y-1 pl-9">
                 <li>
-                    <a href="{{ route('announcements.manage') }}"
-                    class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.manage','announcements.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                        <i data-feather="settings" class="mr-3 w-4 h-4"></i>
-                        Manage Announcements
+                    <a href="{{ route('announcements.index') }}"
+                       class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                        <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
+                        View 
                     </a>
                 </li>
-            @endif
-        @endif
-        
-    </ul>
-</nav>
-
+                <li>
+                    <a href="{{ route('announcements.create') }}"
+                       class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                        <i data-feather="plus-circle" class="mr-3 w-4 h-4"></i>
+                        Create 
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('announcements.manage') }}"
+                       class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.manage','announcements.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                        <i data-feather="settings" class="mr-3 w-4 h-4"></i>
+                        Manage 
+                    </a>
+                </li>
+            </ul>
+        </details>
+    </nav>
+@else
+    <nav class="p-4">
+        <ul class="space-y-2">
+            <li>
+                <a href="{{ route('announcements.index') }}"
+                   class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
+                    View Announcements
+                    @if($announcementsCount > 0)
+                        <span class="ml-auto inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-indigo-500 rounded-full">
+                            {{ $announcementsCount }}
+                        </span>
+                    @endif
+                </a>
+            </li>
+        </ul>
+    </nav>
+@endif
 
 
         <hr class="mx-auto w-[90%] border-gray-200">
@@ -428,11 +448,11 @@
     <!-- Header (non-scrolling) -->
     <div class="mb-3">
         <div class="font-semibold text-lg">Updates</div>
-        <div class="text-sm text-gray-500">Click notification to mark as read.</div>
+        <div class="text-sm text-gray-500">Click to mark as read.</div>
     </div>
 
     <!-- Scrollable list only -->
-    <div id="notifList" class="space-y-3 max-h-72 overflow-y-auto pr-1">
+    <div id="notifList" class="space-y-3 max-h-90 overflow-y-auto pr-1">
         @forelse($notifications as $notif)
             <div class="bg-white border rounded-lg p-3 hover:bg-indigo-50 transition cursor-pointer"
                  data-is-read="{{ $notif->is_read ? '1' : '0' }}"
@@ -464,10 +484,7 @@
             <span id="olderUnreadText">Load older</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v9.586l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5A1 1 0 014.707 10.293L8 13.586V4a1 1 0 011-1z"/></svg>
         </button>
-        <!-- Optional “view all” link if your JSON endpoint isn’t implemented yet -->
-        <a href="{{ url('/notifications') }}" class="mt-2 block text-center text-xs text-indigo-600 hover:underline">
-            View all notifications
-        </a>
+     
     </div>
 </div>
 
