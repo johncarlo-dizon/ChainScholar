@@ -1,6 +1,6 @@
 <x-userlayout>
     <div class="bg-blue-600 rounded-lg shadow p-6">
-        <h2 class="text-3xl font-semibold mb-1 text-white">My Advised Titles</h2>
+        <h2 class="text-3xl font-semibold mb-1 text-white">Advised Titles</h2>
         <p class="text-blue-100">Titles where you are the primary adviser.</p>
     </div>
 

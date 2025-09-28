@@ -8,7 +8,7 @@
     <div class="flex items-center gap-6 flex-1">
       <!-- Brand -->
       <h2 class="text-2xl md:text-3xl font-semibold text-white shrink-0">
-        ChainScholar
+        Research Library
       </h2>
 
  

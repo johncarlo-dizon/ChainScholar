@@ -1,6 +1,6 @@
 <x-userlayout>
   <div class="bg-blue-600 rounded-lg shadow p-6">
-    <h2 class="text-3xl font-semibold mb-2 text-white">Browse Open Titles</h2>
+    <h2 class="text-3xl font-semibold mb-2 text-white">Open Titles</h2>
     <p class="text-white/80 text-sm">Filter by status, assignment, and search keywords.</p>
   </div>
 

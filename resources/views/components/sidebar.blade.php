@@ -100,6 +100,13 @@
                                 Dashboard
                             </a>
                         </li>
+                             <li>
+                            <a href="{{ route('dashboard') }}"
+                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                                <i data-feather="layout" class="w-4 h-4 mr-3"></i>
+                                Research Library
+                            </a>
+                        </li>
                         <li>
                             <a href="{{ route('admin.users.index') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.users.index','admin.users.create','admin.users.store','admin.users.edit','admin.users.update','admin.users.destroy') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
@@ -130,7 +137,7 @@
         @endif
       </span>
 
-      <span>Awaiting Titles</span>
+      <span>Pending Titles</span>
   </a>
 </li>
 
@@ -149,35 +156,35 @@
                             <a href="{{ route('dashboard') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="layout" class="w-4 h-4 mr-3"></i>
-                                Dashboard
+                                Research Library
                             </a>
                         </li>
                         <li>
                             <a href="{{route('titles.verify')}}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.create','templates.use','titles.verify') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="file-plus" class="mr-3 w-4 h-4"></i>
-                                Create
+                                New Title
                             </a>
                         </li>
                         <li>
                             <a href="{{route('titles.awaiting')}}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('titles.awaiting') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="clock" class="mr-3 w-4 h-4"></i>
-                                Awaiting Titles
+                                Pending Titles
                             </a>
                         </li>
                         <li>
                             <a href="{{route('titles.index')}}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('titles.index','documents.show','documents.edit','open.chapters','templates.index','titles.chapters') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="folder" class="mr-3 w-4 h-4"></i>
-                                Titles
+                                Approved Titles
                             </a>
                         </li>
                         <li>
                             <a href="{{route('documents.submitted')}}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.submitted','documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="send" class="mr-3 w-4 h-4"></i>
-                                Submitted Documents
+                                Final Papers
                             </a>
                         </li>
                    
@@ -200,6 +207,13 @@
             Dashboard
         </a>
     </li>
+       <li>
+                            <a href="{{ route('dashboard') }}"
+                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                                <i data-feather="layout" class="w-4 h-4 mr-3"></i>
+                                Research Library
+                            </a>
+                        </li>
 
     {{-- NEW: Adviser Profile tab --}}
  
@@ -208,21 +222,21 @@
         <a href="{{ route('adviser.advised.index') }}"
            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.advised.*','documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="bookmark" class="w-4 h-4 mr-3"></i>
-            My Advised Titles
+            Advised Titles
         </a>
     </li>
     <li>
         <a href="{{ route('adviser.titles.browse') }}"
            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.titles.browse') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="search" class="w-4 h-4 mr-3"></i>
-            Browse Titles
+            Open Titles
         </a>
     </li>
     <li>
         <a href="{{ route('adviser.requests.pending') }}"
            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.requests.pending') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="alert-circle" class="w-4 h-4 mr-3"></i>
-            Pending Requests
+            Approval Requests
         </a>
     </li>
 @endif
@@ -240,7 +254,7 @@
                             <a href="{{ route('research-papers.create') }}"
                                class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="upload" class="mr-3 w-4 h-4"></i>
-                                Upload Pdf
+                                Upload Research
                             </a>
                         </li>
                              @if(auth()->user()->role === 'ADMIN')
@@ -249,7 +263,7 @@
                     <a href="{{ route('research-papers.admin-index') }}"
                     class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.admin-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                         <i data-feather="book-open" class="w-4 h-4 mr-3"></i>
-                        Research Papers
+                       All Research Papers
                     </a>
                 </li>
             @endif

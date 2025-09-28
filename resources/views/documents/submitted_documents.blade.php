@@ -1,8 +1,10 @@
 <x-userlayout>
-    <div class="bg-blue-600 rounded-lg shadow p-6">
-        <h2 class="text-3xl font-semibold mb-4 text-white">📤 Submitted Titles</h2>
-        <p class="text-sm text-blue-100">These are titles you've submitted for review or have been approved.</p>
-    </div>
+ 
+
+       <div class="bg-blue-600 rounded-lg shadow p-4">
+    <h2 class="text-2xl font-semibold text-white">Submitted Titles</h2>
+    <p class="text-blue-100 text-sm">These are titles you've submitted in ChainScholar.</p>
+  </div>
 
     <div class="container mx-auto px-4 mt-4">
         @if(session('success'))

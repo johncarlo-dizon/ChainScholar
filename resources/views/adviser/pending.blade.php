@@ -1,6 +1,6 @@
 <x-userlayout>
     <div class="bg-blue-600 rounded-lg shadow p-6">
-        <h2 class="text-3xl font-semibold mb-4 text-white">Pending Requests</h2>
+        <h2 class="text-3xl font-semibold mb-4 text-white">Approval Requests</h2>
     </div>
 
     <div class="container mx-auto px-4 py-6 space-y-4">

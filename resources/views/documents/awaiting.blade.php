@@ -1,6 +1,6 @@
 <x-userlayout>
   <div class="bg-blue-600 rounded-lg shadow p-4">
-    <h2 class="text-2xl font-semibold text-white">Awaiting Titles</h2>
+    <h2 class="text-2xl font-semibold text-white">Pending Titles</h2>
     <p class="text-blue-100 text-sm">Manage adviser and admin approvals in one place.</p>
   </div>
 

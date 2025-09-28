@@ -1,8 +1,10 @@
 <x-userlayout>
-    <div class="bg-blue-600 rounded-lg shadow p-6">
-        <h2 class="text-3xl font-semibold mb-4 text-white">📝 My Draft Titles</h2>
-        <p class="text-sm text-blue-100">These are titles you're still working on.</p>
-    </div>
+
+
+      <div class="bg-blue-600 rounded-lg shadow p-4">
+    <h2 class="text-2xl font-semibold text-white">Approved Titles</h2>
+    <p class="text-blue-100 text-sm">These are titles you're still working on.</p>
+  </div>
 
     <div class="container mx-auto px-4 mt-4">
  

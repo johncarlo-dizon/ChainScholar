@@ -2,7 +2,7 @@
 <x-userlayout>
 
     <div class="bg-blue-600 rounded-lg shadow p-5">
-        <h2 class="text-2xl font-semibold text-white">Awaiting Admin Approval</h2>
+        <h2 class="text-2xl font-semibold text-white">Waiting For Approval</h2>
         <p class="text-blue-100 text-sm mt-1">Titles with an accepted adviser, pending final admin approval.</p>
     </div>
 

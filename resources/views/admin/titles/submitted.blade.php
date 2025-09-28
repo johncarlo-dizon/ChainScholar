@@ -1,7 +1,7 @@
 <x-userlayout>
     <div class="bg-blue-600 rounded-lg shadow p-6">
-        <h2 class="text-3xl font-semibold mb-2 text-white">📄 Submitted Titles</h2>
-        <p class="text-sm text-blue-100">All final documents students have submitted. No approval required.</p>
+        <h2 class="text-3xl font-semibold mb-2 text-white">Submitted Titles</h2>
+        <p class="text-sm text-blue-100">All final documents students have submitted.</p>
     </div>
 
     <div class="container mx-auto px-4 mt-4">
