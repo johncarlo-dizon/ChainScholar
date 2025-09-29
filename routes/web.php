@@ -427,17 +427,21 @@ Route::middleware('auth')->group(function() {
         return view('auth.verify-email')->with('status', 'Verification email sent! Please check your Gmail.');
     })->name('verification.notice');
 
-        Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-        $request->fulfill();
+    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+    $request->fulfill();
 
-        $role = auth()->user()->role ?? null;
-        return match ($role) {
-            'ADMIN'   => redirect()->route('admin.users.index'),
-            'ADVISER' => redirect()->route('adviser.index'),
-            'STUDENT' => redirect()->route('dashboard'),
-            default   => redirect()->route('dashboard'),
-        };
-    })->middleware('signed')->name('verification.verify');
+    // flash a success message for SweetAlert
+    session()->flash('status', 'Email verified! Welcome to ChainScholar 🎉');
+
+    $role = auth()->user()->role ?? null;
+    return match ($role) {
+        'ADMIN'   => redirect()->route('admin.users.index'),
+        'ADVISER' => redirect()->route('adviser.index'),
+        'STUDENT' => redirect()->route('dashboard'),
+        default   => redirect()->route('dashboard'),
+    };
+})->middleware('signed')->name('verification.verify');
+
 
 
     Route::post('/email/verification-notification', function () {

@@ -97,5 +97,10 @@
         });
     </script>
 @endif
+
+
+<div class="fixed bottom-2 right-2 text-xs text-gray-500">
+    v.1
+</div>
 </body>
 </html>
