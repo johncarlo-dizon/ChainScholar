@@ -427,10 +427,18 @@ Route::middleware('auth')->group(function() {
         return view('auth.verify-email')->with('status', 'Verification email sent! Please check your Gmail.');
     })->name('verification.notice');
 
-    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+        Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
         $request->fulfill();
-        return redirect()->route('show.home');
+
+        $role = auth()->user()->role ?? null;
+        return match ($role) {
+            'ADMIN'   => redirect()->route('admin.users.index'),
+            'ADVISER' => redirect()->route('adviser.index'),
+            'STUDENT' => redirect()->route('dashboard'),
+            default   => redirect()->route('dashboard'),
+        };
     })->middleware('signed')->name('verification.verify');
+
 
     Route::post('/email/verification-notification', function () {
         auth()->user()->sendEmailVerificationNotification();

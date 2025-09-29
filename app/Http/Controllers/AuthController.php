@@ -52,7 +52,7 @@ class AuthController extends Controller
         $user->sendEmailVerificationNotification();
 
         return redirect()->route('show.login')
-            ->with('registered', 'Registration successful! Please login after verifying your email.')
+            ->with('status', 'Registration successful! Please login after verifying your email.')
             ->with('status', 'Verification email sent! Please check your Gmail.');
     }
 
