@@ -4,6 +4,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chain Scholar</title>
   @vite('resources/css/app.css')
+  <link rel="icon" href="{{ asset('storage/images/chainlogo.png') }}" type="image/png">
+
 </head>
 <body class="min-h-screen bg-gray-50 flex flex-col">
  
@@ -12,8 +14,12 @@
     <div class="max-w-screen-xl m-0 sm:m-10 bg-white shadow sm:rounded-lg flex justify-center flex-1">
         <div class="lg:w-1/2 xl:w-5/12 p-6 sm:p-12">
             <div class="mt-10 flex flex-row items-center">
-            <img src="{{ asset('storage/images/logo.png') }}" style="width: 100;" alt="">
-            <h1 class="text-center text-6xl font-extrabold tracking-wider text-gray-700 ms-3" style="font-size: 40px; font-family: 'Times New Roman', Times, serif;">CHAINSCHOLAR</h1>
+            <img src="{{ asset('storage/images/chainlogo.png') }}" style="width: 100;" alt="">
+          <h1 class="text-center text-6xl font-extrabold tracking-wider text-gray-700 ms-3" 
+    style="font-size: 40px; font-family: 'Times New Roman', Times, serif;">
+    CH<span style="color:#D4AF37;">AI</span>NSCHOLAR
+</h1>
+
             </div>
             <div class="mt-5 flex flex-col items-center">
                 <div class="w-full flex-1 mt-2">
@@ -28,16 +34,16 @@
     {{ $slot }}
   </main>
 
-<div class="flex-1 bg-gray-100 text-center hidden lg:flex relative overflow-hidden">
+<div class="flex-1 bg-light text-center hidden lg:flex relative overflow-hidden">
     <div class="absolute inset-0 flex transition-transform duration-[3000ms] ease-in-out animate-carousel">
-        <div class="w-full flex-shrink-0 bg-contain bg-center bg-no-repeat bg-cover"
-             style="background-image: url('{{ asset('storage/images/car2.png') }}')">
+        <div class="w-full flex-shrink-0 bg-contain bg-center bg-no-repeat"
+             style="background-image: url('{{ asset('storage/images/carv1.png') }}')">
         </div>
-        <div class="w-full flex-shrink-0 bg-contain bg-center bg-no-repeat bg-cover"
-             style="background-image: url('{{ asset('storage/images/car4.png') }}')">
+        <div class="w-full flex-shrink-0 bg-contain bg-center bg-no-repeat"
+             style="background-image: url('{{ asset('storage/images/carv2.png') }}')">
         </div>
-        <div class="w-full flex-shrink-0 bg-contain bg-center bg-no-repeat bg-cover"
-             style="background-image: url('{{ asset('storage/images/car3.png') }}')">
+        <div class="w-full flex-shrink-0 bg-contain bg-center bg-no-repeat"
+             style="background-image: url('{{ asset('storage/images/carv3.png') }}')">
         </div>
     </div>
 </div>
@@ -69,6 +75,9 @@
     </div>
 </div>
 
+<div class="fixed bottom-4 right-4 text-xs text-gray-700" title="Developer: John Carlo Victoria Dizon">
+    v.1
+</div>
 
 <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -99,8 +108,6 @@
 @endif
 
 
-<div class="fixed bottom-2 right-2 text-xs text-gray-500">
-    v.1
-</div>
+
 </body>
 </html>
