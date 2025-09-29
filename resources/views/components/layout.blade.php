@@ -43,7 +43,7 @@
              style="background-image: url('{{ asset('storage/images/carv2.png') }}')">
         </div>
         <div class="w-full flex-shrink-0 bg-contain bg-center bg-no-repeat"
-             style="background-image: url('{{ asset('storage/images/carv3.png') }}')">
+             style="background-image: url('{{ asset('storage/images/carv4.png') }}')">
         </div>
     </div>
 </div>
@@ -75,9 +75,11 @@
     </div>
 </div>
 
-<div class="fixed bottom-4 right-4 text-xs text-gray-700" title="Developer: John Carlo Victoria Dizon">
+<div class="fixed bottom-4 right-4 text-sm text-gray-400" title="Developed by John Carlo Victoria Dizon">
     v.1
 </div>
+
+
 
 <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
