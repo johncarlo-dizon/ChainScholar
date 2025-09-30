@@ -13,14 +13,20 @@
 <div class="min-h-screen bg-gray-100 text-gray-900 flex justify-center">
     <div class="max-w-screen-xl m-0 sm:m-10 bg-white shadow sm:rounded-lg flex justify-center flex-1">
         <div class="lg:w-1/2 xl:w-5/12 p-6 sm:p-12">
-            <div class="mt-10 flex flex-row items-center">
-            <img src="{{ asset('storage/images/chainlogo.png') }}" style="width: 100;" alt="">
-          <h1 class="text-center text-6xl font-extrabold tracking-wider text-gray-700 ms-3" 
-    style="font-size: 40px; font-family: 'Times New Roman', Times, serif;">
+         <div class="mt-10 flex flex-col items-center sm:flex-row sm:items-center gap-2 sm:gap-3 text-center sm:text-left">
+  <img
+    src="{{ asset('storage/images/chainlogo.png') }}"
+    alt="ChainScholar Logo"
+    class="w-12 sm:w-14 md:w-16 lg:w-20 h-auto"
+  />
+  <h1
+    class="ms-0 sm:ms-3 font-extrabold tracking-wider text-gray-700 text-3xl sm:text-4xl md:text-5xl lg:text-6xl"
+    style="font-family: 'Times New Roman', Times, serif;"
+  >
     CH<span style="color:#D4AF37;">AI</span>NSCHOLAR
-</h1>
+  </h1>
+</div>
 
-            </div>
             <div class="mt-5 flex flex-col items-center">
                 <div class="w-full flex-1 mt-2">
                
@@ -75,9 +81,22 @@
     </div>
 </div>
 
-<div class="fixed bottom-4 right-4 text-sm text-gray-400" title="Developed by John Carlo Victoria Dizon">
-    v.1
+<div
+  onclick="Swal.fire({
+    toast: true,
+    position: 'bottom-end',
+    icon: 'info',
+    title: 'Developed by John Carlo Victoria Dizon',
+    showConfirmButton: false,
+    timer: 2000,
+    timerProgressBar: true
+  })"
+  class="fixed bottom-4 right-4 text-xs text-gray-400 cursor-pointer hover:text-gray-600 transition"
+>
+  v.1
 </div>
+
+
 
 
 

@@ -56,6 +56,19 @@ future fix policy for the sidebars ---------- important note
 
 
 
+git add -f storage/app/public/images/*.png
+
+
+Adminchain@123 
+ssh -p 65002 u965321667@145.79.25.49
+
+
+cd ~/domains/chainscholar.site/public_html/chainscholar
+git pull origin chapter-based
+php -d disable_functions="" $(which composer) install --no-dev --optimize-autoloader
+rm -f public/storage && ln -s "$PWD/storage/app/public" "$PWD/public/storage"
+
+
 
 
 modal design
