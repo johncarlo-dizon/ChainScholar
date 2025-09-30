@@ -50,8 +50,8 @@ fix the manage part also the delete modal part
 
 future fix policy for the sidebars ---------- important note
 
-
-
+kipbgsi@gmail.com
+Tea0905*
 
 
 

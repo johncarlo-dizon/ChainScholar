@@ -343,7 +343,17 @@ class ExternalPlagiarismController extends Controller
             $pct = (int) round(($matchedDocWords * 100.0) / $docTotal);
         }
     }
-    if ($pct <= 0) return;
+   if ($pct <= 0) {
+    // Even if this result contributed 0%, it's still processed — mark it
+        $this->markProcessedResult($scan->scan_id, $resultId);
+
+        // Ensure overall status reflects that export flow is active
+        if (in_array($scan->status, ['completed','running','queued'], true)) {
+            $scan->update(['status' => 'exported']);
+        }
+        return; // no DB row for zero-percent result
+    }
+
 
     // ----- choose ranges from Copyleaks comparison (YOUR side only; never source-side) -----
     $cats = ['identical','minorChanges','relatedMeaning'];

@@ -837,24 +837,44 @@ function updatePlagGate(optionalReason) {
   const externalOk  = hasExternal && window.__externalScore < PASS_THRESHOLD;
   const enabled     = internalOk && externalOk;
 
-  setSubmitDisabled(!enabled, enabled ? '' : (optionalReason || buildGateReason()));
+  // Keep gating logic the same
+  setSubmitDisabled(!enabled);
 
+  if (!resultBox) return;
+  resultBox.classList.remove('hidden');
 
-  // Show combined status line
-  if (resultBox) {
-    const internalTxt = hasInternal ? `${window.__internalScore}%` : '—';
-    const externalTxt = hasExternal ? `${window.__externalScore}%` : '—';
-    const allOk       = enabled ? `<span class="text-green-600">Ready to upload ✅</span>` :
-                               `<span class="text-red-600">Not ready to upload</span>`;
+  const fmt = (v) => Number.isFinite(+v) ? `${Math.round(+v)}%` : '—';
+  const goal = PASS_THRESHOLD;
 
-    resultBox.classList.remove('hidden');
-    resultBox.innerHTML =
-      `<div class="text-sm">
-         <div>Internal: <strong>${internalTxt}</strong> | External: <strong>${externalTxt}</strong></div>
-         <div class="mt-1">${allOk}${enabled ? '' : `<span class="text-gray-600"> — ${buildGateReason()}</span>`}</div>
-       </div>`;
-  }
+  const chip = (label, val, known) => {
+    const ok  = known && val < goal;
+    const cls = !known
+      ? 'bg-gray-100 text-gray-700 border border-gray-200'
+      : ok
+        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+        : 'bg-rose-100 text-rose-800 border border-rose-200';
+    return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs ${cls}">
+      <span class="font-medium">${label}</span>
+      <span class="font-semibold">${fmt(val)}</span>
+    </span>`;
+  };
+
+  const header = enabled
+    ? `<div class="text-green-700 text-sm font-medium">Ready to upload ✅</div>`
+    : `<div class="text-rose-700 text-sm font-medium">Not ready to upload</div>`;
+
+  // Minimal: header + chips only (no meters, no goal/hint line)
+  resultBox.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      ${header}
+      <div class="flex flex-wrap gap-2">
+        ${chip('Internal', window.__internalScore, hasInternal)}
+        ${chip('External', window.__externalScore, hasExternal)}
+      </div>
+    </div>
+  `;
 }
+
 
 // ---------------- INTERNAL (my database) LIVE CHECK ----------------
 const MIN_CHARS_TO_CHECK = 40; // avoid noise when the doc is still empty
@@ -971,11 +991,13 @@ window.checkPlagiarism = checkPlagiarism;
   let pollingTimer = null;
 
   function stopPolling() {
-    if (pollingTimer) {
-      clearInterval(pollingTimer);
-      pollingTimer = null;
-    }
+  if (pollingTimer) {
+    clearTimeout(pollingTimer); // <-- add this
+    clearInterval(pollingTimer); // safe if interval was used
+    pollingTimer = null;
   }
+}
+
   window.addEventListener('beforeunload', stopPolling);
 
 let lastProgress = 0;
@@ -988,7 +1010,7 @@ function renderPhaseBar(meta) {
     {key:'scanning',label:'Scanning'},
     {key:'results_ready',label:'Results ready'},
     {key:'export_scheduled',label:'Export scheduled'},
-    {key:'exporting',label:'Exporting results'},
+    {key:'exporting',label:'Exporting'},
     {key:'finalizing',label:'Done'},
   ];
 
@@ -1006,51 +1028,61 @@ function renderPhaseBar(meta) {
   const isTerminal = ['completed','exported','finalizing'].includes(meta?.status) || current === 'finalizing';
   const shownPct   = isTerminal ? progress : Math.min(progress, 99);
 
-  // dots grid (labels are in the same column as their dot)
-  const colsStyle  = `grid-template-columns: repeat(${steps.length}, minmax(0,1fr));`;
+  // export counters (if provided)
+  const total     = Number(meta?.export?.total_results ?? 0);
+  const processed = Number(meta?.export?.processed_results ?? 0);
+  const hasCrawled = !!(meta?.export?.has_crawled);
 
-  const dotItems = steps.map((s, i) => {
-    const done    = i < (stepIdx - 1) || isTerminal;
-    const active  = i === (stepIdx - 1) && !isTerminal;
-    const dotCls  = done ? 'bg-emerald-500' : active ? 'bg-blue-600' : 'bg-gray-300';
-    const lblCls  = done ? 'text-emerald-700' : active ? 'text-blue-700' : 'text-gray-500';
+  const statusLabelMap = {
+    queued: 'Queued',
+    scanning: 'Scanning',
+    results_ready: 'Results ready',
+    export_scheduled: 'Export scheduled',
+    exporting: 'Exporting results',
+    finalizing: 'Finalizing',
+  };
+  const label = statusLabelMap[current] || current.replace(/_/g, ' ');
 
-    return `
-      <div class="flex flex-col items-center">
-        <div class="relative">
-          <!-- white halo to cleanly cut the background line under the dot -->
-          <span class="absolute -inset-1 rounded-full bg-white"></span>
-          <span class="relative block w-2.5 h-2.5 rounded-full ${dotCls}"></span>
-        </div>
-        <div class="mt-1 text-[11px] leading-tight ${lblCls} whitespace-nowrap">${s.label}</div>
-      </div>
-    `;
-  }).join('');
+  // badges for each step (bread-crumb style)
+  const stepBadges = steps.map((s, i) => {
+    const done   = i < (stepIdx - 1) || isTerminal;
+    const active = i === (stepIdx - 1) && !isTerminal;
+    const cls = done
+      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+      : active
+        ? 'bg-blue-100 text-blue-800 border border-blue-200'
+        : 'bg-gray-100 text-gray-700 border border-gray-200';
+    return `<span class="px-1.5 py-0.5 rounded ${cls} text-[11px]">${s.label}</span>`;
+  }).join('<span class="mx-1 text-gray-300">›</span>');
+
+  // helpful subline while exporting
+  let subline = '';
+  if (current === 'export_scheduled') {
+    subline = `<div class="text-xs text-gray-600 mt-1">Waiting for crawled version${hasCrawled ? ' — received ✅' : '…'}</div>`;
+  } else if (current === 'exporting' && total > 0) {
+    subline = `<div class="text-xs text-gray-600 mt-1">Processing <strong>${processed}</strong> of <strong>${total}</strong> results${hasCrawled ? ' • crawled ✓' : ''}</div>`;
+  }
 
   return `
     <div class="space-y-2 select-none">
       <div class="flex items-center justify-between">
-        <div class="text-sm font-medium text-gray-800">Status: ${current.replace(/_/g,' ')}</div>
+        <div class="text-sm font-medium text-gray-800">Status: ${label}</div>
         <div class="text-xs text-gray-500">${Math.round(shownPct)}%</div>
       </div>
 
       <div class="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
-        <div class="h-2 bg-blue-600" style="width:${shownPct}%"></div>
+        <div class="h-2" style="width:${shownPct}%; background:linear-gradient(90deg,#3b82f6,#22c55e)"></div>
       </div>
 
-      <!-- Steps line + dots -->
-      <div class="relative mt-3">
-        <!-- single continuous connector line -->
-        <div class="absolute left-2 right-2 top-1.5 h-0.5 bg-gray-200"></div>
+      ${subline}
 
-        <!-- evenly spaced dots with labels underneath -->
-        <div class="grid gap-0" style="${colsStyle}">
-          ${dotItems}
-        </div>
+      <div class="flex flex-wrap items-center gap-1 mt-2">
+        ${stepBadges}
       </div>
     </div>
   `;
 }
+
 
 
 
@@ -1114,28 +1146,48 @@ function renderPhaseBar(meta) {
         renderIdle('No previous external scans yet for this chapter.');
         return;
       }
-           if (data.status === 'running' || data.status === 'queued') {
-         renderRunning(data);
-        // Begin polling every 3s until a terminal state is reached
+         const terminal = data.phase === 'finalizing' || data.status === 'error';
+if (!terminal) {
+  // Show something immediately
+  if (data.status === 'running' || data.status === 'queued') {
+    renderRunning(data);
+  } else {
+    // exported/results_ready → show partial results while we keep polling
+    renderResults(data);
+  }
+
+  // Poll until phase === finalizing
+  async function tick() {
+    try {
+      const next = await getJsonNoCache(`{{ route('documents.copyleaks.status', $document) }}`);
+      if (!next || next.status === 'error') {
         stopPolling();
-        pollingTimer = setInterval(async () => {
-          try {
-            const next = await getJsonNoCache(`{{ route('documents.copyleaks.status', $document) }}`);
-            if (!next || next.status === 'error') {
-              stopPolling();
-              renderIdle(next?.error || 'Scan failed. Try re-running.');
-              return;
-            }
-            if (next.status === 'completed' || next.status === 'exported') {
-              stopPolling();
-              renderResults(next);
-            }
-          } catch {
-            // network hiccup: keep polling
-          }
-        }, 3000);
+        renderIdle(next?.error || 'Scan failed. Try re-running.');
         return;
       }
+
+      const done = next.phase === 'finalizing';
+      if (!done) {
+        if (next.status === 'running' || next.status === 'queued') {
+          renderRunning(next);
+        } else {
+          // exported/results_ready
+          renderResults(next);
+        }
+      } else {
+        stopPolling();
+        renderResults(next);
+        return;
+      }
+    } catch {}
+    if (pollingTimer) pollingTimer = setTimeout(tick, 3000);
+  }
+
+  stopPolling();
+  pollingTimer = setTimeout(tick, 0);
+  return;
+}
+
 
       if (data.status === 'error') {
         renderIdle(data.error || 'Scan failed. Try re-running.');
@@ -1193,8 +1245,7 @@ function renderPhaseBar(meta) {
     const wordsTotal  = Number(data.doc_total_words ?? 0);
 
 
-      const highlightHtml = (data.plagiarized_highlight_html || '').trim();
-const plainExcerpt  = (data.plagiarized_excerpt || '').trim();
+   const highlightHtml = (data.plagiarized_highlight_html || '').trim();
 const hasHighlight  = highlightHtml.length > 0;
 
 const topBlock = `
@@ -1203,36 +1254,23 @@ const topBlock = `
       <div class="text-sm font-semibold text-rose-800">Plagiarized content detected</div>
       <div class="text-xs text-rose-700">
         Max source coverage: <strong>${isNaN(sourceMax) ? '—' : sourceMax + '%'}</strong>
-
         <span class="text-gray-400">• Doc score: ${isNaN(docAgg) ? '—' : docAgg + '%'}</span>
         ${wordsTotal ? `<span class="text-gray-400">• Words: ${wordsTotal}</span>` : ``}
       </div>
     </div>
 
-    ${hasHighlight ? `
-      <!-- tab header -->
-      <div class="px-4 pt-3 flex items-center gap-2 text-sm">
-        <button type="button" id="tabExact"
-          class="px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700">Exact overlaps</button>
-        <button type="button" id="tabPlain"
-          class="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Plain excerpt</button>
-      </div>
-    ` : ``}
-
     <div class="p-4">
       ${hasHighlight ? `
-        <!-- highlighted HTML (already script-stripped server-side) -->
-         <iframe id="panelExactFrame"
-         class="w-full rounded border bg-white"
-        style="height: 20rem; border: 1px solid #e5e7eb;"></iframe>
-        <pre id="panelPlain" class="whitespace-pre-wrap text-sm leading-relaxed text-gray-900 hidden"
-             style="max-height: 20rem; overflow:auto;">${esc(plainExcerpt || '(no crawled text available)')}</pre>
+        <iframe id="panelExactFrame"
+                class="w-full rounded border bg-white"
+                style="height: 20rem; border: 1px solid #e5e7eb;"></iframe>
       ` : `
-        <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-900">${esc(plainExcerpt || '(no crawled text available)')}</pre>
+        <div class="text-sm text-gray-600">No highlighted excerpt available.</div>
       `}
     </div>
   </div>
 `;
+
 
     window.__externalScore = Number.isFinite(sourceMax) && sourceMax > 0
       ? sourceMax
@@ -1262,44 +1300,16 @@ const topBlock = `
 
 if (hasHighlight) {
   const frame = document.getElementById('panelExactFrame');
-  const btnExact = document.getElementById('tabExact');
-  const btnPlain = document.getElementById('tabPlain');
-  const panelPlain = document.getElementById('panelPlain');
-
-  // inject sanitized HTML into the iframe document
   if (frame) {
     const idoc = frame.contentDocument || frame.contentWindow?.document;
     if (idoc) {
       idoc.open();
-idoc.write(highlightHtml);   // it's already a complete sanitized HTML doc
-idoc.close();
-
+      idoc.write(highlightHtml); // already sanitized full HTML
+      idoc.close();
     }
   }
-
-  function showExact() {
-    frame?.classList.remove('hidden');
-    panelPlain.classList.add('hidden');
-    btnExact.classList.add('bg-blue-600','text-white');
-    btnExact.classList.remove('border','border-gray-300','text-gray-700','bg-white');
-    btnPlain.classList.remove('bg-blue-600','text-white');
-    btnPlain.classList.add('border','border-gray-300','text-gray-700','bg-white');
-  }
-  function showPlain() {
-    frame?.classList.add('hidden');
-    panelPlain.classList.remove('hidden');
-    btnPlain.classList.add('bg-blue-600','text-white');
-    btnPlain.classList.remove('border','border-gray-300','text-gray-700','bg-white');
-    btnExact.classList.remove('bg-blue-600','text-white');
-    btnExact.classList.add('border','border-gray-300','text-gray-700','bg-white');
-  }
-
-  btnExact?.addEventListener('click', showExact);
-  btnPlain?.addEventListener('click', showPlain);
-
-  // default tab
-  showExact();
 }
+
 
 
 
@@ -1356,29 +1366,39 @@ idoc.close();
     if (!resp.ok || !start?.ok) throw new Error(start?.message || 'Failed to start');
 
     // Poll ONLY the status endpoint and update the current view
-    stopPolling();
-    const statusUrl = `{{ route('documents.copyleaks.status', $document) }}`;
-    pollingTimer = setInterval(async () => {
-      try {
-        const next = await getJsonNoCache(statusUrl);
-        if (!next || next.status === 'error') {
-          stopPolling();
-          renderIdle(next?.error || 'Scan failed. Try re-running.');
-          return;
-        }
-        if (next.status === 'running' || next.status === 'queued') {
-          renderRunning(next); // update bars/counts in place
-          return;
-        }
-        // Terminal states
-        if (next.status === 'completed' || next.status === 'exported') {
-          stopPolling();
-          renderResults(next);
-        }
-      } catch {
-        // transient network error: keep polling
+   // Poll until phase === finalizing; keep updating UI while exporting
+const statusUrl = `{{ route('documents.copyleaks.status', $document) }}`;
+async function tick() {
+  try {
+    const next = await getJsonNoCache(statusUrl);
+    if (!next || next.status === 'error') {
+      stopPolling();
+      renderIdle(next?.error || 'Scan failed. Try re-running.');
+      return;
+    }
+    const done = next.phase === 'finalizing';
+    if (!done) {
+      if (next.status === 'running' || next.status === 'queued') {
+        renderRunning(next);
+      } else {
+        // exported / results_ready → partial results while continuing to poll
+        renderResults(next);
       }
-    }, 3000);
+    } else {
+      stopPolling();
+      renderResults(next);
+      return;
+    }
+  } catch {}
+  if (pollingTimer) pollingTimer = setTimeout(tick, 3000);
+}
+stopPolling();
+pollingTimer = setTimeout(tick, 0);
+
+
+
+
+
   } catch (e) {
     renderIdle('Failed to start external scan. Please try again.');
   }
