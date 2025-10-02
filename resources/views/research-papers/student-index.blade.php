@@ -156,6 +156,18 @@
   <a href="{{ Storage::url($paper->file_path) }}" target="_blank" class="hidden text-indigo-600 hover:text-indigo-900" title="View PDF">
     <i data-lucide="eye" class="w-5 h-5"></i>
   </a>
+    {{-- Download Certificate (available when REGISTERED/CONFIRMED + has tx) --}}
+  @php
+    $certEligible = in_array(($paper->chain_status ?? ''), ['REGISTERED','CONFIRMED'], true) && !empty($paper->tx_hash) && !empty($paper->sha256);
+  @endphp
+  @if($certEligible)
+    <a href="{{ route('papers.certificate', $paper) }}"
+       class="text-emerald-600 hover:text-emerald-800"
+       title="Download timestamp certificate">
+        <i data-feather="award" class="w-5 h-5"></i>
+    </a>
+  @endif
+
 
   {{-- Details --}}
 <button type="button" class="text-sky-600 hover:text-sky-800 btn-details"

@@ -30,6 +30,15 @@ use App\Http\Controllers\AdviserProfileController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BlockchainController;
 use App\Http\Controllers\BlockchainRequestController;
+use App\Http\Controllers\CertificateController;
+
+// CERTIFICATE CHAIN
+Route::get('/papers/{paper}/certificate', [CertificateController::class, 'download'])
+    ->name('papers.certificate')
+    ->middleware('auth');
+// CERTIFICATE CHAIN END
+
+
 
 Route::middleware(['auth'])->group(function () {
     Route::post('/papers/{paper}/hash',     [BlockchainController::class, 'computeHash'])->name('papers.hash');

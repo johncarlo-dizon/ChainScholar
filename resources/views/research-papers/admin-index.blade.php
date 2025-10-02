@@ -233,6 +233,20 @@
     <i data-feather="shield-check" class="w-5 h-5"></i>
   </button>
 
+    {{-- Download Certificate (visible when REGISTERED/CONFIRMED and has tx + sha256) --}}
+  @php
+    $certEligible = in_array(($paper->chain_status ?? ''), ['REGISTERED','CONFIRMED'], true)
+                    && !empty($paper->tx_hash) && !empty($paper->sha256);
+  @endphp
+  @if($certEligible)
+    <a href="{{ route('papers.certificate', $paper) }}"
+       class="text-emerald-600 hover:text-emerald-800"
+       title="Download timestamp certificate (PDF)">
+      <i data-feather="award" class="w-5 h-5"></i>
+    </a>
+  @endif
+
+
   {{-- Delete --}}
   <button type="button" class="text-red-600 hover:text-red-900 btn-delete"
     title="Delete"
