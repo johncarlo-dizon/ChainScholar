@@ -73,7 +73,8 @@
         </div>
 
         {{-- Table --}}
-        <div class="overflow-hidden border border-gray-200 rounded-lg">
+        <div class="overflow-visible border border-gray-200 rounded-lg">
+
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -132,7 +133,7 @@
     </span>
   @elseif($lr && $lr->status === 'APPROVED')
     <span class="ml-2 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700">
-      Request: APPROVED
+  
     </span>
   @endif
 
@@ -151,95 +152,114 @@
 
 
 
-                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-3">
-  {{-- View PDF (kept hidden as before) --}}
-  <a href="{{ Storage::url($paper->file_path) }}" target="_blank" class="hidden text-indigo-600 hover:text-indigo-900" title="View PDF">
-    <i data-lucide="eye" class="w-5 h-5"></i>
-  </a>
-    {{-- Download Certificate (available when REGISTERED/CONFIRMED + has tx) --}}
-  @php
-    $certEligible = in_array(($paper->chain_status ?? ''), ['REGISTERED','CONFIRMED'], true) && !empty($paper->tx_hash) && !empty($paper->sha256);
-  @endphp
-  @if($certEligible)
-    <a href="{{ route('papers.certificate', $paper) }}"
-       class="text-emerald-600 hover:text-emerald-800"
-       title="Download timestamp certificate">
-        <i data-feather="award" class="w-5 h-5"></i>
-    </a>
-  @endif
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium relative">
+  {{-- 3-dot trigger --}}
+  <button type="button"
+          class="paper-actions-trigger inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          data-menu-id="menu-{{ $paper->id }}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
+      <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z" />
+    </svg>
+  </button>
 
+  {{-- Dropdown (absolutely-positioned; won’t be clipped due to wrapper change) --}}
+  <div id="menu-{{ $paper->id }}"
+       class="paper-actions-menu hidden absolute right-0 top-full mt-2 z-50 min-w-[220px] rounded-lg border border-gray-200 bg-white p-1 shadow-lg ring-1 ring-black/5">
+    {{-- Details (opens modal) --}}
+    <button type="button"
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-gray-700 text-left btn-details"
+            title="Details"
+            data-title="{{ e($paper->title) }}"
+            data-authors="{{ e($paper->authors) }}"
+            data-department="{{ e($paper->department) }}"
+            data-program="{{ e($paper->program) }}"
+            data-year="{{ e($paper->year) }}"
+            data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
+            data-file-url="{{ Storage::url($paper->file_path) }}"
+            data-abstract="{{ e($paper->abstract ?? '') }}"
+            data-plagiarism="{{ is_null($paper->plagiarism_score) ? '' : (int)$paper->plagiarism_score }}">
+      <i data-lucide="info" class="w-4 h-4"></i>
+      <span>View details</span>
+    </button>
 
-  {{-- Details --}}
-<button type="button" class="text-sky-600 hover:text-sky-800 btn-details"
-  title="Details"
-  data-title="{{ e($paper->title) }}"
-  data-authors="{{ e($paper->authors) }}"
-  data-department="{{ e($paper->department) }}"
-  data-program="{{ e($paper->program) }}"
-  data-year="{{ e($paper->year) }}"
-  data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
-  data-file-url="{{ Storage::url($paper->file_path) }}"
-  data-abstract="{{ e($paper->abstract ?? '') }}"
-  data-plagiarism="{{ is_null($paper->plagiarism_score) ? '' : (int)$paper->plagiarism_score }}">
-  <i data-lucide="info" class="w-5 h-5"></i>
-</button>
+    {{-- Certificate (if eligible) --}}
+    @php
+      $certEligible = in_array(($paper->chain_status ?? ''), ['REGISTERED','CONFIRMED'], true) && !empty($paper->tx_hash) && !empty($paper->sha256);
+    @endphp
+    @if($certEligible)
+      <a href="{{ route('papers.certificate', $paper) }}"
+         class="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-emerald-700">
+        <i data-lucide="award" class="w-4 h-4"></i>
+        <span>Download certificate</span>
+      </a>
+    @endif
 
+    {{-- Verify (read-only) --}}
+    <button type="button"
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-gray-700 text-left btn-verify-chain"
+            title="Verify on-chain"
+            data-sha="{{ $paper->sha256 }}"
+            data-title="{{ e(Str::limit($paper->title, 80)) }}">
+<i data-feather="check-circle" class="w-4 h-4"></i>
 
-  @if(auth()->user()->isAdmin())
-      {{-- ADMIN: show server hash (if NOT hashed), register (if hashed & not registered), verify, delete --}}
+      <span>Verify on-chain</span>
+    </button>
+
+    @if(auth()->user()->isAdmin())
+      {{-- ADMIN: compute hash if absent --}}
       @if (!$paper->sha256)
         <form method="POST" action="{{ route('papers.hash', $paper) }}">
           @csrf
-          <button class="text-gray-700 hover:text-gray-900" title="Compute SHA-256">
-            <i data-lucide="hash" class="w-5 h-5"></i>
+          <button type="submit"
+                  class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-gray-700 text-left">
+            <i data-lucide="hash" class="w-4 h-4"></i>
+            <span>Compute SHA-256</span>
           </button>
         </form>
       @endif
 
+      {{-- ADMIN: register on-chain when hashed but not registered --}}
       @if ($paper->sha256 && $paper->chain_status !== 'REGISTERED' && $paper->chain_status !== 'CONFIRMED')
         <button type="button"
-          class="text-emerald-600 hover:text-emerald-800 btn-register-chain"
-          title="Register on-chain"
-          data-action="{{ route('papers.register', $paper) }}"
-          data-confirm="{{ route('papers.confirm', $paper) }}"
-          data-sha="{{ $paper->sha256 }}"
-          data-title="{{ e(Str::limit($paper->title, 80)) }}"
-          @if($paper->pendingRequest) data-request-id="{{ $paper->pendingRequest->id }}" @endif
-        >
-          <i data-lucide="link-2" class="w-5 h-5"></i>
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-emerald-700 text-left btn-register-chain"
+                title="Register on-chain"
+                data-action="{{ route('papers.register', $paper) }}"
+                data-confirm="{{ route('papers.confirm', $paper) }}"
+                data-sha="{{ $paper->sha256 }}"
+                data-title="{{ e(Str::limit($paper->title, 80)) }}"
+                @if($paper->pendingRequest) data-request-id="{{ $paper->pendingRequest->id }}" @endif>
+          <i data-lucide="link-2" class="w-4 h-4"></i>
+          <span>Register on-chain</span>
         </button>
       @endif
-  @else
-      {{-- STUDENT/ADVISER: only request (hide raw hash/register). Hide if pending or already registered/confirmed --}}
-     @if (!$paper->pendingRequest && $paper->chain_status !== 'REGISTERED' && $paper->chain_status !== 'CONFIRMED')
+    @else
+      {{-- STUDENT/ADVISER: request submission (hide if pending or already registered/confirmed) --}}
+      @if (!$paper->pendingRequest && $paper->chain_status !== 'REGISTERED' && $paper->chain_status !== 'CONFIRMED')
+        <button type="button"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-indigo-700 text-left btn-open-request"
+                title="Request blockchain submission"
+                data-action="{{ route('papers.requests.store', $paper) }}"
+                data-title="{{ e(Str::limit($paper->title, 80)) }}">
+          <i data-lucide="send" class="w-4 h-4"></i>
+          <span>Request blockchain submission</span>
+        </button>
+      @endif
+    @endif
+
+    {{-- Delete (opens modal) --}}
     <button type="button"
-            class="text-indigo-600 hover:text-indigo-800 btn-open-request"
-            title="Request blockchain submission"
-            data-action="{{ route('papers.requests.store', $paper) }}"
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-red-50 text-red-600 text-left btn-delete"
+            title="Delete"
+            data-action="{{ route('research-user-papers.destroy', $paper->id) }}"
             data-title="{{ e(Str::limit($paper->title, 80)) }}">
-      <i data-lucide="send" class="w-5 h-5"></i>
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+      <span>Delete</span>
     </button>
-     @endif
-  @endif
-
-  {{-- Verify (read-only) --}}
-  <button type="button"
-    class="text-gray-700 hover:text-gray-900 btn-verify-chain"
-    title="Verify on-chain"
-    data-sha="{{ $paper->sha256 }}"
-    data-title="{{ e(Str::limit($paper->title, 80)) }}">
-    <i data-lucide="shield-check" class="w-5 h-5"></i>
-  </button>
-
-  {{-- Delete --}}
-  <button type="button"
-    class="text-red-600 hover:text-red-900 btn-delete"
-    title="Delete"
-    data-action="{{ route('research-user-papers.destroy', $paper->id) }}"
-    data-title="{{ e(Str::limit($paper->title, 80)) }}">
-    <i data-lucide="trash-2" class="w-5 h-5"></i>
-  </button>
+  </div>
 </td>
+
 
                         </tr>
                     @empty
@@ -677,6 +697,78 @@
       });
     })();
     </script>
+
+
+        {{-- 3-dot Actions dropdown (open/close, outside click, ESC, auto-flip if near bottom) --}}
+    <script>
+      (() => {
+        const menus = new Map(); // id -> {menu, trigger}
+        function closeAll(exceptId = null) {
+          menus.forEach((v, id) => {
+            if (id !== exceptId) {
+              v.menu.classList.add('hidden');
+              v.trigger.setAttribute('aria-expanded', 'false');
+            }
+          });
+        }
+
+        function ensureInViewport(menuEl) {
+          // Basic auto-flip: if menu would go off-screen at bottom, open upward
+          menuEl.classList.remove('origin-top-right');
+          menuEl.classList.remove('origin-bottom-right');
+          menuEl.style.transformOrigin = '';
+
+          // reset position to default (down)
+          menuEl.style.top = '100%';
+          menuEl.style.bottom = 'auto';
+
+          const rect = menuEl.getBoundingClientRect();
+          const overBottom = rect.bottom > window.innerHeight - 8; // 8px padding
+          if (overBottom) {
+            // open upward
+            menuEl.style.top = 'auto';
+            menuEl.style.bottom = '100%';
+          }
+        }
+
+        document.querySelectorAll('.paper-actions-trigger').forEach(trigger => {
+          const id = trigger.getAttribute('data-menu-id');
+          const menu = document.getElementById(id);
+          if (!menu) return;
+          menus.set(id, { menu, trigger });
+
+          // Open/Close on click
+          trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isHidden = menu.classList.contains('hidden');
+            closeAll(isHidden ? id : null);
+            if (isHidden) {
+              menu.classList.remove('hidden');
+              trigger.setAttribute('aria-expanded', 'true');
+              // Slight delay so DOM paints before measuring
+              requestAnimationFrame(() => ensureInViewport(menu));
+            } else {
+              menu.classList.add('hidden');
+              trigger.setAttribute('aria-expanded', 'false');
+            }
+          }, { passive: true });
+        });
+
+        // Close on outside click
+        document.addEventListener('click', () => closeAll(), { passive: true });
+
+        // Close on ESC
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') closeAll();
+        }, { passive: true });
+
+        // Prevent menu click from bubbling to document
+        document.querySelectorAll('.paper-actions-menu').forEach(menu => {
+          menu.addEventListener('click', (e) => e.stopPropagation());
+        });
+      })();
+    </script>
+
 
     {{-- Details + Delete modals + icons --}}
     <script>
