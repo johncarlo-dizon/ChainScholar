@@ -420,6 +420,30 @@
 </div>
 
  
+<script>
+/** Toast-style notifications (top-right) */
+function notify(type, title, text = '') {
+  Swal.fire({
+    icon: type,           // 'success' | 'error' | 'warning' | 'info' | 'question'
+    title,
+    text,
+    toast: true,
+    position: 'top-end',
+    timer: 3000,
+    showConfirmButton: false
+  });
+}
+
+/** Full modal for longer error messages */
+function modalError(title, text = '') {
+  Swal.fire({
+    icon: 'error',
+    title,
+    text,
+    confirmButtonText: 'OK'
+  });
+}
+</script>
 
 
     {{-- Styles for targetable modals (kept if you use :target elsewhere) --}}
@@ -615,20 +639,52 @@
 
             // 5) Wait 1 conf → confirm on server → reload
             const receipt = await tx.wait(1);
-            if (receipt?.status === 1) {
-              await confirmOnServer(btn.dataset.confirm);
-              location.reload();
-            } else {
-              alert('Transaction failed or reverted.');
-            }
-          } catch (e) {
-            const msg = e?.message || String(e);
-            if (e?.code === -32002 || msg.includes('already pending')) {
-              alert('A MetaMask request is already open. Finish/close it, then click Register again.');
-            } else {
-              alert(msg);
-            }
-          } finally {
+           if (receipt?.status === 1) {
+  await confirmOnServer(btn.dataset.confirm);
+  notify('success', 'Registered on-chain', 'Confirmed after 1 block.');
+  location.reload();
+} else {
+  notify('error', 'Transaction failed or was reverted.');
+}
+
+     } catch (e) {
+  const code = e?.code ?? e?.error?.code;
+  const msg  = (e?.shortMessage || e?.message || '').toString();
+
+  // 1) User cancelled in MetaMask
+  if (code === 4001 || code === 'ACTION_REJECTED' || /denied|rejected/i.test(msg)) {
+    notify('warning', 'Transaction cancelled', 'No changes were made.');
+    return;
+  }
+
+  // 2) A MetaMask request is already open
+  if (code === -32002 || /already pending/i.test(msg)) {
+    notify('info', 'MetaMask request already open', 'Please check the MetaMask popup.');
+    return;
+  }
+
+  // 3) Common chain errors
+  if (/insufficient funds/i.test(msg)) {
+    notify('error', 'Insufficient MATIC', 'Not enough balance to pay gas on Polygon Amoy.');
+    return;
+  }
+  if (/nonce too low/i.test(msg)) {
+    notify('error', 'Nonce too low', 'Try again or reset account nonce in MetaMask (Settings → Advanced).');
+    return;
+  }
+  if (/replacement transaction underpriced/i.test(msg)) {
+    notify('error', 'Underpriced replacement', 'Increase gas or try again.');
+    return;
+  }
+  if (/network|chain/i.test(msg)) {
+    notify('warning', 'Wrong network', 'Ensure MetaMask is on Polygon Amoy.');
+    return;
+  }
+
+  // 4) Generic fallback
+  modalError('Could not send the transaction', msg || 'Please try again.');
+} finally {
+
             MM_LOCK = false; btn.dataset.busy = '0'; btn.disabled = false;
             btn.classList.remove('opacity-50','pointer-events-none');
           }
@@ -690,9 +746,11 @@
               verResult.textContent = "❌ Not found on chain";
             }
             openVerify();
-          } catch (e) {
-            alert(e?.message || e);
-          }
+      } catch (e) {
+  const msg = (e?.shortMessage || e?.message || e || '').toString();
+  notify('error', 'Verify failed', msg || 'Failed to verify on-chain status.');
+}
+
         }, { passive: true });
       });
     })();
