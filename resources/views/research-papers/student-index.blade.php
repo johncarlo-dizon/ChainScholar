@@ -166,7 +166,7 @@
 
   {{-- Dropdown (absolutely-positioned; won’t be clipped due to wrapper change) --}}
   <div id="menu-{{ $paper->id }}"
-       class="paper-actions-menu hidden absolute right-0 top-full mt-2 z-50 min-w-[220px] rounded-lg border border-gray-200 bg-white p-1 shadow-lg ring-1 ring-black/5">
+       class="paper-actions-menu hidden absolute right-0 top-full mt-2 z-50 min-w-[220px] rounded-lg border border-gray-300 bg-white p-1 shadow-lg  ">
     {{-- Details (opens modal) --}}
     <button type="button"
             class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-gray-700 text-left btn-details"
@@ -198,7 +198,7 @@
 
     {{-- Verify (read-only) --}}
     <button type="button"
-            class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-gray-700 text-left btn-verify-chain"
+            class="w-full flex items-center gap-2 px-3 py-2 hidden rounded-md hover:bg-gray-50 text-gray-700 text-left btn-verify-chain"
             title="Verify on-chain"
             data-sha="{{ $paper->sha256 }}"
             data-title="{{ e(Str::limit($paper->title, 80)) }}">

@@ -173,7 +173,7 @@
 
   {{-- Dropdown --}}
 <div id="menu-{{ $paper->id }}"
-     class="paper-actions-menu hidden z-[9999] min-w-[220px] rounded-lg border border-gray-200 bg-white p-1 shadow-lg ring-1 ring-black/5">
+     class="paper-actions-menu hidden z-[9999] min-w-[220px] rounded-lg border border-gray-300  bg-white p-1 shadow-lg">
 
 
     {{-- Details --}}
@@ -197,7 +197,7 @@
 
     {{-- Verify (read-only) --}}
     <button type="button"
-            class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-gray-700 text-left btn-verify-chain"
+            class="w-full flex items-center hidden gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-gray-700 text-left btn-verify-chain"
             title="Verify on-chain"
             data-sha="{{ $paper->sha256 }}"
             data-title="{{ e(Str::limit($paper->title, 80)) }}">
@@ -525,7 +525,7 @@
     menu.classList.add('hidden');
     trigger.setAttribute('aria-expanded', 'false');
 
-    // return menu to its original parent and reset inline styles
+    // put it back where it came from (keeps DOM tidy for pagination/rerenders)
     if (menu.dataset.portalled === '1' && origParent) {
       origParent.appendChild(menu);
       delete menu.dataset.portalled;
@@ -538,7 +538,7 @@
   }
 
   function placeMenuFixed(trigger, menu) {
-    // menu is already in <body>; measure invisibly first
+    // show invisibly to measure
     const wasHidden = menu.classList.contains('hidden');
     if (wasHidden) {
       menu.classList.remove('hidden');
@@ -547,19 +547,16 @@
 
     menu.style.position = 'fixed';
 
-    const tRect = trigger.getBoundingClientRect();
-    const mRect = menu.getBoundingClientRect();
+    const t = trigger.getBoundingClientRect();
+    const m = menu.getBoundingClientRect();
 
-    // Default: right-align to trigger, open downward
-    let left = Math.min(
-      Math.max(8, tRect.right - mRect.width),
-      window.innerWidth - mRect.width - 8
-    );
-    let top = tRect.bottom + GAP;
+    // right-align to trigger; open downward by default
+    let left = Math.min(Math.max(8, t.right - m.width), window.innerWidth - m.width - 8);
+    let top  = t.bottom + GAP;
 
-    // Flip upward if it would overflow bottom
-    if (top + mRect.height > window.innerHeight - 8) {
-      top = Math.max(8, tRect.top - GAP - mRect.height);
+    // flip upward if we don't have space
+    if (top + m.height > window.innerHeight - 8) {
+      top = Math.max(8, t.top - GAP - m.height);
     }
 
     menu.style.left = left + 'px';
@@ -577,14 +574,14 @@
     menus.set(id, { menu, trigger, origParent: menu.parentNode });
 
     trigger.addEventListener('click', (e) => {
-      e.stopPropagation();
+      e.stopPropagation(); // don't fall through to doc click
       const willOpen = menu.classList.contains('hidden');
 
       closeAll(willOpen ? id : null);
       if (willOpen) {
         trigger.setAttribute('aria-expanded', 'true');
 
-        // Portal menu to <body> so it escapes any stacking/overflow contexts
+        // Portal to <body> so it's above all table rows/overflow
         if (menu.dataset.portalled !== '1') {
           document.body.appendChild(menu);
           menu.dataset.portalled = '1';
@@ -598,27 +595,29 @@
     }, { passive: true });
   });
 
-  // Reposition any open menu on scroll/resize
+  // Reposition any open menus on scroll/resize
   function repositionOpenMenus() {
     menus.forEach(({ menu, trigger }) => {
-      if (!menu.classList.contains('hidden')) {
-        placeMenuFixed(trigger, menu);
-      }
+      if (!menu.classList.contains('hidden')) placeMenuFixed(trigger, menu);
     });
   }
   window.addEventListener('resize', repositionOpenMenus, { passive: true });
   window.addEventListener('scroll', repositionOpenMenus, { passive: true });
 
-  // Close on outside click / ESC
-  document.addEventListener('click', () => closeAll(), { passive: true });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); }, { passive: true });
-
-  // Keep clicks inside menu from closing it
+  // CLOSE on outside click — but ignore clicks inside menu or on a trigger
   document.addEventListener('click', (e) => {
-    if (e.target.closest('.paper-actions-menu')) e.stopPropagation();
-  }, { capture: true });
+    if (e.target.closest('.paper-actions-menu')) return;     // clicked inside menu
+    if (e.target.closest('.paper-actions-trigger')) return;  // clicked a trigger
+    closeAll();
+  }, { passive: true });
+
+  // ESC to close
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAll();
+  }, { passive: true });
 })();
 </script>
+
 
 
 

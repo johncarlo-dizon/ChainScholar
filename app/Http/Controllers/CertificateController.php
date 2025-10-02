@@ -90,40 +90,54 @@ class CertificateController extends Controller
 <style>
   /* Page + base (tighter to keep to a single page) */
   @page { margin: 20px; }
-  body { font-family: DejaVu Sans, Arial, sans-serif; color:#0b1220; background:#ffffff; }
+  body { font-family: DejaVu Sans, Arial, sans-serif; color:#0b1220; background:#ffffff; line-height:1.25; }
+
 
   /* Card shell (avoid page breaks) */
   .card { border:2px solid #0b245b; border-radius:8px; page-break-inside: avoid; }
-  .p { padding:16px; position:relative; }
+.p { padding:4px 16px; margin-top:-22px; position:relative; }
+
+
+
   .p > * { position:relative; z-index:1; }
 
   /* Header band (slightly tighter) */
-  .hdr { background:#0b245b; color:#fff; padding:12px 16px; border-radius:6px 6px 0 0; }
-  .hdr-table { width:100%; border-collapse:collapse; }
+.hdr { background:#0b245b; color:#fff; padding:8px 16px; border-radius:6px 6px 0 0; margin-bottom:0; }
+
+
+.hdr-table { width:100%; border-collapse:collapse; margin:0; }
+table { border-collapse:collapse; border-spacing:0; }
+.hdr-table td { padding:0; margin:0; }
+
   .hdr-left { font-size:18px; font-weight:700; color:#ffffff; }
   .hdr-right { text-align:right; }
   .subtitle { font-size:11px; opacity:.9; }
   .hdr .brand .logo { color:#ffffff !important; }
+.hdr + .p { margin-top:-54px; }
 
   /* Watermark (centered, smaller) */
   .wm {
-    position:absolute;
-    left:50%;
-    top:50%;
-    transform:translate(-50%, -50%) rotate(-20deg);
-    width:100%;
-    text-align:center;
-    font-size:72px;
-    font-weight:800;
-    letter-spacing:4px;
-    color:#0b245b;
-    opacity:.05;
-    pointer-events:none;
-    z-index:0;
-  }
+  position:absolute;
+  left:50%;
+  top:55%;
+  transform:translate(-50%, -50%) rotate(-20deg);
+  width:100%;
+  text-align:center;
+  font-size:64px;
+  font-weight:800;
+  letter-spacing:4px;
+  color:#0b245b;
+  opacity:.05;
+  pointer-events:none;
+  z-index:0;
+}
+
 
   /* Title row */
-  .title-row { margin:12px 0 8px; display:flex; align-items:center; justify-content:space-between; }
+.title-row { margin:0 0 6px; display:flex; align-items:center; justify-content:space-between; }
+
+
+
   .seal { border:2px solid #0b245b; border-radius:999px; padding:5px 9px; font-size:9px; font-weight:700; color:#0b245b; text-transform:uppercase; }
 
   /* Chips */
@@ -177,7 +191,7 @@ class CertificateController extends Controller
     <div class="p">
       <div class="wm">{$brandSafe}</div>
 
-      <div class="title-row">
+     <div class="title-row" style="margin-top:4px; margin-bottom:8px;">
         <div class="muted">Issued by {$issuerSafe}</div>
         <div class="seal">PROOF OF EXISTENCE</div>
       </div>
@@ -260,23 +274,15 @@ class CertificateController extends Controller
         </tr>
       </table>
 
-      <!-- Signatories -->
-      <table class="sig-grid">
-        <tr>
-          <td class="sig-box">
-            <div class="sig-line">Registrar / Records Officer</div>
-          </td>
-          <td class="sig-box">
-            <div class="sig-line">Blockchain Administrator</div>
-          </td>
-        </tr>
-      </table>
+   
 
       <!-- Footer -->
       <div class="foot">
         This certificate is valid only with the original file and a matching on-chain record. Keep this PDF with your research file for verification.<br>
         {$issuerSafe} • {$siteUrl}
       </div>
+      <br>
+      <br>
     </div>
   </div>
 </body>
