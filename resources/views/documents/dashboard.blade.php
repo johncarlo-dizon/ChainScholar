@@ -30,6 +30,10 @@
 
      <!-- Search Bar -->
       <form method="GET" action="{{ route('dashboard.search') }}" id="search-form" class="flex-1 max-w-2xl mb-4">
+      @foreach(request()->except(['query','page']) as $k => $v)
+  <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+@endforeach
+
         <div class="flex items-center rounded-lg border border-blue-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-blue-400">
           <input
             type="text"
@@ -38,7 +42,8 @@
             value="{{ old('query', $query ?? '') }}"
             autocomplete="off"
             class="w-full px-4 py-2 rounded-l-lg focus:outline-none text-gray-800 placeholder-gray-400 text-base"
-            placeholder="Search research title…"
+            placeholder="Search titles, abstracts, authors…"
+
             aria-label="Search research title"
           />
           <button type="submit"
@@ -67,12 +72,27 @@
     <h4 class="text-sm font-semibold text-gray-700 mb-3">Articles</h4>
 
     {{-- keep the query in URL --}}
-    @php
-      $q = request('query', $query ?? '');
-      $base = url()->current();
-      $qs = request()->query();
-      $link = fn(array $merge) => $base.'?'.http_build_query(array_merge($qs, $merge, ['query' => $q]));
-    @endphp
+@php
+  $q    = request('query', $query ?? '');
+  $base = url()->current();
+  $qs   = request()->query();
+
+  // Merge, then remove null/empty so "Any time" actually clears params
+  $link = function(array $merge) use ($base, $qs, $q) {
+  unset($qs['page']); // reset to page 1 when changing time filters
+  $merged = array_merge($qs, $merge, ['query' => $q]);
+  $clean  = array_filter($merged, fn($v) => !is_null($v) && $v !== '');
+  return $base.'?'.http_build_query($clean);
+};
+
+
+  // Use controller-sanitized filters for UI state
+  $yearFrom = (int) (($filters['yearFrom'] ?? 0) ?: 0);
+  $yearTo   = (int) (($filters['yearTo']   ?? 0) ?: 0);
+  $hasYear  = ($yearFrom || $yearTo);
+@endphp
+
+
 
     {{-- TIME --}}
     <div class="mb-5">
@@ -80,38 +100,49 @@
       <ul class="space-y-1 text-sm">
         <li>
           <a href="{{ $link(['year_from'=>null,'year_to'=>null]) }}"
-             class="{{ !request('year_from') ? 'text-blue-700' : 'text-gray-700 hover:underline' }}">
+          class="{{ !$hasYear ? 'text-blue-700' : 'text-gray-700 hover:underline' }}"
+>
             Any time
           </a>
         </li>
         <li>
           <a href="{{ $link(['year_from'=>now()->year, 'year_to'=>null]) }}"
-             class="{{ (int)request('year_from')===now()->year ? 'text-blue-700' : 'text-gray-700 hover:underline' }}">
+           class="{{ ($yearFrom === now()->year && $yearTo === 0) ? 'text-blue-700' : 'text-gray-700 hover:underline' }}"
+>
+
             Since {{ now()->year }}
           </a>
         </li>
         <li>
           <a href="{{ $link(['year_from'=>now()->subYears(3)->year, 'year_to'=>null]) }}"
-             class="{{ (int)request('year_from')===now()->subYears(3)->year ? 'text-blue-700' : 'text-gray-700 hover:underline' }}">
+   class="{{ ($yearFrom === now()->subYears(3)->year && $yearTo === 0) ? 'text-blue-700' : 'text-gray-700 hover:underline' }}"
+
+>
             Since {{ now()->subYears(3)->year }}
           </a>
         </li>
       </ul>
 
       {{-- Custom year (Enter to submit, no button) --}}
-      <form method="GET" action="{{ route('dashboard.search') }}" class="mt-2 flex items-center gap-2">
-        @foreach(request()->except(['year_from','year_to']) as $k => $v)
-          <input type="hidden" name="{{ $k }}" value="{{ $v }}">
-        @endforeach
-        <input type="number" name="year_from" placeholder="From"
-               value="{{ request('year_from') && !in_array((int)request('year_from'), [now()->year, now()->subYears(3)->year]) ? request('year_from') : '' }}"
-               class="w-24 border  border-gray-300 rounded px-2 py-1 text-xs"
-               onkeydown="if(event.key==='Enter'){ this.form.submit(); }">
-        <input type="number" name="year_to" placeholder="To"
-               value="{{ request('year_to') }}"
-               class="w-24 border border-gray-300 rounded px-2 py-1 text-xs"
-               onkeydown="if(event.key==='Enter'){ this.form.submit(); }">
-      </form>
+  <form method="GET" action="{{ route('dashboard.search') }}" class="mt-2 flex items-center gap-2">
+  @foreach(request()->except(['year_from','year_to','page']) as $k => $v)
+    <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+  @endforeach
+
+  {{-- show controller-sanitized values --}}
+  <input type="number" name="year_from" placeholder="From"
+         value="{{ ($yearFrom ?? 0) && !in_array(($yearFrom ?? 0), [now()->year, now()->subYears(3)->year]) ? $yearFrom : '' }}"
+         class="w-24 border border-gray-300 rounded px-2 py-1 text-xs"
+         onchange="this.form.submit()"
+         onkeydown="if(event.key==='Enter'){ this.form.submit(); }">
+
+  <input type="number" name="year_to" placeholder="To"
+         value="{{ $yearTo ?? '' }}"
+         class="w-24 border border-gray-300 rounded px-2 py-1 text-xs"
+         onchange="this.form.submit()"
+         onkeydown="if(event.key==='Enter'){ this.form.submit(); }">
+</form>
+
     </div>
 
     {{-- TYPE (auto submit on change) --}}
@@ -175,7 +206,8 @@
         <div class="group border-b border-gray-200/70 py-4">
           <div class="flex items-start justify-between gap-4">
             <a href="{{ $link }}" target="{{ $target }}" class="text-[#1a0dab] hover:underline text-lg leading-6 font-medium">
-              {{ $result['title'] }}
+             {!! $result['title_html'] ?? e($result['title']) !!}
+
             </a>
             @if($isPaper)
               <a href="{{ $link }}" target="_blank"
@@ -187,14 +219,18 @@
           </div>
 
           @if(!empty($result['authors']))
-            <div class="mt-1 text-sm text-gray-600">{{ $result['authors'] }}</div>
-          @endif
+  <div class="mt-1 text-sm text-gray-600">{!! $result['authors_html'] ?? e($result['authors']) !!}</div>
+@endif
 
-          @if(!empty($result['abstract']))
-            <div class="mt-1 text-sm text-gray-700 line-clamp-2">
-              {{ Str::limit(strip_tags($result['abstract']), 220) }}
-            </div>
-          @endif
+
+  @if(!empty($result['abstract']))
+  <div class="mt-1 text-sm text-gray-700 line-clamp-2">
+    {!! $result['abstract_html'] ?? e($result['abstract']) !!}
+  </div>
+@endif
+
+
+
 
           <div class="mt-1 text-xs text-gray-500 flex items-center gap-3">
             @if(!empty($result['date'])) <span>{{ \Carbon\Carbon::parse($result['date'])->format('Y') }}</span>@endif

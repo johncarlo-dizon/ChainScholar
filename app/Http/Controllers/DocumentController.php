@@ -19,19 +19,18 @@ class DocumentController extends Controller
 public function __construct(private PlagiarismService $plag) {}
  
     // CHAIN START
-    public function showSearchDashboard()
-    {
-        return view('documents.dashboard'); // Initial search screen only
-    }
+public function showSearchDashboard()
+{
+    return view('documents.dashboard'); // Initial search screen only
+}
 
 public function searchResearch(Request $request)
 {
     $queryRaw  = (string) $request->query('query', $request->query('q', ''));
-    $query     = $this->searchResearchNormalize($queryRaw); // use helper with the searchResearch* prefix
-    $threshold = 0.30; // tune 0.28–0.38 for recall vs precision
+    $queryNorm = $this->searchResearchNormalize($queryRaw); // normalized for tokenization
 
     // If no query, render explore/empty state
-    if ($query === '') {
+    if ($queryNorm === '') {
         return view('documents.dashboard', [
             'results'   => null,
             'paginator' => null,
@@ -41,119 +40,213 @@ public function searchResearch(Request $request)
     }
 
     // Filters (Scholar-style)
-    $type     = $request->query('type', 'all');       // all|title|paper
+     $type     = $request->query('type', 'all');       // all|title|paper
     $sort     = $request->query('sort', 'relevance'); // relevance|date
-    $yearFrom = (int) $request->query('year_from', 0);
-    $yearTo   = (int) $request->query('year_to', 0);
+
+    // Sanitize year inputs (accept digits only; allow empty)
+    $yf = trim((string) $request->query('year_from', ''));
+    $yt = trim((string) $request->query('year_to',   ''));
+
+    $yearFrom = ctype_digit($yf) ? (int) $yf : 0;
+    $yearTo   = ctype_digit($yt) ? (int) $yt : 0;
+
+    // Clamp & normalize (e.g., swap if reversed)
+    $minYear = 1900;
+    $maxYear = (int) now()->year;
+
+    if ($yearFrom && ($yearFrom < $minYear || $yearFrom > $maxYear)) $yearFrom = 0;
+    if ($yearTo   && ($yearTo   < $minYear || $yearTo   > $maxYear)) $yearTo   = 0;
+
+    if ($yearFrom && $yearTo && $yearFrom > $yearTo) {
+        [$yearFrom, $yearTo] = [$yearTo, $yearFrom];
+    }
+
     $perPage  = (int) $request->query('per_page', 10);
     $page     = (int) $request->query('page', 1);
+
+
+    // --- Parse query into phrases + tokens (simple AND semantics) ---
+    [$phrases, $tokens] = $this->searchResearchExtract($queryRaw);
 
     $results = [];
 
     /* -------------------------------------------------------
      * 1) Submitted Titles   (status = submitted)
+     *    (search only the Title model.title)
      * ----------------------------------------------------- */
-    $titles = \App\Models\Title::query()
-        ->where('status', 'submitted')
-        ->select(['id', 'title', 'created_at'])
-        ->get();
+    if ($type === 'all' || $type === 'title') {
+        $titlesQ = \App\Models\Title::query()
+    ->where('status', 'submitted')
+    ->select(['id', 'title', 'authors', 'abstract', 'keywords', 'submitted_at', 'created_at']);
+// Year filter at DB level (submitted year)
+if ($yearFrom) { $titlesQ->whereYear('submitted_at', '>=', $yearFrom); }
+if ($yearTo)   { $titlesQ->whereYear('submitted_at', '<=', $yearTo);   }
 
-    foreach ($titles as $t) {
-        $titleText = (string) $t->title;
-        if ($titleText === '') continue;
 
-        // Fuzzy, typo/phonetic tolerant scorer
-        $sim = $this->searchResearchFuzzyScore($queryRaw, $titleText);
 
-        if ($sim >= $threshold) {
-            $item = [
-            'type'       => 'paper',
-            'id'         => $rp->id,
-            'title'      => (string) $rp->title ?: '(Untitled PDF)',
-            'authors'    => (string) $rp->authors ?: null,
-            'abstract'   => (string) $rp->abstract ?: null,
-            'similarity' => $sim,
+        // Build WHERE ... AND (... OR ...) per token/phrase across "title" only
+       // Build WHERE ... AND (title|authors|abstract|keywords LIKE ...) for each token/phrase
+$titlesQ->where(function ($q) use ($tokens, $phrases) {
+    foreach ($tokens as $t) {
+        $like = '%' . $t . '%';
+        $q->where(function ($qq) use ($like) {
+            $qq->orWhere('title',    'LIKE', $like)
+               ->orWhere('authors',  'LIKE', $like)
+               ->orWhere('abstract', 'LIKE', $like)
+               ->orWhere('keywords', 'LIKE', $like);
+        });
+    }
+    foreach ($phrases as $p) {
+        $like = '%' . $p . '%';
+        $q->where(function ($qq) use ($like) {
+            $qq->orWhere('title',    'LIKE', $like)
+               ->orWhere('authors',  'LIKE', $like)
+               ->orWhere('abstract', 'LIKE', $like)
+               ->orWhere('keywords', 'LIKE', $like);
+        });
+    }
+});
 
-            // ✅ Use the controller route that streams from Storage (works local & prod)
-            'open_url'   => route('papers.view', $rp),
-            'paper_id'   => $rp->id, // optional: helps Blade fallback
 
-            'date'       => optional($rp->created_at)->toDateString(),
-            'year'       => optional($rp->created_at)->year,
-        ];
+        $titles = $titlesQ->get();
 
-            if ($type === 'all' || $type === 'title') {
-                $results[] = $item;
-            }
+        foreach ($titles as $t) {
+           $titleText = (string) $t->title;
+$authors   = (string) ($t->authors ?? '');
+$abstract  = (string) ($t->abstract ?? '');
+
+// Compute keyword score
+$score = $this->searchResearchScore($queryRaw, [
+    'title'   => $titleText,
+    'authors' => $authors,
+    'abstract'=> $abstract,
+]);
+
+// Highlight
+$titleHtml    = $this->searchResearchHighlight($titleText, $phrases, $tokens);
+$authorsHtml  = $this->searchResearchHighlight($authors, $phrases, $tokens);
+$abstractHtml = $this->searchResearchHighlight($abstract, $phrases, $tokens);
+
+$submittedOrCreated = $t->submitted_at ?: $t->created_at;
+
+$results[] = [
+    'type'          => 'title',
+    'id'            => $t->id,
+    'title'         => $titleText,
+    'title_html'    => $titleHtml,
+    'authors'       => $authors ?: null,
+    'authors_html'  => $authorsHtml ?: null,
+    'abstract'      => $abstract ?: null,
+    'abstract_html' => $abstractHtml ?: null,
+    'open_url'      => route('dashboard.view', $t->id),
+    // Use submitted date/year primarily
+    'date'          => optional($submittedOrCreated)->toDateString(),
+    'year'          => optional($submittedOrCreated)->year,
+    'score'         => $score,
+];
+
+
         }
     }
 
     /* -------------------------------------------------------
      * 2) ResearchPaper PDFs  (title + authors + abstract)
      * ----------------------------------------------------- */
-    $papers = \App\Models\ResearchPaper::query()
-        ->select(['id','title','authors','abstract','file_path','created_at'])
-        ->get();
+    if ($type === 'all' || $type === 'paper') {
+        $papersQ = \App\Models\ResearchPaper::query()
+    ->select(['id','title','authors','abstract','file_path','year','created_at']);
+// Year filter at DB level → use the actual `year` column
+if ($yearFrom) { $papersQ->where('year', '>=', $yearFrom); }
+if ($yearTo)   { $papersQ->where('year', '<=', $yearTo);   }
 
-    foreach ($papers as $rp) {
-        $haystack = trim(implode(' ', array_filter([
-            (string) $rp->title,
-            (string) $rp->authors,
-            (string) $rp->abstract,
-        ])));
 
-        if ($haystack === '') continue;
-
-        $sim = $this->searchResearchFuzzyScore($queryRaw, $haystack);
-
-        if ($sim >= $threshold) {
-            $item = [
-                'type'       => 'paper',
-                'id'         => $rp->id,
-                'title'      => (string) $rp->title ?: '(Untitled PDF)',
-                'authors'    => (string) $rp->authors ?: null,
-                'abstract'   => (string) $rp->abstract ?: null,
-                'similarity' => $sim,
-                'file_url'   => $rp->file_path ? \Illuminate\Support\Facades\Storage::url($rp->file_path) : null,
-                'date'       => optional($rp->created_at)->toDateString(),
-                'year'       => optional($rp->created_at)->year,
-            ];
-            if ($type === 'all' || $type === 'paper') {
-                $results[] = $item;
+        // WHERE ... AND (field LIKE for tokens/phrases across title/authors/abstract)
+        $papersQ->where(function ($q) use ($tokens, $phrases) {
+            foreach ($tokens as $t) {
+                $q->where(function ($qq) use ($t) {
+                    $like = '%' . $t . '%';
+                    $qq->orWhere('title', 'LIKE', $like)
+                       ->orWhere('authors', 'LIKE', $like)
+                       ->orWhere('abstract', 'LIKE', $like);
+                });
             }
+            foreach ($phrases as $p) {
+                $q->where(function ($qq) use ($p) {
+                    $like = '%' . $p . '%';
+                    $qq->orWhere('title', 'LIKE', $like)
+                       ->orWhere('authors', 'LIKE', $like)
+                       ->orWhere('abstract', 'LIKE', $like);
+                });
+            }
+        });
+
+        $papers = $papersQ->get();
+
+        foreach ($papers as $rp) {
+            $title   = (string) ($rp->title   ?? '');
+            $authors = (string) ($rp->authors ?? '');
+            $abstract= (string) ($rp->abstract?? '');
+
+            // Score by occurrences across fields
+            $score = $this->searchResearchScore($queryRaw, [
+                'title'   => $title,
+                'authors' => $authors,
+                'abstract'=> $abstract,
+            ]);
+
+            // Highlight fields
+            $titleHtml    = $this->searchResearchHighlight($title, $phrases, $tokens);
+            $authorsHtml  = $this->searchResearchHighlight($authors, $phrases, $tokens);
+            $abstractHtml = $this->searchResearchHighlight($abstract, $phrases, $tokens);
+
+         $paperYear = (int) ($rp->year ?? 0);
+// For sorting by date, synthesize a date from the model year if present
+$paperDate = $paperYear > 0
+    ? \Carbon\Carbon::createFromDate($paperYear, 1, 1)->toDateString()
+    : optional($rp->created_at)->toDateString();
+
+$results[] = [
+    'type'          => 'paper',
+    'id'            => $rp->id,
+    'paper_id'      => $rp->id,
+    'title'         => $title,
+    'title_html'    => $titleHtml,
+    'authors'       => $authors,
+    'authors_html'  => $authorsHtml ?: null,
+    'abstract'      => $abstract,
+    'abstract_html' => $abstractHtml ?: null,
+    'open_url'      => route('papers.view', $rp),
+    'file_url'      => $rp->file_path ? \Illuminate\Support\Facades\Storage::url($rp->file_path) : null,
+    // Use model year for both the displayed year and sorting (via YYYY-01-01)
+    'date'          => $paperDate,
+    'year'          => $paperYear ?: optional($rp->created_at)->year,
+    'score'         => $score,
+];
+
         }
     }
 
-    /* -------------------------------------------------------
-     * Year filter (if provided)
-     * ----------------------------------------------------- */
-    if ($yearFrom || $yearTo) {
-        $results = array_values(array_filter($results, function ($r) use ($yearFrom, $yearTo) {
-            $y = (int) ($r['year'] ?? 0);
-            if (!$y) return false;
-            if ($yearFrom && $y < $yearFrom) return false;
-            if ($yearTo && $y > $yearTo) return false;
-            return true;
-        }));
-    }
+      // (Removed) Year filter now happens at the DB level for accuracy & performance.
+
 
     /* -------------------------------------------------------
-     * Sort: 'date' or 'relevance' (similarity)
+     * Sort: 'date' or 'relevance' (keyword score)
      * ----------------------------------------------------- */
     if ($sort === 'date') {
         usort($results, fn($a, $b) => strcmp($b['date'] ?? '', $a['date'] ?? ''));
     } else {
-        usort($results, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+        usort($results, fn($a, $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
     }
 
     /* -------------------------------------------------------
      * Pagination (array → LengthAwarePaginator)
      * ----------------------------------------------------- */
-    $total    = count($results);
-    $offset   = max(0, ($page - 1) * $perPage);
-    $chunks   = array_slice($results, $offset, $perPage);
+    $total     = count($results);
+    $offset    = max(0, ($page - 1) * $perPage);
+    $pageItems = array_slice($results, $offset, $perPage);
+
     $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
-        $chunks,
+        $pageItems,
         $total,
         $perPage,
         $page,
@@ -161,148 +254,137 @@ public function searchResearch(Request $request)
     );
 
     return view('documents.dashboard', [
-        'results'   => $chunks,     // current page only
-        'paginator' => $paginator,  // for links()
+        'results'   => $pageItems,
+        'paginator' => $paginator,
         'query'     => $queryRaw,   // echo original text in UI
         'filters'   => compact('type','sort','yearFrom','yearTo','perPage'),
     ]);
 }
 
+/** ---------- Search Helpers (keyword) ---------- */
 
+/**
+ * Normalize text: lowercase, strip tags, remove accents, squash spaces.
+ */
+private function searchResearchNormalize(?string $s): string
+{
+    $s = (string) $s;
+    $s = strip_tags($s);
+    $s = mb_strtolower($s, 'UTF-8');
+    $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+    $s = preg_replace('/[^a-z0-9"]+/i', ' ', $s); // keep quotes for phrase parsing
+    $s = trim(preg_replace('/\s+/', ' ', $s));
+    return $s;
+}
 
-    /** ---------- Search Helpers (searchResearch* prefix) ---------- */
+/**
+ * Extract quoted phrases and remaining tokens.
+ * Example:  clinic "management system"  -> phrases:["management system"], tokens:["clinic"]
+ */
+private function searchResearchExtract(string $raw): array
+{
+    $phrases = [];
+    $tokens  = [];
 
-    /** Normalize text: lowercase, strip tags, remove accents, squash spaces */
-    private function searchResearchNormalize(?string $s): string
-    {
-        $s = (string) $s;
-        $s = strip_tags($s);
-        $s = mb_strtolower($s, 'UTF-8');
-        // remove accents
-        $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
-        // keep letters/numbers and spaces
-        $s = preg_replace('/[^a-z0-9]+/i', ' ', $s);
-        // collapse spaces
-        $s = trim(preg_replace('/\s+/', ' ', $s));
-        return $s;
-    }
-
-    /** Tokenize normalized text to terms (keeps simple words only) */
-    private function searchResearchTokens(string $s): array
-    {
-        $s = $this->searchResearchNormalize($s);
-        if ($s === '') return [];
-        $raw = explode(' ', $s);
-        // basic stopwords to reduce noise
-        $stop = ['the','a','an','of','and','to','in','for','on','with','by','at','from','is','are','be','as','this','that','these','those','using','use','based'];
-        return array_values(array_filter($raw, fn($t) => $t !== '' && !in_array($t, $stop, true)));
-    }
-
-    /** Build n-gram shingles (character-level) for typo tolerance */
-    private function searchResearchShingles(string $s, int $n = 3): array
-    {
-        $s = $this->searchResearchNormalize($s);
-        if (strlen($s) < $n) return $s === '' ? [] : [$s];
-        $ngrams = [];
-        for ($i = 0; $i <= strlen($s) - $n; $i++) {
-            $ngrams[] = substr($s, $i, $n);
+    // pull quoted phrases from the ORIGINAL (not normalized) text
+    preg_match_all('/"([^"]+)"/', $raw, $m);
+    if (!empty($m[1])) {
+        foreach ($m[1] as $p) {
+            $p = trim($p);
+            if ($p !== '') $phrases[] = $p;
         }
-        return $ngrams;
     }
 
-    /** Cosine similarity on token frequency vectors */
-    private function searchResearchCosineTokens(string $a, string $b): float
-    {
-        $ta = $this->searchResearchTokens($a);
-        $tb = $this->searchResearchTokens($b);
-        if (!$ta || !$tb) return 0.0;
-
-        $fa = array_count_values($ta);
-        $fb = array_count_values($tb);
-        $allKeys = array_unique(array_merge(array_keys($fa), array_keys($fb)));
-
-        $dot = 0.0; $na = 0.0; $nb = 0.0;
-        foreach ($allKeys as $k) {
-            $va = $fa[$k] ?? 0;
-            $vb = $fb[$k] ?? 0;
-            $dot += $va * $vb;
-            $na += $va * $va;
-            $nb += $vb * $vb;
+    // remove phrases from text, then split remaining into tokens
+    $stripped = preg_replace('/"[^"]+"/', ' ', $raw);
+    $stripped = $this->searchResearchNormalize($stripped);
+    if ($stripped !== '') {
+        $rawTokens = explode(' ', $stripped);
+        $stop = ['the','a','an','of','and','to','in','for','on','with','by','at','from','is','are','be','as','this','that','these','those','using','use','based','system','study']; // mild stopwords; keep domain terms as you like
+        foreach ($rawTokens as $t) {
+            $t = trim($t);
+            if ($t !== '' && !in_array($t, $stop, true)) $tokens[] = $t;
         }
-        if ($na == 0.0 || $nb == 0.0) return 0.0;
-        return $dot / (sqrt($na) * sqrt($nb));
     }
 
-    /** Jaccard similarity on character n-grams (default 3-grams) */
-    private function searchResearchJaccardNgrams(string $a, string $b, int $n = 3): float
-    {
-        $A = $this->searchResearchShingles($a, $n);
-        $B = $this->searchResearchShingles($b, $n);
-        if (!$A || !$B) return 0.0;
-        $setA = array_values(array_unique($A));
-        $setB = array_values(array_unique($B));
-        $intersect = array_intersect($setA, $setB);
-        $union = array_unique(array_merge($setA, $setB));
-        return count($union) ? count($intersect) / count($union) : 0.0;
+    // normalize phrases for LIKE matching but keep original spacing
+    $phrases = array_map(fn($p) => trim($p), $phrases);
+
+    return [$phrases, $tokens];
+}
+
+/**
+ * Simple keyword score = sum of case-insensitive occurrences across fields,
+ * with small weights (title > authors > abstract).
+ */
+private function searchResearchScore(string $queryRaw, array $fields): int
+{
+    [$phrases, $tokens] = $this->searchResearchExtract($queryRaw);
+
+    $score = 0;
+    $weights = ['title' => 5, 'authors' => 3, 'abstract' => 1];
+
+    foreach ($fields as $field => $text) {
+        $txt = (string) ($text ?? '');
+        if ($txt === '') continue;
+
+        // phrases
+        foreach ($phrases as $p) {
+            $score += substr_count(mb_strtolower($txt), mb_strtolower($p)) * $weights[$field];
+        }
+        // tokens
+        foreach ($tokens as $t) {
+            $score += substr_count(mb_strtolower($txt), mb_strtolower($t)) * $weights[$field];
+        }
     }
+    return $score;
+}
 
-    /** Levenshtein-based similarity for overall string closeness */
-    private function searchResearchLevenshteinSim(string $a, string $b): float
-    {
-        $na = $this->searchResearchNormalize($a);
-        $nb = $this->searchResearchNormalize($b);
-        if ($na === '' || $nb === '') return 0.0;
-        $dist = levenshtein($na, $nb);
-        $maxLen = max(strlen($na), strlen($nb));
-        return $maxLen ? max(0.0, 1.0 - ($dist / $maxLen)) : 0.0;
-    }
+/**
+ * Highlight phrases and tokens in a given text with <mark>.
+ * Returns HTML-safe string.
+ */
+private function searchResearchHighlight(string $text, array $phrases, array $tokens): string
+{
+    if ($text === '') return '';
 
-    /** Phonetic boost using metaphone on individual tokens (for homophones) */
-    private function searchResearchPhoneticBoost(string $a, string $b): float
-    {
-        $ta = $this->searchResearchTokens($a);
-        $tb = $this->searchResearchTokens($b);
-        if (!$ta || !$tb) return 0.0;
+    $escaped = e($text);
 
-        $ma = array_map(fn($t) => metaphone($t), $ta);
-        $mb = array_map(fn($t) => metaphone($t), $tb);
+    // Sort longer phrases first to avoid splitting them by token highlights
+    usort($phrases, fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+    usort($tokens,  fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));
 
-        $ma = array_values(array_filter($ma));
-        $mb = array_values(array_filter($mb));
-        if (!$ma || !$mb) return 0.0;
+    $patterns = [];
 
-        $inter = array_intersect($ma, $mb);
-        $union = array_unique(array_merge($ma, $mb));
-        $jac = count($union) ? count($inter) / count($union) : 0.0;
-        // small boost (not dominant)
-        return min(0.15, $jac * 0.2);
-    }
+// phrases (allow spaces inside, case-insensitive)
+foreach ($phrases as $p) {
+    $p = trim($p);
+    if ($p === '') continue;
+    $patterns[] = preg_quote($p, '/');
+}
 
-    /**
-     * Fuzzy score (0..1) blending:
-     * - cosine(tokens)
-     * - jaccard(3-grams)
-     * - levenshtein similarity
-     * then adds a small phonetic boost
-     */
-    private function searchResearchFuzzyScore(string $query, string $haystack): float
-    {
-        $cos = $this->searchResearchCosineTokens($query, $haystack);
-        $jac = $this->searchResearchJaccardNgrams($query, $haystack, 3);
-        $lev = $this->searchResearchLevenshteinSim($query, $haystack);
-
-        // take a weighted max to be tolerant for short vs long strings
-        $core = max($cos, $jac * 0.9, $lev * 0.85);
-
-        // phonetic micro-boost for sound-alike matches
-        $boost = $this->searchResearchPhoneticBoost($query, $haystack);
-
-        $score = min(1.0, $core + $boost);
-        return $score;
-    }
+// tokens
+foreach ($tokens as $t) {
+    $t = trim($t);
+    if ($t === '') continue;
+    $patterns[] = preg_quote($t, '/');
+}
 
 
-    // CHAIN SEARCH ENDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+    if (!$patterns) return $escaped;
+
+    $regex = '/(' . implode('|', $patterns) . ')/iu';
+
+    $highlighted = preg_replace(
+        $regex,
+        '<mark class="bg-yellow-200 px-0.5 rounded">$1</mark>',
+        $escaped
+    );
+
+    return $highlighted ?? $escaped;
+}
+// CHAIN END
+
 
     public function viewResearch($id)
     {
