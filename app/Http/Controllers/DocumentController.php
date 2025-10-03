@@ -67,16 +67,21 @@ public function searchResearch(Request $request)
 
         if ($sim >= $threshold) {
             $item = [
-                'type'       => 'title',
-                'id'         => $t->id,
-                'title'      => $titleText,
-                'authors'    => null,
-                'abstract'   => null,
-                'similarity' => $sim,
-                'file_url'   => null,
-                'date'       => optional($t->created_at)->toDateString(),
-                'year'       => optional($t->created_at)->year,
-            ];
+            'type'       => 'paper',
+            'id'         => $rp->id,
+            'title'      => (string) $rp->title ?: '(Untitled PDF)',
+            'authors'    => (string) $rp->authors ?: null,
+            'abstract'   => (string) $rp->abstract ?: null,
+            'similarity' => $sim,
+
+            // ✅ Use the controller route that streams from Storage (works local & prod)
+            'open_url'   => route('papers.view', $rp),
+            'paper_id'   => $rp->id, // optional: helps Blade fallback
+
+            'date'       => optional($rp->created_at)->toDateString(),
+            'year'       => optional($rp->created_at)->year,
+        ];
+
             if ($type === 'all' || $type === 'title') {
                 $results[] = $item;
             }

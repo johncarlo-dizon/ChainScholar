@@ -10,13 +10,70 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Smalot\PdfParser\Parser as PdfParser;
 use Illuminate\Support\Str;
+use Illuminate\Http\Response;
 
 class ResearchPaperController extends Controller
 {
+
     /** Per-feature log channels */
     private function logUpload() { return Log::channel('pdfupload'); }
     private function logParser() { return Log::channel('pdfparser'); }
     private function logPlag()   { return Log::channel('pdfplag');   }
+
+
+        /** Allow owner or admin */
+    private function canAccess(ResearchPaper $paper): bool
+    {
+        $u = auth()->user();
+        if (!$u) return false;
+        return $u->id === $paper->user_id || (($u->role ?? null) === 'ADMIN');
+    }
+
+    /** Normalize stored path (strip "public/") */
+    private function normalizedPath(ResearchPaper $paper): string
+    {
+        $p = ltrim((string)$paper->file_path, '/');
+        return preg_replace('#^public/#', '', $p) ?: '';
+    }
+
+    /** Open in browser tab (inline) — works local & prod */
+    public function viewInline(ResearchPaper $paper)
+    {
+        abort_unless($this->canAccess($paper), 403);
+
+        $disk = $paper->file_disk ?: 'public';
+        $path = $this->normalizedPath($paper);
+
+        if (! Storage::disk($disk)->exists($path)) {
+            abort(404, 'PDF not found on server.');
+        }
+
+        $filename = $paper->filename ?: basename($path);
+        $mime = Storage::disk($disk)->mimeType($path) ?? 'application/pdf';
+
+        // Stream inline (no download prompt)
+        return Storage::disk($disk)->response($path, $filename, [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => 'inline; filename="'.addslashes($filename).'"',
+        ]);
+    }
+
+    /** Force download */
+    public function download(ResearchPaper $paper)
+    {
+        abort_unless($this->canAccess($paper), 403);
+
+        $disk = $paper->file_disk ?: 'public';
+        $path = $this->normalizedPath($paper);
+
+        if (! Storage::disk($disk)->exists($path)) {
+            abort(404, 'PDF not found on server.');
+        }
+
+        $filename = $paper->filename ?: basename($path);
+        return Storage::disk($disk)->download($path, $filename);
+    }
+
 
     /** Upload page */
     public function create()
@@ -258,9 +315,12 @@ class ResearchPaperController extends Controller
     {
         abort_if($researchPaper->user_id !== auth()->id(), 403);
 
-        if (Storage::disk('public')->exists($researchPaper->file_path)) {
-            Storage::disk('public')->delete($researchPaper->file_path);
+        $disk = $researchPaper->file_disk ?: 'public';
+        $path = preg_replace('#^public/#', '', (string)$researchPaper->file_path);
+        if (Storage::disk($disk)->exists($path)) {
+            Storage::disk($disk)->delete($path);
         }
+
         $researchPaper->delete();
 
         return redirect()->route('research-papers.student-index')->with('status', 'Research paper deleted successfully.');
@@ -271,9 +331,12 @@ class ResearchPaperController extends Controller
     {
         abort_if(optional(auth()->user())->role !== 'ADMIN', 403);
 
-        if (Storage::disk('public')->exists($researchPaper->file_path)) {
-            Storage::disk('public')->delete($researchPaper->file_path);
+        $disk = $researchPaper->file_disk ?: 'public';
+        $path = preg_replace('#^public/#', '', (string)$researchPaper->file_path);
+        if (Storage::disk($disk)->exists($path)) {
+            Storage::disk($disk)->delete($path);
         }
+
         $researchPaper->delete();
 
         return redirect()->route('research-papers.admin-index')->with('status', 'Research paper deleted successfully.');

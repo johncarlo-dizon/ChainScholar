@@ -151,6 +151,25 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('research-papers.destroy');
 });
 
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/submit-research', [ResearchPaperController::class, 'create'])
+        ->name('research-papers.create');
+    Route::post('/submit-research', [ResearchPaperController::class, 'store'])
+        ->name('research-papers.store');
+    Route::get('/check-filename', [ResearchPaperController::class, 'checkFilename'])
+        ->name('research-papers.check-filename');
+    Route::delete('/destroy-research/{researchPaper}', [ResearchPaperController::class, 'destroyUserPdf'])
+        ->name('research-user-papers.destroy');
+        Route::get('/papers/{paper}/view', [ResearchPaperController::class, 'viewInline'])
+    ->name('papers.view');
+Route::get('/papers/{paper}/download', [ResearchPaperController::class, 'download'])
+    ->name('papers.download');
+
+});
+
+
+
 // Admin approval gate for adviser assignments
 Route::middleware(['auth','admin'])
     ->prefix('admin/titles')
@@ -180,17 +199,6 @@ Route::post('/research-papers/check-plagiarism-detailed', [PdfPlagiarismControll
     ->name('research-papers.check-plagiarism-detailed');
 
     
-Route::middleware(['auth'])->group(function () {
-    Route::get('/submit-research', [ResearchPaperController::class, 'create'])
-        ->name('research-papers.create');
-    Route::post('/submit-research', [ResearchPaperController::class, 'store'])
-        ->name('research-papers.store');
-    Route::get('/check-filename', [ResearchPaperController::class, 'checkFilename'])
-        ->name('research-papers.check-filename');
-    Route::delete('/destroy-research/{researchPaper}', [ResearchPaperController::class, 'destroyUserPdf'])
-        ->name('research-user-papers.destroy');
-});
-
 
 
 

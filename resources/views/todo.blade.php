@@ -20,7 +20,9 @@ php artisan optimize:clear
 php artisan config:clear   
 
 
-
+-------------pdf view
+href="{{ $paper->view_url }}"
+data-file-url="{{ route('papers.view', $paper) }}"
 
 
 

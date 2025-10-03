@@ -177,7 +177,7 @@
             data-program="{{ e($paper->program) }}"
             data-year="{{ e($paper->year) }}"
             data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
-            data-file-url="{{ Storage::url($paper->file_path) }}"
+            data-file-url="{{ route('papers.view', $paper) }}"
             data-abstract="{{ e($paper->abstract ?? '') }}"
             data-plagiarism="{{ is_null($paper->plagiarism_score) ? '' : (int)$paper->plagiarism_score }}">
       <i data-lucide="info" class="w-4 h-4"></i>

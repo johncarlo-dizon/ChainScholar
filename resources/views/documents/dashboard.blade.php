@@ -157,11 +157,20 @@
 
       @forelse ($results as $result)
         @php
-          $isPaper = ($result['type'] ?? 'title') === 'paper';
-          $link    = $isPaper ? ($result['file_url'] ?? 'javascript:void(0)') : route('dashboard.view', $result['id']);
-          $target  = $isPaper ? '_blank' : '_self';
-          $simPct  = number_format(($result['similarity'] ?? 0) * 100, 2);
-        @endphp
+  $isPaper = ($result['type'] ?? 'title') === 'paper';
+
+  // Prefer a server route that streams from Storage (works local & prod).
+  // Your search controller will set open_url for local papers; see step 2 below.
+  $openUrl = $result['open_url']
+      ?? (!empty($result['paper_id']) ? route('papers.view', $result['paper_id']) : null)
+      ?? (!empty($result['id'])       ? route('papers.view', $result['id'])       : null)
+      // fallback: absolute PDF links (e.g., external results)
+      ?? ($result['file_url'] ?? null);
+
+  $link   = $isPaper ? ($openUrl ?? 'javascript:void(0)') : route('dashboard.view', $result['id']);
+  $target = $isPaper ? '_blank' : '_self';
+@endphp
+
 
         <div class="group border-b border-gray-200/70 py-4">
           <div class="flex items-start justify-between gap-4">

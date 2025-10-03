@@ -51,6 +51,15 @@ class ResearchPaper extends Model
     {
         return $this->belongsTo(User::class);
     }
+    public function getViewUrlAttribute(): string
+    {
+        return route('papers.view', $this);
+    }
+    public function getDownloadUrlAttribute(): string
+    {
+        return route('papers.download', $this);
+    }
+
 
     public function getStatusBadgeColorAttribute(): string
     {
