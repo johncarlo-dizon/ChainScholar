@@ -23,6 +23,15 @@
     required
   >
 
+ 
+
+@if (!empty($verifyIntent))
+  <div role="alert" class="my-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900 text-xs">
+    <strong>Heads up:</strong> please sign in to complete your email verification.
+  </div>
+@endif
+
+
   <button type="submit"  class="mt-5 tracking-wide font-semibold   text-white-1000 w-full py-4 rounded-lg btn-auth transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none" style="color: white;">    
                                 Sign In
                            </button>

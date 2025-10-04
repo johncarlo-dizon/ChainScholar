@@ -14,7 +14,18 @@ class AuthController extends Controller
 {
     /** Views */
     public function showRegister()       { return view('auth.register'); }
-    public function showLogin()          { return view('auth.login'); }
+    public function showLogin()
+    {
+        // If auth middleware sent them here from a signed verify link,
+        // Laravel stores the target in session('url.intended').
+        $intended = session('url.intended');
+        $verifyIntent = is_string($intended) && str_contains($intended, '/email/verify/');
+
+        return view('auth.login', [
+            'verifyIntent' => $verifyIntent,
+        ]);
+    }
+
     public function showForgotpassword() { return view('auth.passwords.email'); } // normalize path
 
     /** POST: /register */
@@ -69,10 +80,15 @@ class AuthController extends Controller
 
         // Enforce verification before letting them in
         // If not yet verified, KEEP THEM LOGGED IN and send to the verify notice
-        if (! auth()->user()->hasVerifiedEmail()) {
-            return redirect()->route('verification.notice')
-                ->with('status', 'Please verify your email. You’re signed in—click the link in your inbox or resend below.');
-        }
+        // If not yet verified:
+// - If they came from a signed verify link while logged out, send them BACK there (intended)
+// - Otherwise, show the verify notice page
+if (! auth()->user()->hasVerifiedEmail()) {
+    return redirect()
+        ->intended(route('verification.notice')) // go to intended verify URL if present, else fallback to notice
+        ->with('status', 'Please verify your email. You’re signed in—click the link in your inbox or resend below.');
+}
+
 
 
         // Role-based landing
