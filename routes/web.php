@@ -31,7 +31,7 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BlockchainController;
 use App\Http\Controllers\BlockchainRequestController;
 use App\Http\Controllers\CertificateController;
-
+use Illuminate\Auth\Events\Verified;
 // CERTIFICATE CHAIN
 Route::get('/papers/{paper}/certificate', [CertificateController::class, 'download'])
     ->name('papers.certificate')
@@ -439,19 +439,65 @@ Route::middleware('auth')->group(function () {
     })->name('verification.notice');
 
     // Email verification link (signed)
-    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-        $request->fulfill();
+   Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
+    // Middleware 'signed' will reject invalid/expired signatures before this runs.
 
-        session()->flash('status', 'Email verified! Welcome to ChainScholar 🎉');
+    $authUser = $request->user();
 
-        $role = auth()->user()->role ?? null;
+    // If not logged in OR logged in as the wrong user, force login as the correct account.
+    if (! $authUser || (int)$authUser->getKey() !== (int)$id) {
+        // Save where we want to go after login
+        $intended = $request->fullUrl();
+
+        // If someone else is logged in, log them out cleanly
+        if ($authUser) {
+            auth()->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
+
+        // Put intended URL into the (new) session so redirect()->intended() works after login
+        $request->session()->put('url.intended', $intended);
+
+        // Optional: show which email should log in (if we can find it)
+        if ($target = User::find($id)) {
+            return redirect()->route('login')
+                ->with('status', 'Please sign in as '.$target->email.' to verify this email.');
+        }
+
+        return redirect()->route('login')
+            ->with('status', 'Please sign in to verify your email.');
+    }
+
+    // Ensure the hash actually matches this user's email
+    if (! hash_equals((string)$hash, sha1($authUser->getEmailForVerification()))) {
+        abort(403, 'Invalid verification hash.');
+    }
+
+    // If already verified, just proceed to their dashboard nicely
+    if ($authUser->hasVerifiedEmail()) {
+        $role = $authUser->role ?? null;
         return match ($role) {
-            'ADMIN'   => redirect()->route('admin.users.index'),
-            'ADVISER' => redirect()->route('adviser.index'),
-            'STUDENT' => redirect()->route('dashboard'),
-            default   => redirect()->route('dashboard'),
+            'ADMIN'   => redirect()->route('admin.users.index')->with('status', 'Your email is already verified.'),
+            'ADVISER' => redirect()->route('adviser.index')->with('status', 'Your email is already verified.'),
+            'STUDENT' => redirect()->route('dashboard')->with('status', 'Your email is already verified.'),
+            default   => redirect()->route('dashboard')->with('status', 'Your email is already verified.'),
         };
-    })->middleware(['signed'])->name('verification.verify');
+    }
+
+    // First-time verification
+    $authUser->markEmailAsVerified();
+    event(new Verified($authUser));
+
+    $role = $authUser->role ?? null;
+    return match ($role) {
+        'ADMIN'   => redirect()->route('admin.users.index')->with('status', 'Email verified! Welcome to ChainScholar 🎉'),
+        'ADVISER' => redirect()->route('adviser.index')->with('status', 'Email verified! Welcome to ChainScholar 🎉'),
+        'STUDENT' => redirect()->route('dashboard')->with('status', 'Email verified! Welcome to ChainScholar 🎉'),
+        default   => redirect()->route('dashboard')->with('status', 'Email verified! Welcome to ChainScholar 🎉'),
+    };
+})->middleware(['signed','throttle:6,1'])->name('verification.verify');
+
 
     // Resend verification (throttled)
     Route::post('/email/verification-notification', function () {
