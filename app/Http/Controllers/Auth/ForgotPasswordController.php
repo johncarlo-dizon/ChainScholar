@@ -8,23 +8,25 @@ use Illuminate\Support\Facades\Password;
 
 class ForgotPasswordController extends Controller
 {
-    // Show the form to request a password reset link
-    public function showLinkRequestForm()
+    public function __construct()
     {
-        return view('auth.passwords.email'); // Your custom Blade view
+        $this->middleware(['guest', 'throttle:6,1']);
     }
 
-    // Send the reset link
+    public function showLinkRequestForm()
+    {
+        // standard view path: resources/views/auth/passwords/email.blade.php
+        return view('auth.passwords.email');
+    }
+
     public function sendResetLinkEmail(Request $request)
     {
-        $request->validate(['email' => 'required|email']);
+        $request->validate(['email' => ['required','email']]);
 
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        $status = Password::sendResetLink($request->only('email'));
 
         return $status === Password::RESET_LINK_SENT
-            ? back()->with(['status' => __($status)])
+            ? back()->with('status', __($status))
             : back()->withErrors(['email' => __($status)]);
     }
 }

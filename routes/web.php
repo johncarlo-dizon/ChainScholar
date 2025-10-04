@@ -243,7 +243,7 @@ Route::post('/documents/check-plagiarism-detailed', [PlagiarismController::class
     ->name('documents.checkPlagiarismDetailed');
 
 
-Route::get('/dashboard', [DocumentController::class, 'showSearchDashboard'])->name('dashboard');
+Route::get('/dashboard', [DocumentController::class, 'showSearchDashboard'])->middleware(['auth','verified'])->name('dashboard');
 Route::get('/dashboard/search', [DocumentController::class, 'searchResearch'])->name('dashboard.search');
 
 Route::get('/dashboard/view/{id}', [DocumentController::class, 'viewResearch'])->name('dashboard.view');
@@ -410,65 +410,59 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
+// AUTH START
 
-// GUEST ROUTES
-Route::middleware('guest')->controller(AuthController::class)->group(function() {
-    Route::get('/register', 'showRegister')->name('show.register');
-    Route::get('/', 'showLogin')->name('show.login');
-    Route::post('/register', 'register')->name('register');
-    Route::post('/login', 'login')->name('login');
-    Route::get('/login', 'showLogin')->name('login');
+/* ---------- Guest ---------- */
+Route::middleware('guest')->group(function () {
+    Route::get('/register', [AuthController::class, 'showRegister'])->name('show.register');
+    Route::get('/',          [AuthController::class, 'showLogin'])->name('show.login');
+    Route::get('/login',     [AuthController::class, 'showLogin'])->name('login');
+
+    Route::post('/register', [AuthController::class, 'register'])->name('register');
+    Route::post('/login',    [AuthController::class, 'login'])->name('login');
+
+    // Forgot / Reset
+    Route::get('/forgot-password',  [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
+
+    Route::get('/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset');
+    Route::post('/reset-password',        [ResetPasswordController::class, 'reset'])->name('password.update');
 });
 
-
-
-// PASS RESET ROUTES
-Route::controller(ForgotPasswordController::class)->group(function() {
-    Route::get('/forgot-password', 'showLinkRequestForm')->name('password.request');
-    Route::post('/forgot-password', 'sendResetLinkEmail')->name('password.email');
-});
-
-Route::controller(ResetPasswordController::class)->group(function() {
-    Route::get('/reset-password/{token}', 'showResetForm')->name('password.reset');
-    Route::post('/reset-password', 'reset')->name('password.update');
-});
-
-
-
-// AUTH ROUTES
-Route::middleware('auth')->group(function() {
-
+/* ---------- Authenticated (for verify/email + resend + logout) ---------- */
+Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+    // Email verify notice page
     Route::get('/email/verify', function () {
-        return view('auth.verify-email')->with('status', 'Verification email sent! Please check your Gmail.');
+        return view('auth.verify-email');
     })->name('verification.notice');
 
+    // Email verification link (signed)
     Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-    $request->fulfill();
+        $request->fulfill();
 
-    // flash a success message for SweetAlert
-    session()->flash('status', 'Email verified! Welcome to ChainScholar 🎉');
+        session()->flash('status', 'Email verified! Welcome to ChainScholar 🎉');
 
-    $role = auth()->user()->role ?? null;
-    return match ($role) {
-        'ADMIN'   => redirect()->route('admin.users.index'),
-        'ADVISER' => redirect()->route('adviser.index'),
-        'STUDENT' => redirect()->route('dashboard'),
-        default   => redirect()->route('dashboard'),
-    };
-})->middleware('signed')->name('verification.verify');
+        $role = auth()->user()->role ?? null;
+        return match ($role) {
+            'ADMIN'   => redirect()->route('admin.users.index'),
+            'ADVISER' => redirect()->route('adviser.index'),
+            'STUDENT' => redirect()->route('dashboard'),
+            default   => redirect()->route('dashboard'),
+        };
+    })->middleware(['signed'])->name('verification.verify');
 
-
-
+    // Resend verification (throttled)
     Route::post('/email/verification-notification', function () {
+        if (auth()->user()->hasVerifiedEmail()) {
+            return back()->with('status', 'Your email is already verified.');
+        }
         auth()->user()->sendEmailVerificationNotification();
         return back()->with('status', 'Verification link sent!');
-    })->middleware('throttle:6,1')->name('verification.send');
-
+    })->middleware(['throttle:6,1'])->name('verification.send');
 });
-
-
+// AUTH END
 
 
 
@@ -478,7 +472,7 @@ Route::middleware(['auth', 'admin'])->group(function() {
     Route::get('/admin/index', [UserController::class, 'showDashboard'])->name('admin.index');
     
     // User CRUD Routes
-    Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
+    Route::get('/admin/users', [UserController::class, 'index'])->middleware(['auth','verified'])->name('admin.users.index');
     Route::get('/admin/users/create', [UserController::class, 'create'])->name('admin.users.create');
     Route::post('/admin/users', [UserController::class, 'store'])->name('admin.users.store');
     Route::get('/admin/users/{user}/edit', [UserController::class, 'edit'])->name('admin.users.edit');
@@ -491,7 +485,7 @@ Route::middleware(['auth', 'adviser'])
     ->prefix('adviser')
     ->name('adviser.')
     ->group(function () {
-        Route::get('/', [AdviserController::class, 'index'])->name('index');
+        Route::get('/', [AdviserController::class, 'index'])->middleware(['auth','verified'])->name('index');
 
         // Browse titles to request
         Route::get('/titles/browse', [AdviserController::class, 'browse'])->name('titles.browse');

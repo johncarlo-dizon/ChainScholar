@@ -48,9 +48,15 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
         ];
     }
+
+    // Normalize email
+    public function setEmailAttribute($value)
+    {
+        $this->attributes['email'] = strtolower((string)$value);
+    }   
 
 
     public function adviserProfile()
