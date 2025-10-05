@@ -8,10 +8,6 @@ use Illuminate\Support\Facades\Password;
 
 class ForgotPasswordController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware(['guest', 'throttle:6,1']);
-    }
 
     public function showLinkRequestForm()
     {
