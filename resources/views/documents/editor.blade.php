@@ -238,31 +238,55 @@
 
 
 
-    <div class="space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-700">Actions</h3>
-            </div>
-            <div class="space-y-4">
-                <div class="flex flex-col">
-                    <a href="{{ route('templates.index', ['use_for' => 'chapter', 'document_id' => $document->id]) }}"
-                       class="text-sm text-blue-500 transition hover:text-blue-700">
-                        Use Template
-                    </a>
+ <div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h3 class="text-lg font-semibold text-gray-800">Actions</h3>
+  </div>
 
-                    @if(session()->has('templateContent') && !session()->has('templateUndone'))
-                        <a href="{{ route('documents.undoTemplate', $document) }}"
-                           class="text-sm text-blue-500 transition hover:text-blue-700">
-                            Undo Template
-                        </a>
-                    @endif
+  <!-- Buttons row -->
+  <div class="flex flex-wrap gap-3">
+    {{-- Use Template (purple) --}}
+    <a
+      href="{{ route('templates.index', ['use_for' => 'chapter', 'document_id' => $document->id]) }}"
+      class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5
+             text-sm md:text-base font-semibold text-white shadow-sm transition
+             hover:bg-purple-700 focus-visible:outline focus-visible:outline-2
+             focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+    >
+   
+      <span>Use Template</span>
+    </a>
 
-                    <a href="javascript:void(0);" onclick="toggleSubmitForm()"
-                       class="text-sm text-blue-500 transition hover:text-blue-700">
-                       Upload Research
-                    </a>
-                </div>
-            </div>
-        </div>
+    {{-- Undo Template (yellow) --}}
+    @if(session()->has('templateContent') && !session()->has('templateUndone'))
+      <a
+        href="{{ route('documents.undoTemplate', $document) }}"
+        class="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5
+               text-sm md:text-base font-semibold text-white shadow-sm transition
+               hover:bg-amber-600 focus-visible:outline focus-visible:outline-2
+               focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+      >
+        <!-- undo/arrow icon -->
+     
+        <span>Undo Template</span>
+      </a>
+    @endif
+
+    {{-- Upload Research (green) --}}
+    <button
+      type="button"
+      onclick="toggleSubmitForm()"
+      class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5
+             text-sm md:text-base font-semibold text-white shadow-sm transition
+             hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2
+             focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+    >
+      <!-- upload icon -->
+      <span>Upload Research</span>
+    </button>
+  </div>
+</div>
+
 
 
 
