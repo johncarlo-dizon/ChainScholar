@@ -44,8 +44,9 @@
                     </div>
 
                     @foreach($templates->sortBy(function($template) {
-                        return $template->user->position === 'admin' ? 1 : 0;
-                    }) as $template)
+    return optional($template->user)->role === 'ADMIN' ? 1 : 0;
+}) as $template)
+
                         <div class="flex flex-col items-center bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-lg transition duration-300">
                          
                                 <div class="w-24 h-32 bg-white border border-blue-300 mb-4 p-2 flex items-center justify-center">
@@ -61,7 +62,8 @@
 
 
                       @auth 
-                        @if(auth()->user()->position === 'user')
+                        @if(in_array(auth()->user()->role, ['ADVISER','STUDENT']))
+
                             <div class="flex flex-wrap justify-center gap-2 mt-2">
                                 <a href="{{ route('templates.use', ['template' => $template->id, 'use_for' => request('use_for'), 'document_id' => request('document_id')]) }}"
                                     class="w-25 text-center px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-700 text-sm">
@@ -69,7 +71,8 @@
                                     </a>
 
 
-                                @if($template->user->position === 'user' || auth()->user()->position === 'admin')
+                                @if(in_array($template->user->role, ['ADVISER','STUDENT']) || auth()->user()->role === 'ADMIN')
+
                                     <a href="{{ route('templates.edit', $template->id) }}" 
                                         class="inline-flex items-center px-1 py-1.5 text-yellow-500   rounded hover:text-yellow-600 text-sm">
                                          <i data-feather="edit" class="w-4 h-4 "></i>
@@ -87,7 +90,8 @@
                             </div>
                         @endif
 
-                        @if(auth()->user()->position === 'admin')
+                        @if(auth()->user()->role === 'ADMIN')
+
                          <div class="flex flex-wrap justify-center gap-2 mt-2">
                              <a href="{{ route('templates.edit', $template->id) }}" 
                                         class="inline-flex items-center px-1 py-1.5 text-yellow-500   rounded hover:text-yellow-600 text-sm">

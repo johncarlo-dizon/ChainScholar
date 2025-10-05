@@ -1,14 +1,19 @@
+<!--templates.editor-->
 <x-userlayout>
     <div class="bg-blue-600 rounded-lg shadow p-6 max-w-8xl container">
-        <h2 class="text-3xl font-semibold mb-4 text-white">{{ isset($document) ? 'Edit' : 'New' }} Template</h2>
+        <h2 class="text-3xl font-semibold mb-4 text-white">
+        {{ isset($template) && $template->exists ? 'Edit' : 'New' }} Template
+    </h2>
+
     </div>
 
     <div class="container mx-auto px-4 py-8">
-        <form action="{{ isset($document) ? route('templates.update', $document) : route('templates.store') }}" method="POST" class="document-form" id="doc-form">
-            @csrf
-            @if(isset($document))
-                @method('PUT')
-            @endif
+        <form action="{{ isset($template) ? route('templates.update', $template) : route('templates.store') }}" method="POST" class="document-form" id="doc-form">
+    @csrf
+    @if(isset($template))
+        @method('PUT')
+    @endif
+
 
             <div class="flex flex-col lg:flex-row gap-6">
                 <div class="main-container">
@@ -17,13 +22,14 @@
                             <div class="mb-6">
                                 <label for="title" class="block mb-2 font-bold text-blue-600">Template Title</label>
                                 <input 
-                                    type="text" 
-                                    name="name" 
-                                    id="name"
-                                    class="w-full border-1 border-gray-300 rounded-md px-4 py-3 text-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                    placeholder="Enter template title" 
-                                    value="{{ old('name', $document->name ?? '') }}"
-                                >
+    type="text" 
+    name="name" 
+    id="name"
+    class="w-full border-1 border-gray-300 rounded-md px-4 py-3 text-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
+    placeholder="Enter template title" 
+    value="{{ old('name', $template->name ?? '') }}"
+>
+
                             </div>
                             
 
@@ -37,10 +43,11 @@
 
                                 <!-- Textarea -->
                               	<div class="editor-container__editor">  <textarea 
-                                    name="content" 
-                                    id="editor" 
-                                    class="min-h-[600px] w-full p-4 bg-white border border-gray-300 rounded-md hidden"
-                                >{{ old('content', $document->content ?? '') }}</textarea></div>
+    name="content" 
+    id="editor" 
+    class="min-h-[600px] w-full p-4 bg-white border border-gray-300 rounded-md hidden"
+>{{ old('content', $template->content ?? '') }}</textarea>
+</div>
 
                                 <!-- Word Count Container -->
                    

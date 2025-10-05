@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Document as ModelsDocument;
 use App\Models\Template;
-use Dom\Document;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -58,18 +57,15 @@ class TemplateController extends Controller
         ]);
         $this->generatePreviewImage($template->content, $template->id);
 
-        return redirect()->route('templates.index')->with('success', 'Template saved!');
+        return redirect()->route('templates.index')->with('status', 'Template saved!');
     }
 
-    public function edit(Document $document)
+   public function edit(Template $template)
     {
-        $this->authorize('update', $document);
-
-        // Pull persisted template content (if exists)
-        $templateContent = session('templateContent'); // Persistent
-
-        return view('documents.editor', compact('document', 'templateContent'));
+        $this->authorize('update', $template);
+        return view('templates.editor', compact('template'));
     }
+
 
 
 
@@ -89,7 +85,7 @@ class TemplateController extends Controller
 
             return redirect()
                 ->route('documents.edit', $documentId)
-                ->with('success', 'Template applied! You can undo it.');
+                ->with('status', 'Template applied! You can undo it.');
         }
 
         return view('documents.editor', ['template' => $template]);
@@ -118,7 +114,7 @@ class TemplateController extends Controller
 
         $this->generatePreviewImage($template->content, $template->id);
 
-        return redirect()->route('templates.index')->with('success', 'Template updated!');
+        return redirect()->route('templates.index')->with('status', 'Template updated!');
     }
 
     public function destroy($id)
@@ -127,7 +123,7 @@ class TemplateController extends Controller
         $template->delete();
 
         return redirect()->route('templates.index')
-            ->with('success', 'Template deleted successfully.');
+            ->with('status', 'Template deleted successfully.');
     }
 
 
