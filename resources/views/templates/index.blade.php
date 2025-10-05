@@ -50,10 +50,18 @@
                         <div class="flex flex-col items-center bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-lg transition duration-300">
                          
                                 <div class="w-24 h-32 bg-white border border-blue-300 mb-4 p-2 flex items-center justify-center">
-                                    <img src="{{ asset('storage/previews/' . $template->id . '.png') }}" 
-                                    alt="Preview" 
-                                    class="max-w-full max-h-full object-contain"
-                                    onerror="this.src='{{ asset('storage/images/tempuser.png') }}'">
+                  @php
+  $previewUrl = $template->file_path
+      ? \Illuminate\Support\Facades\Storage::url($template->file_path) . '?v=' . optional($template->updated_at)->timestamp
+      : asset('storage/images/tempuser.png');
+@endphp
+
+<img src="{{ $previewUrl }}"
+     alt="Preview"
+     class="max-w-full max-h-full object-contain"
+     onerror="this.src='{{ asset('storage/images/tempuser.png') }}'">
+
+
                                 </div>
                             
 

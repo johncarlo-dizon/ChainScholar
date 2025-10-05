@@ -79,6 +79,9 @@ return [
     */
 
     'locale' => env('APP_LOCALE', 'en'),
+    // feature flag: template previews (Browsershot)
+    'template_preview_enabled' => env('TEMPLATE_PREVIEW_ENABLED', false),
+
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
