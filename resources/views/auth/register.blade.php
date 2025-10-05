@@ -1,6 +1,7 @@
 <x-layout>
 
-  <form action="{{route('register')}}" method="POST">
+<form id="registerForm" action="{{route('register')}}" method="POST" autocomplete="off">
+
   @csrf
  
  
@@ -61,8 +62,14 @@
     name="password_confirmation"
     required
   >
-
-  <button type="submit"   class="mt-5 tracking-wide font-semibold  w-full py-4 rounded-lg btn-auth transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none" style="color: white;">Sign up</button>
+<button
+  id="submitBtn"
+  type="submit"
+  class="mt-5 tracking-wide font-semibold w-full py-4 rounded-lg btn-auth transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
+  style="color: white;"
+>
+  Sign up
+</button>
 
 
                    
@@ -90,4 +97,26 @@
             </div>
         </div>
         
+
+
+        <script>
+  (function () {
+    const form = document.getElementById('registerForm');
+    const btn  = document.getElementById('submitBtn');
+
+    if (!form || !btn) return;
+
+    let submitted = false;
+
+    form.addEventListener('submit', function () {
+      if (submitted) return;            // guard if browser re-fires submit
+      submitted = true;
+
+      btn.disabled = true;
+      btn.classList.add('opacity-50', 'cursor-not-allowed');
+      btn.innerHTML = 'Signing up...';
+    });
+  })();
+</script>
+
 </x-layout>
