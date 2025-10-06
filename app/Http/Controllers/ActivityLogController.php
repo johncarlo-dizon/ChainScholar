@@ -20,7 +20,23 @@ class ActivityLogController extends Controller
             $perPage = 10;
         }
 
-        $query = ActivityLog::with(['user', 'subject'])->latest();
+    $query = ActivityLog::with([
+    'user',
+    'subject' => function ($m) {
+        $m->morphWith([
+            \App\Models\Title::class             => ['owner', 'adviser'],
+            \App\Models\Document::class          => ['title'],
+            \App\Models\ResearchPaper::class     => ['user'],
+            \App\Models\AdviserRequest::class    => ['title', 'adviser'],
+            \App\Models\Announcement::class      => [],
+            \App\Models\BlockchainRequest::class => ['paper.user'],
+            \App\Models\User::class              => [], // ⬅️ add: user profile/management logs
+        ]);
+    },
+])->latest();
+
+
+
 
         // Visibility scope
         if (!$isAdmin) {
@@ -29,11 +45,13 @@ class ActivityLogController extends Controller
             // If you later want related-title visibility, keep your commented blocks here.
         }
 
-        // Everyone can filter by action + dates
+   
+        // Everyone can filter by action (exact) + dates
         if ($request->filled('action')) {
             $action = (string) $request->query('action');
-            $query->where('action', 'like', "%{$action}%");
+            $query->where('action', $action);
         }
+
         if ($request->filled('from')) {
             $query->whereDate('created_at', '>=', $request->date('from'));
         }
@@ -52,11 +70,21 @@ class ActivityLogController extends Controller
         }
 
         $logs = $query->paginate($perPage)->withQueryString();
+// Build dropdown of available actions (distinct)
+        $actions = ActivityLog::query()
+            ->select('action')
+            ->when(!$isAdmin, fn($q) => $q->where('user_id', $user->id))
+            ->distinct()
+            ->orderBy('action')
+            ->pluck('action')
+            ->all();
 
         return view('activity.index', [
             'logs'    => $logs,
             'isAdmin' => $isAdmin,
             'perPage' => $perPage,
+            'actions' => $actions,
         ]);
+
     }
 }
