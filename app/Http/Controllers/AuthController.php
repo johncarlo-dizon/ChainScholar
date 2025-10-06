@@ -63,54 +63,46 @@ class AuthController extends Controller
 
     /** POST: /login */
     public function login(Request $request)
-{
-    $credentials = $request->validate([
-        'email'    => ['required','email'],
-        'password' => ['required','string'],
-    ]);
-
-    // Normalize email for lookup
-    $email = strtolower($credentials['email']);
-    $user  = User::where('email', $email)->first();
-
-    // 1) If account exists but is DISABLED, block (no login)
-    if ($user && $user->is_active === false) {
-        throw ValidationException::withMessages([
-            'email' => 'This account is disabled. Please contact the administrator.',
+    {
+        $credentials = $request->validate([
+            'email'    => ['required','email'],
+            'password' => ['required','string'],
         ]);
+
+        // Attempt login
+        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            throw ValidationException::withMessages([
+                'email' => 'Sorry, incorrect credentials.',
+            ]);
+        }
+
+        $request->session()->regenerate();
+
+    // Block disabled users
+        if (! auth()->user()->is_active) {
+            Auth::logout();
+            throw ValidationException::withMessages([
+                'email' => 'This account has been disabled. Please contact the administrator.',
+            ]);
+        }
+
+        if (! auth()->user()->hasVerifiedEmail()) {
+            return redirect()
+                ->intended(route('verification.notice')) // go to intended verify URL if present, else fallback to notice
+                ->with('status', 'Please verify your email. You’re signed in—click the link in your inbox or resend below.');
+        }
+
+
+
+        // Role-based landing
+        $role = auth()->user()->role;
+        return match ($role) {
+            'ADMIN'   => redirect()->intended(route('admin.users.index')),
+            'ADVISER' => redirect()->intended(route('adviser.index')),
+            'STUDENT' => redirect()->intended(route('dashboard')),
+            default   => redirect()->intended(route('dashboard')),
+        };
     }
-
-    // 2) If credentials are correct BUT email is NOT verified, block (no login)
-    //    Use Auth::validate() to check creds WITHOUT creating a session.
-    if ($user && ! $user->hasVerifiedEmail() && Auth::validate($credentials)) {
-        // (Optional) pass along the email so your resend page can prefill
-        $request->session()->put('verify.intended_email', $email);
-
-        // Redirect to your public "Resend Verification" page (NOT the auth-only notice).
-        // ✱ If your route name/path is different, change it here.
-        return redirect()->route('resend.verification')
-            ->with('status', 'Please verify your email to continue. We can resend the verification link.');
-    }
-
-    // 3) Attempt login (only verified + active reach here)
-    if (! Auth::attempt($credentials, $request->boolean('remember'))) {
-        throw ValidationException::withMessages([
-            'email' => 'Sorry, incorrect credentials.',
-        ]);
-    }
-
-    $request->session()->regenerate();
-
-    // 4) Role-based landing
-    $role = auth()->user()->role;
-    return match ($role) {
-        'ADMIN'   => redirect()->intended(route('admin.users.index')),
-        'ADVISER' => redirect()->intended(route('adviser.index')),
-        'STUDENT' => redirect()->intended(route('dashboard')),
-        default   => redirect()->intended(route('dashboard')),
-    };
-}
-
 
     /** POST: /logout */
     public function logout(Request $request)
