@@ -409,7 +409,9 @@
         </form>
       </div>
     </div>
-
+<style>
+  .swal2-container { z-index: 20000 !important; }
+</style>
     {{-- Toast helpers (SweetAlert assumed in layout) --}}
     <script>
       function notify(type, title, text = '') {

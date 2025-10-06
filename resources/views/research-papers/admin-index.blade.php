@@ -473,7 +473,7 @@
 
 
 <!-- Approve & Register Modal -->
-<div id="approveModal" class="fixed inset-0 z-50 hidden">
+<div id="approveModal" class="fixed inset-0   hidden" style="z-index: 20000 !important;">
   <div class="absolute inset-0 backdrop-blur-sm bg-black/10" data-close-approve></div>
   <div class="relative mx-auto  mt-20 my-8 w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
     <div class="flex items-center justify-between border-b border-gray-200 pb-3">
@@ -774,7 +774,9 @@ plagEl.className = cls;
 <script src="https://unpkg.com/feather-icons"></script>
 <script>feather.replace();</script>
 
- 
+ <style>
+  .swal2-container { z-index: 20000 !important; }
+</style>
 
 <script>
 /** Toast-style notifications (top-right) */
