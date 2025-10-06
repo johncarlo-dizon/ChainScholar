@@ -576,6 +576,10 @@
 
     trigger.addEventListener('click', (e) => {
       e.stopPropagation(); // don't fall through to doc click
+      if (trigger.dataset.debounce === '1') return;
+      trigger.dataset.debounce = '1';
+      setTimeout(() => { trigger.dataset.debounce = '0'; }, 250);
+
       const willOpen = menu.classList.contains('hidden');
 
       closeAll(willOpen ? id : null);
@@ -795,6 +799,19 @@ function modalError(title, text = '') {
     confirmButtonText: 'OK'
   });
 }
+
+// --- Loading overlays using SweetAlert ---
+function loadingSwal(title = 'Working...', text = 'Please keep this tab focused and check MetaMask when it appears.') {
+  Swal.fire({
+    title,
+    text,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    didOpen: () => Swal.showLoading()
+  });
+}
+function closeSwal() { try { Swal.close(); } catch(_) {} }
+
 </script>
 
 {{-- Ethers.js v6 (UMD) --}}
@@ -814,6 +831,45 @@ function modalError(title, text = '') {
     "function getTimestamp(bytes32 digest) view returns (uint256)",
     "event Registered(bytes32 indexed digest, address indexed sender, uint256 blockTime)"
   ];
+
+
+  // Explorer (Amoy)
+const EXPLORER_TX = 'https://amoy.polygonscan.com/tx/';
+
+// Extract a meaningful ethers v6 message
+function normalizeEthersMessage(err) {
+  const msg =
+    err?.shortMessage ||
+    err?.reason ||
+    err?.info?.error?.message ||
+    err?.error?.message ||
+    err?.message ||
+    '';
+  return String(msg);
+}
+
+// Wait with fallback polling to survive flaky RPCs
+async function robustWaitForConfirm(provider, txHash, confirmations = 1, timeoutMs = 120000) {
+  // Try native waiter first (ethers v6 ignores extra args; no timeout param)
+  try {
+    return await provider.waitForTransaction(txHash, confirmations);
+  } catch (_) {
+    // Manual polling fallback
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const rec = await provider.getTransactionReceipt(txHash);
+      if (rec && rec.blockNumber != null) {
+        const tip = await provider.getBlockNumber();
+        const confs = Math.max(0, tip - rec.blockNumber + 1);
+        if (confs >= confirmations) return rec;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    throw new Error('Timeout while confirming transaction.');
+  }
+}
+
+
 
   const toBytes32Digest = (sha256Hex) => {
     if (!sha256Hex) throw new Error('Missing sha256');
@@ -874,6 +930,9 @@ function modalError(title, text = '') {
   // REGISTER (admin triggers user’s paper on-chain) + optional approve-first
 // APPROVE & REGISTER — Modal driven
 let MM_LOCK = false;
+let MM_REQ_LOCK = false; // protects eth_requestAccounts
+let MM_TX_INFLIGHT = false; // future use if you queue multiple txs
+
 
 const approveModal      = document.getElementById('approveModal');
 const approveHeading    = document.getElementById('approveHeading');
@@ -891,22 +950,24 @@ const openApprove = (btn) => {
     : 'This will send a transaction via MetaMask on Polygon Amoy.';
 
   const title  = btn.dataset.title || 'Paper';
-  const digest = toBytes32Digest(btn.dataset.sha); // will throw if invalid
+  const rawSha = (btn.dataset.sha || '').trim();
 
+  // Show raw digest (validate on Confirm so the modal never crashes)
   apprTitleEl.textContent  = title;
-  apprDigestEl.textContent = digest;
+  apprDigestEl.textContent = rawSha ? ('0x' + rawSha.replace(/^0x/, '').toLowerCase()) : '—';
 
   // stash all needed data on the confirm button
   approveConfirmBtn.dataset.action     = btn.dataset.action || '';
   approveConfirmBtn.dataset.confirm    = btn.dataset.confirm || '';
   approveConfirmBtn.dataset.approve    = btn.dataset.approve || '';
-  approveConfirmBtn.dataset.sha        = btn.dataset.sha || '';
+  approveConfirmBtn.dataset.sha        = rawSha || '';
   approveConfirmBtn.dataset.requestId  = btn.dataset.requestId || '';
   approveConfirmBtn.dataset.title      = title;
 
   approveModal.classList.remove('hidden');
   document.documentElement.classList.add('overflow-hidden');
 };
+
 
 const closeApprove = () => {
   approveModal.classList.add('hidden');
@@ -916,9 +977,15 @@ const closeApprove = () => {
 document.querySelectorAll('.btn-register-chain').forEach(btn => {
   btn.addEventListener('click', (e) => {
     e.preventDefault();
-    openApprove(btn);
+    try {
+      openApprove(btn);
+    } catch (err) {
+      const msg = (err?.message || '').toString();
+      modalError('Invalid digest', msg || 'Digest must be a 64-character sha256 hex string.');
+    }
   }, { passive: true });
 });
+
 
 approveModal.querySelectorAll('[data-close-approve]').forEach(el => el.addEventListener('click', closeApprove));
 document.addEventListener('keydown', (e) => {
@@ -931,100 +998,165 @@ approveConfirmBtn.addEventListener('click', async () => {
   MM_LOCK = true; approveConfirmBtn.dataset.busy = '1';
   approveConfirmBtn.disabled = true; approveSpinner.classList.remove('hidden');
 
-  try {
-    const digest    = toBytes32Digest(approveConfirmBtn.dataset.sha);
-    const actionUrl = approveConfirmBtn.dataset.action;
-    const confirmUrl= approveConfirmBtn.dataset.confirm;
-    const approveUrl= approveConfirmBtn.dataset.approve;
-    const hasRequest= !!approveConfirmBtn.dataset.requestId;
+  let txHash = '';
+  // HOIST THESE so catch/finally can use them
+  let actionUrl = '';
+  let confirmUrl = '';
+  let approveUrl = '';
+  let hasRequest = false;
 
-    // Close modal so MetaMask can pop up nicer
+  try {
+    const digest = toBytes32Digest(approveConfirmBtn.dataset.sha);
+
+    // assign after hoist
+    actionUrl  = approveConfirmBtn.dataset.action  || '';
+    confirmUrl = approveConfirmBtn.dataset.confirm || '';
+    approveUrl = approveConfirmBtn.dataset.approve || '';
+    hasRequest = !!approveConfirmBtn.dataset.requestId;
+
+    // ... rest of your logic ...
+
+
+    // Close the modal so MM can pop nicely
     closeApprove();
 
-    // 1) If this was triggered from a pending request, approve it server-side first
+    // (1) If pending request, approve server-side first
     if (hasRequest && approveUrl) {
+      loadingSwal('Approving request...', 'Updating server status');
       await fetch(approveUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': CSRF } });
+      closeSwal();
     }
 
-    // 2) MetaMask flow
+    // (2) Connect MetaMask (serialize the request)
+    loadingSwal('Connecting to MetaMask...', 'Please confirm the account request in MetaMask');
     const eth = await getMetaMaskProvider();
     if (!eth) throw new Error('MetaMask provider not found. Enable the extension.');
 
-    const accounts = await eth.request({ method: 'eth_requestAccounts' });
-    const account  = accounts?.[0];
+    let accounts;
+    try {
+      if (MM_REQ_LOCK) throw { code: -32002, message: 'Request already pending' };
+      MM_REQ_LOCK = true;
+      accounts = await eth.request({ method: 'eth_requestAccounts' });
+    } catch (err) {
+      const code = err?.code ?? err?.error?.code;
+      const msg  = (err?.message || err?.error?.message || '').toString();
+      if (code === -32002 || /already pending/i.test(msg)) {
+        closeSwal();
+        notify('info', 'MetaMask request already open', 'Check the MetaMask popup (may be behind other windows).');
+        return;
+      }
+      throw err;
+    } finally {
+      MM_REQ_LOCK = false;
+      closeSwal();
+    }
+
+    const account = accounts?.[0];
     if (!account) throw new Error('No account selected in MetaMask.');
 
+    // (3) Ensure network
+    loadingSwal('Switching network...', 'Ensuring Polygon Amoy (80002)');
     await ensureAmoy(eth);
+    closeSwal();
 
-    const provider = new ethers.BrowserProvider(eth);
-    const signer   = await provider.getSigner();
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    // (4) Send transaction
+    // (4) Send transaction (capture txHash early)
+loadingSwal('Sending transaction...', 'Registering digest on-chain');
+const provider = new ethers.BrowserProvider(eth);
+const signer   = await provider.getSigner();
+const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+const tx       = await contract.register(digest);
+txHash = tx?.hash || '';
+closeSwal();
 
-    // 3) Send tx
-    const tx = await contract.register(digest);
+// (5) Save tx details server-side (best-effort)
+loadingSwal('Saving...', 'Recording transaction on server');
+try {
+  await saveRegistrationToServer({
+    actionUrl, wallet: account, txHash, chainId: CHAIN_ID_DEC
+  });
+} finally { closeSwal(); }
 
-    // 4) Save REGISTERED on server (also notifies)
-    await saveRegistrationToServer({
-      actionUrl,
-      wallet: account,
-      txHash: tx.hash,
-      chainId: CHAIN_ID_DEC
-    });
+// (6) Confirm with robust fallback (handles flaky RPCs)
+loadingSwal('Confirming...', 'Waiting for 1 block confirmation');
+const receipt = await robustWaitForConfirm(provider, txHash, 1, 120000);
+closeSwal();
 
-    // 5) Wait 1 conf -> confirm on server -> reload
-    const receipt = await tx.wait(1);
 if (receipt?.status === 1) {
   await confirmOnServer(confirmUrl);
-  notify('success', 'Registered on-chain', 'Confirmed after 1 block.');
+  Swal.fire({
+    icon: 'success',
+    title: 'Registered on-chain',
+    text: 'Confirmed after 1 block.',
+    toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
+  });
   location.reload();
 } else {
   notify('error', 'Transaction failed or was reverted.');
 }
 
-
-} catch (e) {
+  } catch (e) {
+  closeSwal();
   const code = e?.code ?? e?.error?.code;
-  const msg  = (e?.shortMessage || e?.message || '').toString();
-
-  // 1) User cancelled in MetaMask
-  if (code === 4001 || code === 'ACTION_REJECTED' || /denied|rejected/i.test(msg)) {
-    notify('warning', 'Transaction cancelled', 'No changes were made.');
-    return;
-  }
-
-  // 2) A MetaMask request is already open
-  if (code === -32002 || /already pending/i.test(msg)) {
-    notify('info', 'MetaMask request already open', 'Please check the MetaMask popup.');
-    return;
-  }
-
-  // 3) Common chain errors
-  if (/insufficient funds/i.test(msg)) {
-    notify('error', 'Insufficient MATIC', 'Not enough balance to pay gas on Polygon Amoy.');
-    return;
-  }
-  if (/nonce too low/i.test(msg)) {
-    notify('error', 'Nonce too low', 'Try again or reset account nonce in MetaMask (Settings → Advanced).');
-    return;
-  }
-  if (/replacement transaction underpriced/i.test(msg)) {
-    notify('error', 'Underpriced replacement', 'Increase gas or try again.');
-    return;
-  }
-  if (/network|chain/i.test(msg)) {
-    notify('warning', 'Wrong network', 'Ensure MetaMask is on Polygon Amoy.');
-    return;
-  }
-
-  // 4) Generic fallback
-  modalError('Could not send the transaction', msg || 'Please try again.');
-} finally {
+  const msg  = normalizeEthersMessage(e);
 
 
+    // User cancelled
+    if (code === 4001 || code === 'ACTION_REJECTED' || /denied|rejected/i.test(msg)) {
+      notify('warning', 'Transaction cancelled', 'No changes were made.');
+      return;
+    }
+    // Already pending
+    if (code === -32002 || /already pending/i.test(msg)) {
+      notify('info', 'MetaMask request already open', 'Please check the MetaMask popup.');
+      return;
+    }
+    // Invalid digest
+    if (/sha256|64 hex|bytes32/i.test(msg)) {
+      modalError('Invalid digest', 'Digest must be a 64-character sha256 hex string.');
+      return;
+    }
+    // Common chain errors
+    if (/insufficient funds/i.test(msg))     { notify('error', 'Insufficient MATIC', 'Not enough balance on Polygon Amoy.'); return; }
+    if (/nonce too low/i.test(msg))          { notify('error', 'Nonce too low', 'Try again or reset account nonce (MetaMask → Settings → Advanced).'); return; }
+    if (/replacement transaction underpriced/i.test(msg)) { notify('error', 'Underpriced replacement', 'Increase gas or try again.'); return; }
+    if (/network|chain/i.test(msg))          { notify('warning', 'Wrong network', 'Ensure MetaMask is on Polygon Amoy.'); return; }
+
+// If we have a tx hash, try to recover by re-checking status.
+if (txHash) {
+  try {
+    loadingSwal('Re-checking...', 'Verifying transaction status');
+    // Use a plain RPC provider for a clean read
+    const reProvider = new ethers.JsonRpcProvider(RPC_URL);
+    const rec = await robustWaitForConfirm(reProvider, txHash, 1, 120000);
+    closeSwal();
+    if (rec?.status === 1) {
+      await confirmOnServer(confirmUrl);
+      notify('success', 'Registered on-chain', 'Confirmed after re-check.');
+      location.reload();
+      return;
+    }
+  } catch (_) {
+    // fall through to the info dialog below
+  }
+  closeSwal();
+  Swal.fire({
+    icon: 'info',
+    title: 'Transaction sent — confirming',
+    html: `We sent the transaction but couldn’t verify immediately.<br>
+           <a href="${EXPLORER_TX + txHash}" target="_blank" class="text-indigo-600 underline">View on Polygonscan</a>`,
+  });
+  return;
+}
+
+    // Fallback
+    modalError('Could not send the transaction', msg || 'Please try again.');
+  } finally {
     MM_LOCK = false; approveConfirmBtn.dataset.busy = '0';
     approveConfirmBtn.disabled = false; approveSpinner.classList.add('hidden');
   }
 }, { passive: true });
+
 
 
   // DECLINE modal wiring
