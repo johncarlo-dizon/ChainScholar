@@ -15,7 +15,7 @@
      {{-- Filter Bar --}}
 <form method="GET" action="{{ route('admin.users.index') }}" class="mb-4">
   <div class="flex flex-col md:flex-row md:items-end gap-3">
-    <div class="w-full md:w-1/2">
+    <div class="w-full md:w-1/4">
       <label class="block text-sm font-medium text-gray-700 mb-1" for="q">Search</label>
       <input
         type="text"
@@ -44,14 +44,27 @@
       </select>
     </div>
 
+       <div class="w-full md:w-1/4">
+      <label class="block text-sm font-medium text-gray-700 mb-1" for="status">Status</label>
+      @php $selectedStatus = $filters['status'] ?? ''; @endphp
+      <select
+        id="status"
+        name="status"
+        class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+      >
+        <option value="" {{ $selectedStatus === '' ? 'selected' : '' }}>All</option>
+        <option value="enabled"  {{ $selectedStatus === 'enabled'  ? 'selected' : '' }}>Enabled</option>
+        <option value="disabled" {{ $selectedStatus === 'disabled' ? 'selected' : '' }}>Disabled</option>
+      </select>
+    </div>
+
     <div class="flex gap-2">
       <button
         type="submit"
         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
       >Apply</button>
-
-     
     </div>
+
 </form>
 
        <div class="flex justify-end">
@@ -71,6 +84,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -80,17 +94,43 @@
                         <td class="px-6 py-4 whitespace-nowrap">{{ $user->id }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $user->name }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $user->email }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {{ $user->role }}
-                            </span>
-                        </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium"> 
-    <a href="{{ route('admin.users.edit', $user) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
+                     <td class="px-6 py-4 whitespace-nowrap">
+    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+        {{ $user->role }}
+    </span>
+</td>
 
-    <!-- Delete button triggers modal -->
-   <!-- Delete button triggers the single global modal -->
-<!-- Delete button triggers the single global modal -->
+<td class="px-6 py-4 whitespace-nowrap">
+    @if($user->is_active)
+        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+            Enabled
+        </span>
+    @else
+        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+            Disabled
+        </span>
+    @endif
+</td>
+
+<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+
+   <a href="{{ route('admin.users.edit', $user) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
+
+<button
+    type="button"
+    class="mr-3 js-toggle-status"
+    data-action="{{ route('admin.users.toggle', $user) }}"
+    data-name="{{ $user->name }}"
+    data-current="{{ $user->is_active ? 'enabled' : 'disabled' }}"
+>
+    @if($user->is_active)
+        <span class="text-yellow-600 hover:text-yellow-800">Disable</span>
+    @else
+        <span class="text-green-600 hover:text-green-800">Enable</span>
+    @endif
+</button>
+
+
 <button
     type="button"
     class="text-red-600 hover:text-red-900 js-open-delete"
@@ -102,6 +142,7 @@
 
 
 
+
   
 </td>
 
@@ -109,7 +150,8 @@
                     @endforeach
                     @if ($users->isEmpty())
   <tr>
-    <td colspan="5" class="px-6 py-6 text-center text-gray-500">
+    <td colspan="6" class="px-6 py-6 text-center text-gray-500">
+
       No users found. Try adjusting your search or role filter.
     </td>
   </tr>
@@ -148,7 +190,11 @@
     </div>
   </div>
 </div>
-    
+    <form id="toggle-form" method="POST" class="hidden">
+  @csrf
+  @method('PATCH')
+</form>
+
     <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (function () {
@@ -235,6 +281,50 @@
   document.addEventListener('livewire:load', bindHandlers);
 })();
 </script>
+
+
+<script>
+(function () {
+  // Confirm Enable/Disable via SweetAlert2
+  document.addEventListener('click', async function (e) {
+    const btn = e.target.closest('.js-toggle-status');
+    if (!btn) return;
+
+    e.preventDefault();
+
+    const action  = btn.getAttribute('data-action');
+    const name    = btn.getAttribute('data-name') || 'this user';
+    const current = (btn.getAttribute('data-current') || '').toLowerCase(); // 'enabled' | 'disabled'
+    const nextOp  = current === 'enabled' ? 'Disable' : 'Enable';
+
+    // SweetAlert2 confirm
+    const resp = await Swal.fire({
+      title: `${nextOp} account?`,
+      html: `<div class="text-left">
+               <p>Are you sure you want to <b>${nextOp.toLowerCase()}</b> the account of <b>${name}</b>?</p>
+             </div>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: nextOp,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: current === 'enabled' ? '#d97706' : '#16a34a', // amber for disable, green for enable
+      cancelButtonColor: '#6b7280',
+      background: '#ffffff',
+      color: '#111827',
+    });
+
+    if (!resp.isConfirmed) return;
+
+    // Submit hidden PATCH form
+    const form = document.getElementById('toggle-form');
+    if (!form) return console.error('[Toggle] Missing #toggle-form');
+
+    form.setAttribute('action', action);
+    form.submit();
+  });
+})();
+</script>
+
 
 @if (session('success'))
     <script>

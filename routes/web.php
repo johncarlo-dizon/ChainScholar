@@ -516,6 +516,10 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'admin'])->group(function() {
     // Admin Dashboard
     Route::get('/admin/index', [UserController::class, 'showDashboard'])->name('admin.index');
+    // Insert BELOW this line
+    Route::patch('/admin/users/{user}/toggle', [UserController::class, 'toggle'])
+    ->name('admin.users.toggle');
+
     
     // User CRUD Routes
     Route::get('/admin/users', [UserController::class, 'index'])->middleware(['auth','verified'])->name('admin.users.index');

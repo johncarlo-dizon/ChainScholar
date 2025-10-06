@@ -27,7 +27,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'role',        // updated from position → role
         'avatar',
+        'is_active',
     ];
+
 
     /**
      * The attributes that should be hidden for serialization.
@@ -49,6 +51,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
+            'is_active'         => 'boolean',
         ];
     }
 

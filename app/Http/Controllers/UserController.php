@@ -18,8 +18,10 @@ class UserController extends Controller
 
 public function index(Request $request)
 {
-    $q    = trim((string) $request->input('q', ''));
-    $role = (string) $request->input('role', '');
+    $q      = trim((string) $request->input('q', ''));
+    $role   = (string) $request->input('role', '');
+    $status = (string) $request->input('status', ''); // "", "enabled", "disabled"
+
 
     // Build query
     $query = User::query()
@@ -42,6 +44,13 @@ public function index(Request $request)
     if ($role !== '' && strtoupper($role) !== 'ALL') {
         $query->where('role', $role);
     }
+    // Status filter (enabled/disabled)
+    if ($status === 'enabled') {
+        $query->where('is_active', true);
+    } elseif ($status === 'disabled') {
+        $query->where('is_active', false);
+    }
+
 
     $users = $query
         ->orderByDesc('id')
@@ -59,7 +68,7 @@ public function index(Request $request)
     return view('admin.users.index', [
         'users'   => $users,
         'roles'   => $roles,
-        'filters' => ['q' => $q, 'role' => $role],
+       'filters' => ['q' => $q, 'role' => $role, 'status' => $status],
     ]);
 }
 
@@ -204,6 +213,21 @@ public function index(Request $request)
 
         return redirect()->route('admin.users.index')->with('success', 'User updated successfully!');
     }
+
+  
+    public function toggle(User $user)
+    {
+        // Prevent self-disable to avoid locking yourself out (optional safety)
+        if (auth()->id() === $user->id) {
+            return back()->with('success', 'You cannot change your own status.');
+        }
+
+        $user->is_active = !$user->is_active;
+        $user->save();
+
+        return back()->with('success', $user->is_active ? 'User enabled.' : 'User disabled.');
+    }
+
 
     // Delete user
     public function destroy(User $user)
