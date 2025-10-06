@@ -406,7 +406,11 @@
             <dt class="text-xs font-medium text-gray-500">Status</dt><dd class="text-gray-900">{{ $s->is_active ? 'Active' : 'Disabled' }}</dd>
 
           @elseif ($s instanceof \App\Models\AdviserRequest)
-            <dt class="text-xs font-medium text-gray-500">Title</dt><dd class="text-gray-900">{{ $s->title?->title ?? '—' }}</dd>
+            <dt class="text-xs font-medium text-gray-500">Title</dt>
+<dd class="text-gray-900 break-words whitespace-pre-wrap leading-6 [text-wrap:pretty]">
+  {{ \Illuminate\Support\Str::squish($s->title?->title ?? '—') }}
+</dd>
+
             <dt class="text-xs font-medium text-gray-500">Adviser</dt><dd class="text-gray-900">{{ $s->adviser?->name ?? ('#'.$s->adviser_id) }}</dd>
 
           @elseif ($s instanceof \App\Models\Title)
@@ -424,7 +428,11 @@
             @endif
 
           @elseif ($s instanceof \App\Models\ResearchPaper)
-            <dt class="text-xs font-medium text-gray-500">Paper</dt><dd class="text-gray-900">{{ $s->title ?? 'Untitled paper' }}</dd>
+            <dt class="text-xs font-medium text-gray-500">Paper</dt>
+            <dd class="text-gray-900 break-words whitespace-pre-wrap leading-6 [text-wrap:pretty]">
+            {{ \Illuminate\Support\Str::squish($s->title ?? 'Untitled paper') }}
+            </dd>
+
             @if($s->user?->name)
               <dt class="text-xs font-medium text-gray-500">Author</dt><dd class="text-gray-900">{{ $s->user->name }}</dd>
             @endif
