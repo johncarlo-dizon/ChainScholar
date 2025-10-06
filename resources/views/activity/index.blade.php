@@ -398,89 +398,119 @@
         @endif
 
         {{-- UNIFORM SPEC GRID (labels left fixed, values right) --}}
-        <dl class="grid grid-cols-[120px,1fr] gap-x-6 gap-y-2 text-sm">
-          @if ($s instanceof \App\Models\User)
-            <dt class="text-xs font-medium text-gray-500">Name</dt><dd class="text-gray-900">{{ $s->name }}</dd>
-            <dt class="text-xs font-medium text-gray-500">Email</dt><dd class="text-gray-900">{{ $s->email }}</dd>
-            <dt class="text-xs font-medium text-gray-500">Role</dt><dd class="text-gray-900">{{ $s->role }}</dd>
-            <dt class="text-xs font-medium text-gray-500">Status</dt><dd class="text-gray-900">{{ $s->is_active ? 'Active' : 'Disabled' }}</dd>
+      {{-- UNIFORM SPEC GRID (clean, wraps nicely) --}}
+<dl class="grid grid-cols-12 gap-y-2 text-sm">
+  @php
+    $dt = 'col-span-3 pr-3 text-[11px] font-semibold tracking-wide text-gray-500 uppercase';
+    $dd = 'col-span-9 text-gray-900 break-words whitespace-pre-wrap leading-6';
+  @endphp
 
-          @elseif ($s instanceof \App\Models\AdviserRequest)
-            <dt class="text-xs font-medium text-gray-500">Title</dt>
-<dd class="text-gray-900 break-words whitespace-pre-wrap leading-6 [text-wrap:pretty]">
-  {{ \Illuminate\Support\Str::squish($s->title?->title ?? '—') }}
-</dd>
+  @if ($s instanceof \App\Models\User)
+    <dt class="{{ $dt }}">Name</dt><dd class="{{ $dd }}">{{ $s->name }}</dd>
+    <dt class="{{ $dt }}">Email</dt><dd class="{{ $dd }}">{{ $s->email }}</dd>
+    <dt class="{{ $dt }}">Role</dt><dd class="{{ $dd }}">{{ $s->role }}</dd>
+    <dt class="{{ $dt }}">Status</dt><dd class="{{ $dd }}">{{ $s->is_active ? 'Active' : 'Disabled' }}</dd>
 
-            <dt class="text-xs font-medium text-gray-500">Adviser</dt><dd class="text-gray-900">{{ $s->adviser?->name ?? ('#'.$s->adviser_id) }}</dd>
+  @elseif ($s instanceof \App\Models\AdviserRequest)
+    <dt class="{{ $dt }}">Title</dt><dd class="{{ $dd }}">{{ $s->title?->title ?? '—' }}</dd>
+    <dt class="{{ $dt }}">Adviser</dt><dd class="{{ $dd }}">{{ $s->adviser?->name ?? ('#'.$s->adviser_id) }}</dd>
 
-          @elseif ($s instanceof \App\Models\Title)
-            <dt class="text-xs font-medium text-gray-500">Title</dt><dd class="text-gray-900">{{ $s->title }}</dd>
-            @if(method_exists($s, 'adviser') && $s->adviser?->name)
-              <dt class="text-xs font-medium text-gray-500">Adviser</dt><dd class="text-gray-900">{{ $s->adviser->name }}</dd>
-            @elseif($s->owner?->name)
-              <dt class="text-xs font-medium text-gray-500">Owner</dt><dd class="text-gray-900">{{ $s->owner->name }}</dd>
-            @endif
+  @elseif ($s instanceof \App\Models\Title)
+    <dt class="{{ $dt }}">Title</dt><dd class="{{ $dd }}">{{ $s->title }}</dd>
+    @if(method_exists($s, 'adviser') && $s->adviser?->name)
+      <dt class="{{ $dt }}">Adviser</dt><dd class="{{ $dd }}">{{ $s->adviser->name }}</dd>
+    @elseif($s->owner?->name)
+      <dt class="{{ $dt }}">Owner</dt><dd class="{{ $dd }}">{{ $s->owner->name }}</dd>
+    @endif
 
-          @elseif ($s instanceof \App\Models\Document)
-            <dt class="text-xs font-medium text-gray-500">Chapter</dt><dd class="text-gray-900">{{ $s->chapter ?? '—' }}</dd>
-            @if($s->title?->title)
-              <dt class="text-xs font-medium text-gray-500">Parent Title</dt><dd class="text-gray-900">{{ $s->title->title }}</dd>
-            @endif
+  @elseif ($s instanceof \App\Models\Document)
+    <dt class="{{ $dt }}">Chapter</dt><dd class="{{ $dd }}">{{ $s->chapter ?? '—' }}</dd>
+    @if($s->title?->title)
+      <dt class="{{ $dt }}">Parent Title</dt><dd class="{{ $dd }}">{{ $s->title->title }}</dd>
+    @endif
 
-          @elseif ($s instanceof \App\Models\ResearchPaper)
-            <dt class="text-xs font-medium text-gray-500">Paper</dt>
-            <dd class="text-gray-900 break-words whitespace-pre-wrap leading-6 [text-wrap:pretty]">
-            {{ \Illuminate\Support\Str::squish($s->title ?? 'Untitled paper') }}
-            </dd>
+  @elseif ($s instanceof \App\Models\ResearchPaper)
+    <dt class="{{ $dt }}">Paper</dt><dd class="{{ $dd }}">{{ $s->title ?? 'Untitled paper' }}</dd>
+    @if($s->user?->name)
+      <dt class="{{ $dt }}">Author</dt><dd class="{{ $dd }}">{{ $s->user->name }}</dd>
+    @endif
 
-            @if($s->user?->name)
-              <dt class="text-xs font-medium text-gray-500">Author</dt><dd class="text-gray-900">{{ $s->user->name }}</dd>
-            @endif
+  @elseif ($s instanceof \App\Models\Announcement)
+    <dt class="{{ $dt }}">Announcement</dt><dd class="{{ $dd }}">{{ $s->title ?? 'Announcement' }}</dd>
 
-          @elseif ($s instanceof \App\Models\Announcement)
-            <dt class="text-xs font-medium text-gray-500">Announcement</dt><dd class="text-gray-900">{{ $s->title ?? 'Announcement' }}</dd>
+  @elseif ($s instanceof \App\Models\BlockchainRequest)
+    <dt class="{{ $dt }}">Paper</dt><dd class="{{ $dd }}">{{ $s->paper?->title ?? '—' }}</dd>
 
-          @elseif ($s instanceof \App\Models\BlockchainRequest)
-            <dt class="text-xs font-medium text-gray-500">Paper</dt><dd class="text-gray-900">{{ $s->paper?->title ?? '—' }}</dd>
+  @elseif ($s)
+    <dt class="{{ $dt }}">Type</dt><dd class="{{ $dd }}">{{ class_basename($log->subject_type) }}</dd>
+    <dt class="{{ $dt }}">ID</dt><dd class="{{ $dd }}">#{{ $log->subject_id }}</dd>
 
-          @elseif ($s)
-            <dt class="text-xs font-medium text-gray-500">Type</dt><dd class="text-gray-900">{{ class_basename($log->subject_type) }}</dd>
-            <dt class="text-xs font-medium text-gray-500">ID</dt><dd class="text-gray-900">#{{ $log->subject_id }}</dd>
+  @else
+    <dt class="{{ $dt }}">Subject</dt><dd class="{{ $dd }} text-gray-500 italic">No subject</dd>
+  @endif
+</dl>
 
-          @else
-            <dt class="text-xs font-medium text-gray-500">Subject</dt><dd class="text-gray-500 italic">No subject</dd>
-          @endif
-        </dl>
 
         {{-- CHANGE DETAILS (pretty print if present) --}}
-        @php $changes = $log->meta ?? []; @endphp
-        @if(!empty($changes) && is_array($changes))
-          <div class="mt-4">
-            <div class="text-xs font-semibold text-gray-600 mb-1">Change details</div>
+       {{-- CHANGE DETAILS (chips + arrow if from/to available) --}}
+@php $changes = $log->meta ?? []; @endphp
+@if(!empty($changes) && is_array($changes))
+  <div class="mt-4">
+    <div class="text-xs font-semibold text-gray-600 mb-1">Change details</div>
 
-            {{-- If the meta is a flat map, show rows; else pretty JSON --}}
-            @php
-              $isAssoc = static function(array $a){ return $a !== [] && array_keys($a)!==range(0,count($a)-1); };
-            @endphp
+    @php
+      $pretty = fn($v) => is_string($v)
+        ? \Illuminate\Support\Str::headline(str_replace('_',' ', $v))
+        : (is_scalar($v) ? $v : json_encode($v, JSON_UNESCAPED_UNICODE));
 
-            @if($isAssoc($changes))
-              <dl class="grid grid-cols-[160px,1fr] gap-x-6 gap-y-1.5 text-sm">
-                @foreach($changes as $k => $v)
-                  <dt class="text-xs font-medium text-gray-500">{{ \Illuminate\Support\Str::headline($k) }}</dt>
-                  <dd class="text-gray-900">
-                    @if(is_array($v) || is_object($v))
-                      <pre class="whitespace-pre-wrap break-words rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-800">{{ json_encode($v, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}</pre>
-                    @else
-                      {{ $v }}
-                    @endif
-                  </dd>
-                @endforeach
-              </dl>
-            @else
-              <pre class="whitespace-pre-wrap break-words rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800">{{ json_encode($changes, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}</pre>
-            @endif
-          </div>
-        @endif
+      $chip = fn($text, $tone='gray') =>
+        "<span class=\"inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-{$tone}-100 text-{$tone}-700 border border-{$tone}-200\">{$text}</span>";
+
+      $hasFromTo = isset($changes['from'], $changes['to']);
+      $fromTone = 'gray';
+      $toTone   = 'blue';
+      if ($hasFromTo) {
+        $fromStr = $pretty($changes['from']);
+        $toStr   = $pretty($changes['to']);
+        // tone suggestions for status names:
+        if (is_string($changes['to'])) {
+          $low = strtolower($changes['to']);
+          $toTone = $low === 'approved' || $low === 'accepted' ? 'green'
+                   : ($low === 'rejected' || $low === 'declined' ? 'red' : 'blue');
+        }
+      }
+    @endphp
+
+    @if($hasFromTo)
+      <div class="flex items-center gap-2 text-sm">
+        {!! $chip($fromStr, $fromTone) !!}
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        {!! $chip($toStr, $toTone) !!}
+      </div>
+    @else
+      @php
+        $isAssoc = static function(array $a){ return $a !== [] && array_keys($a)!==range(0,count($a)-1); };
+      @endphp
+      @if($isAssoc($changes))
+        <dl class="grid grid-cols-[160px,1fr] gap-x-6 gap-y-1.5 text-sm">
+          @foreach($changes as $k => $v)
+            <dt class="text-xs font-medium text-gray-500">{{ \Illuminate\Support\Str::headline($k) }}</dt>
+            <dd class="text-gray-900">
+              @if(is_array($v) || is_object($v))
+                <pre class="whitespace-pre-wrap break-words rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-800">{{ json_encode($v, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}</pre>
+              @else
+                {{ $pretty($v) }}
+              @endif
+            </dd>
+          @endforeach
+        </dl>
+      @else
+        <pre class="whitespace-pre-wrap break-words rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800">{{ json_encode($changes, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}</pre>
+      @endif
+    @endif
+  </div>
+@endif
+
       </div>
 
       {{-- Footer --}}
@@ -537,14 +567,22 @@
 </script>
 
         {{-- Pagination --}}
-        <div class="flex items-center justify-between mt-3">
-            <div class="text-xs text-gray-500">
-                Showing <span class="font-medium">{{ $logs->firstItem() }}</span>
-                to <span class="font-medium">{{ $logs->lastItem() }}</span>
-                of <span class="font-medium">{{ $logs->total() }}</span> results
-            </div>
-            <div>{{ $logs->onEachSide(1)->links() }}</div>
-        </div>
+    {{-- Pagination --}}
+@if ($logs->hasPages())
+  <div class="flex flex-col sm:flex-row items-center justify-between mt-4 gap-2">
+    <div class="text-xs text-gray-500">
+      Showing <span class="font-medium">{{ $logs->firstItem() }}</span>
+      to <span class="font-medium">{{ $logs->lastItem() }}</span>
+      of <span class="font-medium">{{ $logs->total() }}</span> results
+    </div>
+
+    {{-- Render pagination links WITHOUT duplicate summary --}}
+    <div class="text-sm">
+      {!! str_replace('Showing', '', $logs->onEachSide(1)->links()) !!}
+    </div>
+  </div>
+@endif
+
     </div>
 
      
