@@ -85,6 +85,13 @@ class ResearchPaperController extends Controller
     public function viewStudentPdf(Request $request)
     {
          $user = $request->user();
+         // Per-page allowlist (prevents abuse)
+$allowedPerPage = [10, 20, 50, 100];
+$perPage = (int) $request->query('per_page', 10);
+if (! in_array($perPage, $allowedPerPage, true)) {
+    $perPage = 10;
+}
+
 
     $papers = ResearchPaper::with(['pendingRequest','lastRequest']) // <-- add this
         ->where('user_id', $user->id)
@@ -100,8 +107,9 @@ class ResearchPaperController extends Controller
         ->when($request->filled('program'),    fn ($q) => $q->where('program',    $request->string('program')))
         ->when($request->filled('year'),       fn ($q) => $q->where('year',       (int) $request->input('year')))
         ->orderByDesc('created_at')
-        ->paginate(10)
-        ->withQueryString();
+->paginate($perPage)
+->withQueryString();
+
 
         // distinct(column) → use select()->distinct()
         $departments = ResearchPaper::select('department')
@@ -131,6 +139,14 @@ class ResearchPaperController extends Controller
     /** Admin list */
     public function viewAdminPdf(Request $request)
     {
+
+        // Per-page allowlist (prevents abuse)
+        $allowedPerPage = [10, 20, 50, 100];
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, $allowedPerPage, true)) {
+            $perPage = 10;
+        }
+
         $papers = ResearchPaper::with('user')
             ->when($request->filled('search'), function ($q) use ($request) {
                 $s = $request->string('search');
@@ -148,8 +164,9 @@ class ResearchPaperController extends Controller
             // prefer explicit param name to avoid confusion with Request::user()
             ->when($request->filled('user'),       fn ($q) => $q->where('user_id',    (int) $request->input('user')))
             ->orderByDesc('created_at')
-            ->paginate(10)
-            ->withQueryString();
+->paginate($perPage)
+->withQueryString();
+
 
         $departments = ResearchPaper::select('department')->whereNotNull('department')->distinct()->orderBy('department')->pluck('department');
         $programs    = ResearchPaper::select('program')->whereNotNull('program')->distinct()->orderBy('program')->pluck('program');

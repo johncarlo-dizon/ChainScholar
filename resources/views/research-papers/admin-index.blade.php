@@ -11,9 +11,11 @@
     <div class="bg-white rounded-xl shadow-sm p-6">
         <!-- Search and Filters -->
         <div class="mb-6">
-            <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <form method="GET" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+
+
                 <!-- Search -->
-                <div>
+                <div class="md:col-span-3">
                     <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
                     <input type="text" name="search" id="search" value="{{ request('search') }}"
                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -21,7 +23,8 @@
                 </div>
 
                 <!-- User Filter -->
-                <div>
+             <div class="md:col-span-2">
+
                     <label for="user" class="block text-sm font-medium text-gray-700 mb-1">User</label>
                     <select name="user" id="user"
                             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -35,7 +38,8 @@
                 </div>
 
                 <!-- Department Filter -->
-                <div>
+          <div class="md:col-span-2">
+
                     <label for="department" class="block text-sm font-medium text-gray-700 mb-1">Department</label>
                     <select name="department" id="department"
                             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -49,7 +53,8 @@
                 </div>
 
                 <!-- Program Filter -->
-                <div>
+               <div class="md:col-span-2">
+
                     <label for="program" class="block text-sm font-medium text-gray-700 mb-1">Program</label>
                     <select name="program" id="program"
                             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -63,7 +68,8 @@
                 </div>
 
                 <!-- Year Filter -->
-                <div>
+           <div class="md:col-span-1">
+
                     <label for="year" class="block text-sm font-medium text-gray-700 mb-1">Year</label>
                     <select name="year" id="year"
                             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -75,6 +81,20 @@
                         @endforeach
                     </select>
                 </div>
+
+                <!-- Per Page -->
+<div class="md:col-span-2">
+
+  <label for="per_page" class="block text-sm font-medium text-gray-700 mb-1">Per page</label>
+  <select name="per_page" id="per_page"
+          class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+      @php $pp = (int) request('per_page', 10); @endphp
+      @foreach([10,20,50,100] as $n)
+          <option value="{{ $n }}" {{ $pp === $n ? 'selected' : '' }}>{{ $n }}</option>
+      @endforeach
+  </select>
+</div>
+
 
                 <!-- Filter Buttons -->
                 <div class="md:col-span-5 flex gap-2">
@@ -320,9 +340,24 @@
 </div>
 
         <!-- Pagination -->
-        <div class="mt-6">
-            {{ $papers->links() }}
-        </div>
+     <!-- Pagination -->
+<div class="mt-6">
+  <div class="flex items-center justify-between">
+    <div class="text-xs text-gray-500">
+      @if ($papers->total() > 0)
+        Showing <span class="font-medium">{{ $papers->firstItem() }}</span>
+        to <span class="font-medium">{{ $papers->lastItem() }}</span>
+        of <span class="font-medium">{{ $papers->total() }}</span> results
+      @else
+        Showing <span class="font-medium">0</span> results
+      @endif
+    </div>
+    <div>
+      {{ $papers->onEachSide(1)->links() }}
+    </div>
+  </div>
+</div>
+
     </div>
 
  

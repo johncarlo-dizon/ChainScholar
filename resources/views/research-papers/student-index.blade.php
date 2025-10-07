@@ -12,7 +12,8 @@
     {{-- Filters --}}
     <div class="bg-white rounded-xl shadow-sm p-6">
         <div class="mb-6">
-            <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+
                 <div>
                     <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
                     <input type="text" name="search" id="search" value="{{ request('search') }}"
@@ -59,7 +60,21 @@
                     </select>
                 </div>
 
-                <div class="md:col-span-4 flex gap-2">
+                <!-- Per Page -->
+<div>
+  <label for="per_page" class="block text-sm font-medium text-gray-700 mb-1">Per page</label>
+  <select name="per_page" id="per_page"
+          class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+      @php $pp = (int) request('per_page', 10); @endphp
+      @foreach([10,20,50,100] as $n)
+          <option value="{{ $n }}" {{ $pp === $n ? 'selected' : '' }}>{{ $n }}</option>
+      @endforeach
+  </select>
+</div>
+
+
+                <div class="md:col-span-5 flex gap-2">
+
                     <button type="submit"
                             class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700">
                         Apply Filters
@@ -290,9 +305,24 @@
         </div>
 
         {{-- Pagination --}}
-        <div class="mt-6">
-            {{ $papers->links() }}
-        </div>
+        {{-- Pagination --}}
+<div class="mt-6">
+  <div class="flex items-center justify-between">
+    <div class="text-xs text-gray-500">
+      @if ($papers->total() > 0)
+        Showing <span class="font-medium">{{ $papers->firstItem() }}</span>
+        to <span class="font-medium">{{ $papers->lastItem() }}</span>
+        of <span class="font-medium">{{ $papers->total() }}</span> results
+      @else
+        Showing <span class="font-medium">0</span> results
+      @endif
+    </div>
+    <div>
+      {{ $papers->onEachSide(1)->links() }}
+    </div>
+  </div>
+</div>
+
     </div>
 
     {{-- Delete Modal --}}
