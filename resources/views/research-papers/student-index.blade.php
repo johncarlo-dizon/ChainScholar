@@ -73,8 +73,10 @@
         </div>
 
         {{-- Table --}}
-        <div class="overflow-visible border border-gray-200 rounded-lg">
-            <table class="min-w-full divide-y divide-gray-200 relative">
+     {{-- Table --}}
+<div class="-mx-4 sm:mx-0 overflow-x-auto border border-gray-200 rounded-lg scrollbar-thin">
+  <table class="min-w-[960px] w-full divide-y divide-gray-200 relative text-sm">
+
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
@@ -307,7 +309,7 @@
     </div>
 
     {{-- Details Modal --}}
-    <div id="detailsModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+    <div id="detailsModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" style="z-index: 20000;">
         <div class="absolute inset-0 backdrop-blur-sm bg-transparent" data-close-modal></div>
         <div class="relative mx-auto my-8 w-full max-w-2xl bg-white rounded-xl shadow-lg p-6">
             <div class="flex items-center justify-between border-b pb-3">
