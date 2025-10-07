@@ -658,12 +658,26 @@ function textOnly(node){ return (node?.innerText || '').replace(/\u00a0/g,' ').t
 
 /** Pseudo headings like <p><strong>Introduction</strong></p> */
 function isPseudoHeading(node){
-  if (!node || node.nodeType!==1 || node.tagName!=='P') return false;
-  const t=textOnly(node);
+  if (!node || node.nodeType!==1) return false;
+
+  // If it's a <p>, test directly
+  if (node.tagName === 'P') {
+    const t = textOnly(node);
+    if (!t || t.length>120) return false;
+    const hasStrong = node.querySelector('strong,b')!==null;
+    const looksLikeTitle = /^[A-Z0-9\s\-:()]+$/.test(t) || hasStrong || hasCenterAlign(node);
+    const isKnown = SECTION_ALIASES.some(({patterns})=>patterns.some(rx=>rx.test(t)));
+    return looksLikeTitle && isKnown;
+  }
+
+  // If it's a container, peek its first <p> (helps with odd wrappers)
+  const p = node.querySelector(':scope > p');
+  if (!p) return false;
+  const t = textOnly(p);
   if (!t || t.length>120) return false;
-  const hasStrong=node.querySelector('strong,b')!==null;
-  const looksLikeTitle=/^[A-Z0-9\s\-:()]+$/.test(t) || hasStrong || hasCenterAlign(node);
-  const isKnown=SECTION_ALIASES.some(({patterns})=>patterns.some(rx=>rx.test(t)));
+  const hasStrong = p.querySelector('strong,b')!==null;
+  const looksLikeTitle = /^[A-Z0-9\s\-:()]+$/.test(t) || hasStrong || hasCenterAlign(p);
+  const isKnown = SECTION_ALIASES.some(({patterns})=>patterns.some(rx=>rx.test(t)));
   return looksLikeTitle && isKnown;
 }
 
@@ -682,11 +696,43 @@ function isFrontMatter(node){
 /** Count words */
 function countWords(s){ const tokens=s.match(/\b[\p{L}\p{N}’'-]+\b/gu); return tokens?tokens.length:0; }
 
+// Walk the DOM in document order and return a flat list of block-like nodes.
+// Includes headings and <p> even when nested inside containers like <div style="display:contents">.
+function getLinearBlocks(root){
+  const tags = /^(H1|H2|H3|H4|H5|H6|P|HR)$/i;
+
+  // Accept headings and paragraphs as individual "blocks".
+  // Skip container elements (DIV/SECTION/ARTICLE/etc.) but traverse into their children.
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode(node){
+        if (tags.test(node.tagName)) return NodeFilter.FILTER_ACCEPT;
+        // Skip containers but continue into their children
+        return NodeFilter.FILTER_SKIP;
+      }
+    }
+  );
+
+  const out = [];
+  // TreeWalker starts "before" root; advance to first
+  let node = walker.currentNode;
+  // Move to first matching node
+  node = walker.nextNode();
+  while (node){
+    out.push(node);
+    node = walker.nextNode();
+  }
+  return out;
+}
+
 /** Extract sections from CKEditor DOM */
 function extractSections(){
   const root=document.querySelector('.ck-content');
   if (!root) return [];
-  const blocks=Array.from(root.children);
+  const blocks = getLinearBlocks(root);
+
   const sections=[];
   let current=null, started=false, i=0;
 
