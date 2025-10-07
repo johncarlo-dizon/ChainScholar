@@ -100,7 +100,8 @@
     <tr>
         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Authors</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uploaded By</th>
+
         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yr</th>
         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -116,9 +117,18 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                         {{ Str::limit($paper->authors, 30) }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"> 
-                                       {{ Str::limit($paper->program, 30) }}
-                    </td>
+                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+  @php $u = $paper->user; @endphp
+  @if($u)
+    <div class="flex flex-col">
+      <span class="font-medium">{{ Str::limit($u->name, 30) }}</span>
+      <span class="text-gray-500 text-xs">{{ Str::limit($u->email, 40) }}</span>
+    </div>
+  @else
+    <span class="text-gray-400">—</span>
+  @endif
+</td>
+
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {{ $paper->year }}
                     </td>
@@ -177,6 +187,14 @@
 
 
     {{-- Details --}}
+    @php
+  // Compute viewer URL. If the current user is the uploader, append ?view=owner
+  $viewerUrl = route('papers.view', $paper);
+  if (auth()->id() === optional($paper->user)->id) {
+      $viewerUrl .= (str_contains($viewerUrl, '?') ? '&' : '?') . 'view=owner';
+  }
+@endphp
+
     <button type="button"
             class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-gray-700 text-left btn-details"
             title="Details"
@@ -188,7 +206,8 @@
             data-user-name="{{ e(optional($paper->user)->name) }}"
             data-user-email="{{ e(optional($paper->user)->email) }}"
             data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
-            data-file-url="{{ route('papers.view', $paper) }}"
+            data-file-url="{{ $viewerUrl }}"
+
 
             data-abstract="{{ e($paper->abstract ?? '') }}"
             data-plagiarism="{{ is_null($paper->plagiarism_score) ? '' : (int)$paper->plagiarism_score }}">
@@ -380,7 +399,7 @@
 
 
     <!-- Details Modal -->
-<div id="detailsModal" class="fixed inset-0 z-50 hidden">
+<div id="detailsModal" class="fixed inset-0 hidden" style="z-index: 20000;">
     <div class="absolute inset-0 backdrop-blur-sm bg-transparent" data-close-modal></div>
 
     <div class="relative mx-auto my-8 w-full max-w-2xl bg-white rounded-xl shadow-lg p-6">
@@ -429,10 +448,17 @@
 </div>
 
 
-            <div id="m-abstract-wrap" class="hidden">
-                <p class="text-gray-500">Abstract</p>
-                <p id="m-abstract" class="text-gray-900 whitespace-pre-line"></p>
-            </div>
+   <div id="m-abstract-wrap" class="hidden">
+  <p class="text-gray-500">Abstract</p>
+  <textarea id="m-abstract"
+            readonly
+            class="w-full mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 leading-relaxed resize-none"
+            rows="8"
+            style="max-height: 250px; overflow-y: auto;"></textarea>
+</div>
+
+
+
         </div>
 
         <div class="mt-6 flex items-center justify-end gap-3">
@@ -672,12 +698,13 @@ plagEl.className = cls;
         const abstractWrap = document.getElementById('m-abstract-wrap');
         const abstractEl = document.getElementById('m-abstract');
         if (abstract.trim()) {
-            abstractEl.textContent = abstract;
-            abstractWrap.classList.remove('hidden');
-        } else {
-            abstractEl.textContent = '';
-            abstractWrap.classList.add('hidden');
-        }
+    abstractEl.value = abstract;
+    abstractWrap.classList.remove('hidden');
+} else {
+    abstractEl.value = '';
+    abstractWrap.classList.add('hidden');
+}
+
 
         const fileUrl = btn.dataset.fileUrl || '#';
         const link = document.getElementById('m-file-url');

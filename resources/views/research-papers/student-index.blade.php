@@ -81,7 +81,8 @@
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Authors</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uploaded By</th>
+
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -109,7 +110,18 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">{{ Str::limit($paper->authors, 30) }}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $paper->program }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+  @php $u = $paper->user; @endphp
+  @if($u)
+    <div class="flex flex-col">
+      <span class="font-medium">{{ Str::limit($u->name, 30) }}</span>
+      <span class="text-gray-500 text-xs">{{ Str::limit($u->email, 40) }}</span>
+    </div>
+  @else
+    <span class="text-gray-400">—</span>
+  @endif
+</td>
+
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $paper->year }}</td>
 
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -165,6 +177,14 @@
                           <div id="menu-{{ $paper->id }}"
                                class="paper-actions-menu hidden z-[9999] min-w-[220px] rounded-lg border border-gray-300 bg-white p-1 shadow-lg">
                             {{-- Details --}}
+                            @php
+  // Compute viewer URL. If the current user is the uploader, append ?view=owner
+  $viewerUrl = route('papers.view', $paper);
+  if (auth()->id() === optional($paper->user)->id) {
+      $viewerUrl .= (str_contains($viewerUrl, '?') ? '&' : '?') . 'view=owner';
+  }
+@endphp
+
                             <button type="button"
                                     class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-gray-700 text-left btn-details"
                                     title="Details"
@@ -174,7 +194,8 @@
                                     data-program="{{ e($paper->program) }}"
                                     data-year="{{ e($paper->year) }}"
                                     data-uploaded="{{ $paper->created_at->format('M d, Y') }}"
-                                    data-file-url="{{ route('papers.view', $paper) }}"
+                                    data-file-url="{{ $viewerUrl }}"
+
                                     data-abstract="{{ e($paper->abstract ?? '') }}"
                                     data-plagiarism="{{ is_null($paper->plagiarism_score) ? '' : (int)$paper->plagiarism_score }}">
                               <i data-lucide="info" class="w-4 h-4"></i>
@@ -336,10 +357,17 @@
                   </div>
                 </div>
 
-                <div id="m-abstract-wrap" class="hidden">
-                    <p class="text-gray-500">Abstract</p>
-                    <p id="m-abstract" class="text-gray-900 whitespace-pre-line"></p>
-                </div>
+   <div id="m-abstract-wrap" class="hidden">
+  <p class="text-gray-500">Abstract</p>
+  <textarea id="m-abstract"
+            readonly
+            class="w-full mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 leading-relaxed resize-none"
+            rows="8"
+            style="max-height: 250px; overflow-y: auto;"></textarea>
+</div>
+
+
+
             </div>
             <div class="mt-6 flex items-center justify-end gap-3">
                 <a id="m-file-url" href="#" target="_blank" rel="noopener noreferrer"
@@ -595,11 +623,19 @@
         const link = document.getElementById('m-file-url');
         link.setAttribute('href', btn.dataset.fileUrl || '#');
 
-        const abstract = btn.dataset.abstract || '';
-        const wrap = document.getElementById('m-abstract-wrap');
-        const el = document.getElementById('m-abstract');
-        if (abstract.trim()) { el.textContent = abstract; wrap.classList.remove('hidden'); }
-        else { el.textContent = ''; wrap.classList.add('hidden'); }
+      const abstract = btn.dataset.abstract || '';
+const wrap = document.getElementById('m-abstract-wrap');
+const abEl = document.getElementById('m-abstract'); // textarea
+
+if (abstract.trim()) {
+  abEl.value = abstract;
+  wrap.classList.remove('hidden');
+} else {
+  abEl.value = '';
+  wrap.classList.add('hidden');
+}
+
+
 
         const plagEl = document.getElementById('m-plag');
         let cls = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ';
