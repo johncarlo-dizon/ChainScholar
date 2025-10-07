@@ -273,17 +273,19 @@
     @endif
 
     {{-- Upload Research (green) --}}
-    <button
-      type="button"
-      onclick="toggleSubmitForm()"
-      class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5
-             text-sm md:text-base font-semibold text-white shadow-sm transition
-             hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2
-             focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-    >
-      <!-- upload icon -->
-      <span>Upload Research</span>
-    </button>
+   <button
+  type="button"
+  id="openSubmitBtn"
+  onclick="toggleSubmitForm()"
+  class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5
+         text-sm md:text-base font-semibold text-white shadow-sm transition
+         hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2
+         focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+>
+  <!-- upload icon -->
+  <span>Upload Research</span>
+</button>
+
   </div>
 </div>
 
@@ -866,16 +868,18 @@ window.__internalScore = null;
 window.__externalScore = null;
 
 // Buttons / status nodes
-const saveBtn   = document.getElementById('saveBtn');
-const submitBtn = document.getElementById('submitBtn');
-const resultBox = document.getElementById('plagiarism-result');
+const saveBtn       = document.getElementById('saveBtn');
+const openSubmitBtn = document.getElementById('openSubmitBtn');
+const resultBox     = document.getElementById('plagiarism-result');
+
 
 function setSubmitDisabled(disabled, reason = '') {
-  if (submitBtn) {
-    submitBtn.disabled = disabled;
-    submitBtn.classList.toggle('opacity-50', disabled);
-    submitBtn.classList.toggle('cursor-not-allowed', disabled);
-    submitBtn.classList.toggle('hover:bg-blue-700', !disabled);
+  if (openSubmitBtn) {
+    openSubmitBtn.disabled = disabled;
+    openSubmitBtn.classList.toggle('opacity-50', disabled);
+    openSubmitBtn.classList.toggle('cursor-not-allowed', disabled);
+    // prevent hover highlight when disabled
+    openSubmitBtn.classList.toggle('hover:bg-emerald-700', !disabled);
   }
   // Save is ALWAYS enabled now
   if (saveBtn) {
@@ -888,6 +892,7 @@ function setSubmitDisabled(disabled, reason = '') {
     resultBox.innerHTML = reason ? `<span class="text-gray-600">${reason}</span>` : '';
   }
 }
+
 
 
 function buildGateReason() {
