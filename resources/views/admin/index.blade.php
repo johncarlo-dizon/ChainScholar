@@ -235,7 +235,7 @@
                     </thead>
                     <tbody>
                         @forelse($recentTitles ?? [] as $t)
-                            <tr class="border-t hover:bg-gray-50">
+                            <tr class="border-t border-gray-300 hover:bg-gray-50">
                                 <td class="py-2 pr-4 font-medium text-gray-900">{{ \Illuminate\Support\Str::limit($t->title, 60) }}</td>
                                 <td class="py-2 pr-4 text-gray-700">{{ $t->owner?->name ?? '—' }}</td>
                                 <td class="py-2 pr-4 text-gray-700">{{ $t->primaryAdviser?->name ?? '—' }}</td>
@@ -270,7 +270,7 @@
                     </thead>
                     <tbody>
                         @forelse($recentPapers ?? [] as $p)
-                            <tr class="border-t hover:bg-gray-50">
+                            <tr class="border-t  border-gray-300 hover:bg-gray-50">
                                 <td class="py-2 pr-4 font-medium text-gray-900">{{ \Illuminate\Support\Str::limit($p->title, 72) }}</td>
                                 <td class="py-2 pr-4 text-gray-700">{{ \Illuminate\Support\Str::limit($p->authors ?? '—', 48) }}</td>
                                 <td class="py-2 pr-4 text-gray-700">{{ $p->program ?? '—' }}</td>
