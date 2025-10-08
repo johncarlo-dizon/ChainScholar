@@ -97,7 +97,7 @@ class AuthController extends Controller
         // Role-based landing
         $role = auth()->user()->role;
         return match ($role) {
-            'ADMIN'   => redirect()->intended(route('admin.users.index')),
+            'ADMIN'   => redirect()->intended(route('admin.index')),
             'ADVISER' => redirect()->intended(route('adviser.index')),
             'STUDENT' => redirect()->intended(route('dashboard')),
             default   => redirect()->intended(route('dashboard')),

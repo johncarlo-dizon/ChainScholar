@@ -478,7 +478,7 @@ Route::middleware('auth')->group(function () {
     if ($authUser->hasVerifiedEmail()) {
         $role = $authUser->role ?? null;
         return match ($role) {
-            'ADMIN'   => redirect()->route('admin.users.index')->with('status', 'Your email is already verified.'),
+            'ADMIN'   => redirect()->route('admin.index')->with('status', 'Your email is already verified.'),
             'ADVISER' => redirect()->route('adviser.index')->with('status', 'Your email is already verified.'),
             'STUDENT' => redirect()->route('dashboard')->with('status', 'Your email is already verified.'),
             default   => redirect()->route('dashboard')->with('status', 'Your email is already verified.'),
@@ -491,7 +491,7 @@ Route::middleware('auth')->group(function () {
 
     $role = $authUser->role ?? null;
     return match ($role) {
-        'ADMIN'   => redirect()->route('admin.users.index')->with('status', 'Email verified! Welcome to ChainScholar 🎉'),
+        'ADMIN'   => redirect()->route('admin.index')->with('status', 'Email verified! Welcome to ChainScholar 🎉'),
         'ADVISER' => redirect()->route('adviser.index')->with('status', 'Email verified! Welcome to ChainScholar 🎉'),
         'STUDENT' => redirect()->route('dashboard')->with('status', 'Email verified! Welcome to ChainScholar 🎉'),
         default   => redirect()->route('dashboard')->with('status', 'Email verified! Welcome to ChainScholar 🎉'),
