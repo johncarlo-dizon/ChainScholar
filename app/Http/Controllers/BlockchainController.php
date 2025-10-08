@@ -59,7 +59,7 @@ class BlockchainController extends Controller
 Notification::create([
     'user_id' => $paper->user_id,
     'title'   => 'On-chain registration saved',
-    'message' => "Your paper '{$paper->title}' was registered on-chain (tx {$paper->tx_hash}). Awaiting confirmations.",
+    'message' => "Your paper '{$paper->title}' was registered on-chain. Awaiting confirmations.",
 ]);
 
 return back()->with('status','Registration saved. Awaiting confirmation.');

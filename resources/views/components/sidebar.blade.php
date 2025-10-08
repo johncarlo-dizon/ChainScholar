@@ -85,6 +85,7 @@
         </button>
     </div>
 
+
     <hr class="mx-auto w-[90%] border-gray-200">
 
     <!-- Scroll area -->
@@ -95,35 +96,40 @@
                     @if(auth()->user()->role === 'ADMIN')
                         <li>
                             <a href="{{ route('admin.index') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('admin.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="home" class="w-4 h-4 mr-3"></i>
                                 Dashboard
                             </a>
                         </li>
                              <li>
                             <a href="{{ route('dashboard') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="layout" class="w-4 h-4 mr-3"></i>
                                 Research Library
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.users.index') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.users.index','admin.users.create','admin.users.store','admin.users.edit','admin.users.update','admin.users.destroy') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('admin.users.index','admin.users.create','admin.users.store','admin.users.edit','admin.users.update','admin.users.destroy') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="users" class="w-4 h-4 mr-3"></i>
                                 Users
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('templates.index') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('templates.index','templates.create','templates.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('templates.index','templates.create','templates.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="layers" class="mr-3 w-4 h-4"></i>
                                 Templates
                             </a>
                         </li>
  <li>
   <a href="{{ route('admin.titles.awaiting') }}"
-     class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.awaiting') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+     class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('admin.titles.awaiting') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
       
       {{-- Icon + corner badge (same style as notifBadge) --}}
       <span class="relative mr-3">
@@ -144,7 +150,8 @@
 
                         <li>
                             <a href="{{ route('admin.titles.submitted') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('admin.titles.submitted','admin.titles.submitted.view','admin.documents.review','documents.submitted') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('admin.titles.submitted','admin.titles.submitted.view','admin.documents.review','documents.submitted') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="inbox" class="w-4 h-4 mr-3"></i>
                                 Submitted Titles
                             </a>
@@ -154,35 +161,40 @@
                     @if(auth()->user()->role === 'STUDENT')
                         <li>
                             <a href="{{ route('dashboard') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="layout" class="w-4 h-4 mr-3"></i>
                                 Research Library
                             </a>
                         </li>
                         <li>
                             <a href="{{route('titles.verify')}}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.create','templates.use','titles.verify') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('documents.create','templates.use','titles.verify') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="file-plus" class="mr-3 w-4 h-4"></i>
                                 New Title
                             </a>
                         </li>
                         <li>
                             <a href="{{route('titles.awaiting')}}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('titles.awaiting') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('titles.awaiting') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="clock" class="mr-3 w-4 h-4"></i>
                                 Pending Titles
                             </a>
                         </li>
                         <li>
                             <a href="{{route('titles.index')}}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('titles.index','documents.show','documents.edit','open.chapters','templates.index','titles.chapters') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('titles.index','documents.show','documents.edit','open.chapters','templates.index','titles.chapters') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="folder" class="mr-3 w-4 h-4"></i>
                                 Approved Titles
                             </a>
                         </li>
                         <li>
                             <a href="{{route('documents.submitted')}}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('documents.submitted','documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('documents.submitted','documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="send" class="mr-3 w-4 h-4"></i>
                                 Final Papers
                             </a>
@@ -191,7 +203,8 @@
 
                         <li>
                             <a href="{{route('templates.index')}}"
-                               class="hidden flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('templates.index','templates.create','templates.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="hidden flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('templates.index','templates.create','templates.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="file-text" class="mr-3 w-4 h-4"></i>
                                 Templates
                             </a>
@@ -202,14 +215,16 @@
 @if($user->role === 'ADVISER')
     <li>
         <a href="{{ route('adviser.index') }}"
-           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+           class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('adviser.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="layout" class="w-4 h-4 mr-3"></i>
             Dashboard
         </a>
     </li>
        <li>
                             <a href="{{ route('dashboard') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('dashboard','dashboard.search','dashboard.view') ? ' bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
                                 <i data-feather="layout" class="w-4 h-4 mr-3"></i>
                                 Research Library
                             </a>
@@ -220,21 +235,24 @@
 
     <li>
         <a href="{{ route('adviser.advised.index') }}"
-           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.advised.*','documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+           class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('adviser.advised.*','documents.view') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="bookmark" class="w-4 h-4 mr-3"></i>
             Advised Titles
         </a>
     </li>
     <li>
         <a href="{{ route('adviser.titles.browse') }}"
-           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.titles.browse') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+           class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('adviser.titles.browse') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="search" class="w-4 h-4 mr-3"></i>
             Open Titles
         </a>
     </li>
     <li>
         <a href="{{ route('adviser.requests.pending') }}"
-           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.requests.pending') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+           class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('adviser.requests.pending') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="alert-circle" class="w-4 h-4 mr-3"></i>
             Approval Requests
         </a>
@@ -245,108 +263,70 @@
             </ul>
         </div>
 
+@php
+    $isResearchActive = request()->routeIs('research-papers.*');
+@endphp
+              <hr class="mx-auto w-[90%] border-gray-200">
 
-        <hr class="mx-auto w-[90%] border-gray-200">
-          <nav class="p-4">
-            <ul class="space-y-2">
-       
+        <!-- Research Papers (collapsible like Announcements) -->
+        <nav class="p-4">
+            <details class="group" {{ $isResearchActive ? 'open' : '' }}>
+                <summary
+                    class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 {{ $isResearchActive ? 'bg-indigo-50 text-indigo-600' : '' }}"
+                >
+                    <i data-feather="book" class="mr-3 w-4 h-4"></i>
+                    <span>Research Papers</span>
+
+                    {{-- Chevron (rotates when open) --}}
+                    <i data-feather="chevron-down" class="ml-auto w-4 h-4 transition-transform group-open:rotate-180"></i>
+                </summary>
+
+                <ul class="mt-2 space-y-1 pl-9">
+                    <li>
+                        <a href="{{ route('research-papers.create') }}"
+                           class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('research-papers.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                            <i data-feather="upload" class="mr-3 w-4 h-4"></i>
+                            Upload Research
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ route('research-papers.student-index') }}"
+                           class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('research-papers.student-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                            <i data-feather="file-text" class="mr-3 w-4 h-4"></i>
+                            My Research Papers
+                        </a>
+                    </li>
+
+                    @if(auth()->user()->role === 'ADMIN')
                         <li>
-                            <a href="{{ route('research-papers.create') }}"
-                               class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="upload" class="mr-3 w-4 h-4"></i>
-                                Upload Research
+                            <a href="{{ route('research-papers.admin-index') }}"
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('research-papers.admin-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                                <i data-feather="book-open" class="w-4 h-4 mr-3"></i>
+                                All Research Papers
                             </a>
                         </li>
-                             @if(auth()->user()->role === 'ADMIN')
-            {{-- ... existing admin links ... --}}
-                <li>
-                    <a href="{{ route('research-papers.admin-index') }}"
-                    class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.admin-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                        <i data-feather="book-open" class="w-4 h-4 mr-3"></i>
-                       All Research Papers
-                    </a>
-                </li>
-            @endif
-                        <li>
-                            <a href="{{ route('research-papers.student-index') }}"
-                            class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.student-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="file-text" class="mr-3 w-4 h-4"></i>
-                                My Research Papers
-                            </a>
-                        </li>
-
-                   </ul>
+                    @endif
+                </ul>
+            </details>
         </nav>
 
 
 
 
 
- <hr class="mx-auto w-[90%] border-gray-200">
- @php
+ 
+@php
     $isAnnouncementsActive = request()->routeIs('announcements.*');
+    $isAccountActive = request()->routeIs('profile.show')
+        || request()->routeIs('activity.index')
+        || request()->routeIs('adviser.profile.edit');
 @endphp
 
-<!-- Announcements Section -->
-@if(auth()->check() && auth()->user()->isAdmin())
-    <nav class="p-4">
-        <details class="group" {{ $isAnnouncementsActive ? 'open' : '' }}>
-            <summary class="flex items-center p-2 rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 {{ $isAnnouncementsActive ? 'bg-indigo-50 text-indigo-600' : '' }}">
-                <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
-                <span>Announcements</span>
-
-                @if($announcementsCount > 0)
-                    <span class="ml-auto inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-indigo-500 rounded-full">
-                        {{ $announcementsCount }}
-                    </span>
-                @else
-                    <i data-feather="chevron-down" class="ml-auto w-4 h-4 transition-transform group-open:rotate-180"></i>
-                @endif
-            </summary>
-
-            <ul class="mt-2 space-y-1 pl-9">
-                <li>
-                    <a href="{{ route('announcements.index') }}"
-                       class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                        <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
-                        View 
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('announcements.create') }}"
-                       class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                        <i data-feather="plus-circle" class="mr-3 w-4 h-4"></i>
-                        Create 
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('announcements.manage') }}"
-                       class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.manage','announcements.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                        <i data-feather="settings" class="mr-3 w-4 h-4"></i>
-                        Manage 
-                    </a>
-                </li>
-            </ul>
-        </details>
-    </nav>
-@else
-    <nav class="p-4">
-        <ul class="space-y-2">
-            <li>
-                <a href="{{ route('announcements.index') }}"
-                   class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                    <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
-                    View Announcements
-                    @if($announcementsCount > 0)
-                        <span class="ml-auto inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-indigo-500 rounded-full">
-                            {{ $announcementsCount }}
-                        </span>
-                    @endif
-                </a>
-            </li>
-        </ul>
-    </nav>
-@endif
 
 
         <hr class="mx-auto w-[90%] border-gray-200">
@@ -357,7 +337,120 @@
         <nav class="p-4">
             <ul class="space-y-2">
 
+{{-- Announcements (moved here, next to Account & Notification) --}}
+@if(auth()->check() && auth()->user()->isAdmin())
+    <details class="group" {{ $isAnnouncementsActive ? 'open' : '' }}>
+        <summary
+            class="flex items-center py-1.5 px-2
+rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 {{ $isAnnouncementsActive ? 'bg-indigo-50 text-indigo-600' : '' }}"
+        >
+            <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
+            <span>Announcements</span>
 
+            @if($announcementsCount > 0)
+                <span class="ml-auto inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-indigo-500 rounded-full">
+                    {{ $announcementsCount }}
+                </span>
+            @else
+                <i data-feather="chevron-down" class="ml-auto w-4 h-4 transition-transform group-open:rotate-180"></i>
+            @endif
+        </summary>
+
+        <ul class="mt-2 space-y-1 pl-9">
+            <li>
+                <a href="{{ route('announcements.index') }}"
+                   class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
+                    View
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('announcements.create') }}"
+                   class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('announcements.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <i data-feather="plus-circle" class="mr-3 w-4 h-4"></i>
+                    Create
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('announcements.manage') }}"
+                   class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('announcements.manage','announcements.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <i data-feather="settings" class="mr-3 w-4 h-4"></i>
+                    Manage
+                </a>
+            </li>
+        </ul>
+    </details>
+@else
+    <li>
+        <a href="{{ route('announcements.index') }}"
+           class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
+            View Announcements
+            @if($announcementsCount > 0)
+                <span class="ml-auto inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-indigo-500 rounded-full">
+                    {{ $announcementsCount }}
+                </span>
+            @endif
+        </a>
+    </li>
+@endif
+
+            <!-- Account (collapsible group like Announcements/Research) -->
+            <details class="group" {{ $isAccountActive ? 'open' : '' }}>
+                <summary
+                    class="flex items-center py-1.5 px-2
+s rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 {{ $isAccountActive ? 'bg-indigo-50 text-indigo-600' : '' }}"
+                >
+                    <i data-feather="user" class="mr-3 w-4 h-4"></i>
+                    <span>Account</span>
+                    <i data-feather="chevron-down" class="ml-auto w-4 h-4 transition-transform group-open:rotate-180"></i>
+                </summary>
+
+                <ul class="mt-2 space-y-1 pl-9">
+                    @if($user->role === 'ADVISER')
+                        <li>
+                            <a href="{{ route('adviser.profile.edit') }}"
+                               class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('adviser.profile.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                                <span class="relative mr-3">
+                                    <i data-feather="user-check" class="w-4 h-4"></i>
+                                    @if($profileIncomplete)
+                                        <span class="absolute -top-1 -right-1 inline-block w-2 h-2 bg-amber-500 rounded-full" title="Complete your adviser profile"></span>
+                                    @endif
+                                </span>
+                                 Info
+                                @if($profileIncomplete)
+                                    <span class="ml-auto text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                                        Incomplete
+                                    </span>
+                                @endif
+                            </a>
+                        </li>
+                    @endif
+
+                    <li>
+                        <a href="{{ route('activity.index') }}"
+                           class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('activity.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                            <i data-feather="activity" class="w-4 h-4 mr-3"></i>
+                            Activity Logs
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ route('profile.show') }}"
+                           class="flex items-center py-1.5 px-2
+ rounded-lg transition text-sm {{ request()->routeIs('profile.show') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                            <i data-feather="user" class="mr-3 w-4 h-4"></i>
+                            Profile
+                        </a>
+                    </li>
+                </ul>
+            </details>
 
 
             
@@ -367,7 +460,8 @@
                
                 <li>
                     <a href="#"
-                       class="flex hidden items-center p-2 text-gray-700 text-sm hover:bg-indigo-50 rounded-lg transition">
+                       class="flex hidden items-center py-1.5 px-2
+ text-gray-700 text-sm hover:bg-indigo-50 rounded-lg transition">
                         <i data-feather="settings" class="mr-3 w-4 h-4"></i>
                         Settings
                     </a>
@@ -390,46 +484,9 @@
                         <span>Notification</span>
                     </a>
                 </li>
-                @auth
-@if($user->role === 'ADVISER')
-   <li>
-        <a href="{{ route('adviser.profile.edit') }}"
-           class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.profile.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-            <span class="relative mr-3">
-                <i data-feather="user-check" class="w-4 h-4"></i>
-                @if($profileIncomplete)
-                    {{-- tiny warning dot --}}
-                    <span class="absolute -top-1 -right-1 inline-block w-2 h-2 bg-amber-500 rounded-full" title="Complete your adviser profile"></span>
-                @endif
-            </span>
-             Background Info
-            @if($profileIncomplete)
-                <span class="ml-auto text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                    Incomplete
-                </span>
-            @endif
-        </a>
-    </li>
+               
 
-@endif
-
-                @endauth
-
-                <li>
-  <a href="{{ route('activity.index') }}"
-     class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('activity.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-     <i data-feather="activity" class="w-4 h-4 mr-3"></i>
-     Activity Logs
-  </a>
-</li>
-
-                <li>
-                    <a href="{{route('profile.show')}}"
-                       class="flex items-center p-2 rounded-lg transition text-sm {{ request()->routeIs('profile.show') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                        <i data-feather="user" class="mr-3 w-4 h-4"></i>
-                        Profile
-                    </a>
-                </li>
+        
 
 
       
