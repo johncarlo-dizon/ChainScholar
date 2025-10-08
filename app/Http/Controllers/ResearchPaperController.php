@@ -39,7 +39,8 @@ class ResearchPaperController extends Controller
     /** Open in browser tab (inline) — works local & prod */
     public function viewInline(ResearchPaper $paper)
     {
-        abort_unless($this->canAccess($paper), 403);
+    // Library viewing: allow any authenticated user
+    abort_unless(auth()->check(), 403);
 
         $disk = $paper->file_disk ?: 'public';
         $path = $this->normalizedPath($paper);
@@ -61,7 +62,7 @@ class ResearchPaperController extends Controller
     /** Force download */
     public function download(ResearchPaper $paper)
     {
-        abort_unless($this->canAccess($paper), 403);
+        abort_unless(auth()->check(), 403);
 
         $disk = $paper->file_disk ?: 'public';
         $path = $this->normalizedPath($paper);

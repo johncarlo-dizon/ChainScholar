@@ -187,16 +187,24 @@
       </div>
 
       @forelse ($results as $result)
-        @php
+      @php
   $isPaper = ($result['type'] ?? 'title') === 'paper';
 
   // Prefer a server route that streams from Storage (works local & prod).
-  // Your search controller will set open_url for local papers; see step 2 below.
   $openUrl = $result['open_url']
       ?? (!empty($result['paper_id']) ? route('papers.view', $result['paper_id']) : null)
       ?? (!empty($result['id'])       ? route('papers.view', $result['id'])       : null)
       // fallback: absolute PDF links (e.g., external results)
       ?? ($result['file_url'] ?? null);
+
+  // NEW: direct download route if available
+  $downloadUrl = $isPaper
+      ? (
+          $result['download_url']
+          ?? (!empty($result['paper_id']) ? route('papers.download', $result['paper_id']) : null)
+          ?? (!empty($result['id'])       ? route('papers.download', $result['id'])       : null)
+        )
+      : null;
 
   $link   = $isPaper ? ($openUrl ?? 'javascript:void(0)') : route('dashboard.view', $result['id']);
   $target = $isPaper ? '_blank' : '_self';
@@ -209,13 +217,20 @@
              {!! $result['title_html'] ?? e($result['title']) !!}
 
             </a>
-            @if($isPaper)
-              <a href="{{ $link }}" target="_blank"
-                 class="shrink-0 text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">[PDF]</a>
-            @else
-               <a href="{{ $link }}" target="_blank"
-                 class="shrink-0 text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">View</a>
-            @endif
+           @if($isPaper)
+  <div class="flex items-center gap-2">
+    <a href="{{ $link }}" target="_blank"
+       class="shrink-0 text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">[PDF]</a>
+    @if($downloadUrl)
+      <a href="{{ $downloadUrl }}"
+         class="shrink-0 text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">Download</a>
+    @endif
+  </div>
+@else
+  <a href="{{ $link }}" target="_blank"
+     class="shrink-0 text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">View</a>
+@endif
+
           </div>
 
           @if(!empty($result['authors']))
