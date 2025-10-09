@@ -67,6 +67,8 @@
   type="submit"
   class="mt-5 tracking-wide font-semibold w-full py-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 focus:shadow-outline focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed text-white shadow-lg"
   style="background: linear-gradient(to right, #1E293B, #334155, #0F172A);"
+    onmouseover="this.style.background='linear-gradient(to right, #334155, #475569, #1E293B)'"
+  onmouseout="this.style.background='linear-gradient(to right, #1E293B, #334155, #0F172A)'"
 >
   Sign up
 </button>

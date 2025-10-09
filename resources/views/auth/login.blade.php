@@ -37,8 +37,10 @@
  <button
   id="submitBtn"
   type="submit"
-  class="mt-5 tracking-wide font-semibold w-full py-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 focus:shadow-outline focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed text-white shadow-lg"
+  class="mt-5 tracking-wide font-semibold w-full py-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 focus:shadow-outline focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed text-white shadow-lg "
   style="background: linear-gradient(to right, #1E293B, #334155, #0F172A);"
+    onmouseover="this.style.background='linear-gradient(to right, #334155, #475569, #1E293B)'"
+  onmouseout="this.style.background='linear-gradient(to right, #1E293B, #334155, #0F172A)'"
 >
   <svg id="btnSpinner" class="hidden animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
