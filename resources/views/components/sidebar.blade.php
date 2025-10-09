@@ -500,13 +500,47 @@ s rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 
 
     <hr class="mx-auto w-[90%] border-gray-200">
     <div class="p-4">
-        <form action="{{ route('logout') }}" method="POST">
-            @csrf
-            <button type="submit" class="flex items-center text-sm w-full p-2 text-gray-700 hover:bg-red-50 rounded-lg transition">
-                <i data-feather="log-out" class="w-4 h-4 mr-3"></i>
-                Logout
+       <!-- Logout button (opens modal instead of submitting immediately) -->
+<button
+    type="button"
+    onclick="openLogoutModal()"
+    class="flex items-center text-sm w-full p-2 text-gray-700 hover:bg-red-50 rounded-lg transition"
+>
+    <i data-feather="log-out" class="w-4 h-4 mr-3"></i>
+    Logout
+</button>
+
+<!-- Confirmation Modal -->
+<div id="logoutModal"
+     class="hidden fixed inset-0 bg-black/30 flex items-center justify-center z-[3000]">
+    <div class="bg-white rounded-lg shadow-lg w-[90%] max-w-sm p-6 text-center">
+        <h2 class="text-lg font-semibold text-gray-800 mb-3">Confirm Logout</h2>
+        <p class="text-sm text-gray-600 mb-6">Are you sure you want to log out of your account?</p>
+
+        <div class="flex justify-center gap-3">
+            <button
+                onclick="closeLogoutModal()"
+                class="px-4 py-2 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+            >
+                Cancel
             </button>
-        </form>
+
+            <form id="logoutForm" action="{{ route('logout') }}" method="POST">
+                @csrf
+                <button
+                    type="submit"
+                    class="px-4 py-2 rounded-lg text-xs font-medium text-white transition"
+                    style="background: linear-gradient(to right, #1E293B, #334155, #0F172A);"
+                    onmouseover="this.style.background='linear-gradient(to right, #334155, #475569, #1E293B)'"
+                    onmouseout="this.style.background='linear-gradient(to right, #1E293B, #334155, #0F172A)'"
+                >
+                     Logout
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
     </div>
 </div>
 
@@ -558,6 +592,16 @@ s rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 
      
     </div>
 </div>
+
+
+<script>
+function openLogoutModal() {
+    document.getElementById('logoutModal').classList.remove('hidden');
+}
+function closeLogoutModal() {
+    document.getElementById('logoutModal').classList.add('hidden');
+}
+</script>
 
 
 <!-- ===== Scripts (scoped to sidebar only) ===== -->
