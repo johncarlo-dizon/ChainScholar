@@ -1,12 +1,18 @@
 <x-userlayout>
 
  
-
-    <div class="bg-blue-600 rounded-lg shadow p-6 max-w-8xl container">
-        <h2 class="text-3xl font-semibold mb-4 text-white">User Profile</h2>
-           <p class="text-gray-100">Welcome to ChainScholar.</p>
+ 
+<div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">User Profile</h2>
     </div>
-
+   
+  </div>
+</div>
 
 
     {{-- Main Section --}}

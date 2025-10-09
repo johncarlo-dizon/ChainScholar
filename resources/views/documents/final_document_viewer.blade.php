@@ -1,11 +1,28 @@
 <x-userlayout> 
-    <div class="bg-blue-600 rounded-lg shadow p-6 max-w-8xl container">
-        <h2 class="text-3xl text-white font-semibold mb-4">
-            View Final Document — {{ $document->titleRelation->title ?? 'Untitled Title' }}
-        </h2>
-    </div>
 
-    <div class="container mx-auto px-4 py-8">
+
+
+<div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">     View Submitted Research</h2>
+         <p class="text-sm-5 text-gray-300 mt-1">  {{ $document->titleRelation->title ?? 'Untitled Title' }}</p>
+    </div>
+   
+  </div>
+</div>
+
+
+     
+
+
+
+
+
+    <div class="container mx-auto px-4 pt-2 pb-8">
         <div class="flex flex-col lg:flex-row gap-6">
             <!-- Left: Document Display -->
             <div class="main-container w-full lg:w-2/3">

@@ -1,20 +1,17 @@
 <x-userlayout>
     <div class="container mx-auto">
         <!-- Header / Hero -->
-<div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 shadow mb-4">
+<div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-
-    <!-- Left: Brand + Search in a row -->
     <div class="flex items-center gap-6 flex-1">
-      <!-- Brand -->
-      <h2 class="text-2xl md:text-3xl font-semibold text-white shrink-0">
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">
         Research Library
       </h2>
-
- 
     </div>
 
-    <!-- Right: Tip -->
     <div class="hidden md:block text-right shrink-0">
       <span class="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-white/10 text-white">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,9 +21,10 @@
         Tip: Press <kbd class="px-1.5 py-0.5 bg-white/20 rounded">/</kbd> to search
       </span>
     </div>
-
   </div>
 </div>
+
+
 
      <!-- Search Bar -->
       <form method="GET" action="{{ route('dashboard.search') }}" id="search-form" class="flex-1 max-w-2xl mb-4">

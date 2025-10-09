@@ -14,7 +14,8 @@
         
         <form method="POST" action="{{ route('verification.send') }}">
             @csrf
-            <button type="submit" class="mt-5 tracking-wide font-semibold  text-white-1000 w-full py-4 rounded-lg  btn-auth transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none" style="color: white;">
+            <button type="submit"  class="mt-5 tracking-wide font-semibold w-full py-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 focus:shadow-outline focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed text-white shadow-lg"
+  style="background: linear-gradient(to right, #1E293B, #334155, #0F172A);">
                 Resend Verification Email
             </button>
         </form>

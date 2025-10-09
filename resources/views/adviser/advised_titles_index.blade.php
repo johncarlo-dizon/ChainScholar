@@ -1,8 +1,16 @@
 <x-userlayout>
-    <div class="bg-blue-600 rounded-lg shadow p-6">
-        <h2 class="text-3xl font-semibold mb-1 text-white">Advised Titles</h2>
-        <p class="text-blue-100">Titles where you are the primary adviser.</p>
+  
+    <div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Advised Titles</h2>
     </div>
+   
+  </div>
+</div>
 
     <div class="container mx-auto px-4 py-6">
         <form method="GET" class="mb-4">

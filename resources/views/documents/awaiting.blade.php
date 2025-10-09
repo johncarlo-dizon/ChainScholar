@@ -1,8 +1,18 @@
 <x-userlayout>
-  <div class="bg-blue-600 rounded-lg shadow p-4">
-    <h2 class="text-2xl font-semibold text-white">Pending Titles</h2>
-    <p class="text-blue-100 text-sm">Manage adviser and admin approvals in one place.</p>
+  
+
+
+  <div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Pending Titles</h2>
+    </div>
+   
   </div>
+</div>
 
   <div class="container mx-auto px-4 py-4">
     {{-- FILTERS / SEARCH --}}

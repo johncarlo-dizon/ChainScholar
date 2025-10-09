@@ -1,15 +1,27 @@
 <x-userlayout>
 
-<!-- HEADER -->
-<div class="bg-blue-600 rounded-lg shadow p-6">
-    <h2 class="text-3xl font-semibold mb-4 text-white">
-         <span class="text-gray-100">{{ $title->title }}</span>
-    </h2>
-    <p class="text-sm text-gray-300 mt-1">Manage and edit your research chapters below.</p>
+ 
+
+
+
+
+    <div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Chapters </h2>
+        <p class="text-sm-5 text-gray-300 mt-1">    {{$title->title }}</p>
+    </div>
+     
+  </div>
 </div>
 
+ 
+
 <!-- FORM -->
-<div class="container mx-auto px-4 py-10">
+<div class="container mx-auto px-4 pt-2 pb-8">
     <div class="bg-white p-6 rounded-lg shadow mx-auto mb-6">
         <form method="POST" action="{{ route('documents.store') }}">
             @csrf

@@ -1,23 +1,14 @@
 <x-userlayout>
    
-<div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 shadow mb-4">
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-
-    <!-- Left: Brand + Search in a row -->
-    <div class="flex items-center gap-6 flex-1">
-      <!-- Brand -->
-      <h2 class="text-2xl md:text-3xl font-semibold text-white shrink-0">
-        ChainScholar
-      </h2>
-
- 
+<div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Research Library</h2>
     </div>
-
-    <!-- Right: Tip -->
-    <div class="hidden md:block text-right shrink-0">
- 
-    </div>
-
+   
   </div>
 </div>
 

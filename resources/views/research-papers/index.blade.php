@@ -36,21 +36,19 @@
 @endif
 
 
-    {{-- ===== Page header ===== --}}
-    <div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 shadow">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-                <h2 class="text-2xl md:text-3xl font-semibold text-white">Research Paper Submission</h2>
-                <p class="text-white/90 mt-1 text-sm">Upload your PDF, complete the metadata, and pass the plagiarism threshold to submit.</p>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="hidden md:flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-white">
-                    <span class="text-xs opacity-90">Status:</span>
-                    <span id="header-status-chip" class="rounded-full bg-white/20 px-2 py-0.5 text-xs">Waiting for PDF</span>
-                </div>
-            </div>
-        </div>
+<div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Research Paper Submission</h2>
     </div>
+   
+  </div>
+</div>
+
+ 
 
     {{-- ===== Content area: two-column on desktop, single-column on mobile ===== --}}
     <div class="mx-auto mt-5 grid max-w-7xl grid-cols-1 gap-6 lg:grid-cols-3">

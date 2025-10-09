@@ -1,8 +1,17 @@
 <x-userlayout>
-  <div class="bg-blue-600 rounded-lg shadow p-6">
-    <h2 class="text-3xl font-semibold mb-2 text-white">Open Titles</h2>
-    <p class="text-white/80 text-sm">Filter by status, assignment, and search keywords.</p>
+ 
+
+  <div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Open Titles</h2>
+    </div>
+   
   </div>
+</div>
 
   <div class="container mx-auto px-4 py-6 space-y-4">
     <!-- Filters -->

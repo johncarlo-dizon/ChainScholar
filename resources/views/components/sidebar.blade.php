@@ -55,7 +55,7 @@
         w-72 max-w-[85vw]
         -translate-x-full md:translate-x-0
         transition-transform duration-200
-        bg-white shadow-lg flex flex-col
+        bg-white flex border-r border-slate-200 flex-col
         md:static md:inset-auto
         md:w-64
         md:min-h-screen md:sticky md:top-0

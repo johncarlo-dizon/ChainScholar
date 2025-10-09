@@ -1,12 +1,17 @@
 <x-userlayout>
-    <div class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 shadow mb-6">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-                <h2 class="text-2xl md:text-3xl font-semibold text-white">All Research Papers</h2>
-                <p class="text-white/90 mt-1 text-sm">Manage all uploaded research papers</p>
-            </div>
-        </div>
+ 
+
+    <div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">All Research Papers</h2>
     </div>
+   
+  </div>
+</div>
 
     <div class="bg-white rounded-xl shadow-sm p-6">
         <!-- Search and Filters -->

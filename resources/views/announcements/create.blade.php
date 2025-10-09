@@ -1,8 +1,17 @@
 <x-userlayout>
     <!-- Page Header -->
-    <div class="bg-blue-600 rounded-lg shadow p-6 mb-6">
-        <h1 class="text-3xl font-semibold text-white">Create Announcement</h1>
+  
+    <div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Create Announcement</h2>
     </div>
+   
+  </div>
+</div>
 
     <!-- Form Card -->
     <div class="bg-white rounded-xl shadow p-6">

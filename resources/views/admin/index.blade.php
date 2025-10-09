@@ -25,70 +25,29 @@
 @endphp
 
     <!-- Header / Hero -->
-    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-blue-600">
-        <div class="absolute inset-0 opacity-20">
-            <div class="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-white/10 blur-2xl"></div>
-            <div class="absolute -bottom-10 -right-10 w-52 h-52 rounded-full bg-white/10 blur-2xl"></div>
-        </div>
-        <div class="relative p-6 sm:p-8">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <h2 class="text-white text-2xl sm:text-3xl font-bold tracking-tight">Admin Dashboard</h2>
-                    <p class="mt-1 text-indigo-100 text-sm">High-level view of Titles, Research Papers, Announcements, and Adviser flow.</p>
-                </div>
-
-                <!-- Compact Announcement Pill -->
-                <a href="{{ route('announcements.index') }}"
-                   class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 text-white text-xs font-medium hover:bg-white/20 transition">
-                    <i data-feather="volume-2" class="w-4 h-4"></i>
-                    <span>Announcements</span>
-                    <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-white/20 text-[11px]">
-                        {{ $announcementsTotal ?? 0 }}
-                    </span>
-                </a>
-            </div>
-
-            <!-- Quick progress (Titles) -->
-            <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 hidden">
-                <div class="bg-white/10 backdrop-blur rounded-xl p-4 text-white">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm opacity-90">With Adviser</span>
-                        <span class="text-xs px-2 py-0.5 rounded bg-white/10">{{ $pctWithAdviser }}%</span>
-                    </div>
-                    <div class="mt-2 h-2 w-full rounded bg-white/20 overflow-hidden">
-                        <div class="h-2 bg-white/90" style="width: {{ $pctWithAdviser }}%"></div>
-                    </div>
-                </div>
-                <div class="bg-white/10 backdrop-blur rounded-xl p-4 text-white">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm opacity-90">Finalized</span>
-                        <span class="text-xs px-2 py-0.5 rounded bg-white/10">{{ $pctFinalized }}%</span>
-                    </div>
-                    <div class="mt-2 h-2 w-full rounded bg-white/20 overflow-hidden">
-                        <div class="h-2 bg-white/90" style="width: {{ $pctFinalized }}%"></div>
-                    </div>
-                </div>
-                <div class="bg-white/10 backdrop-blur rounded-xl p-4 text-white">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm opacity-90">Awaiting Admin</span>
-                        <span class="text-xs px-2 py-0.5 rounded bg-white/10">{{ $pctAwaiting }}%</span>
-                    </div>
-                    <div class="mt-2 h-2 w-full rounded bg-white/20 overflow-hidden">
-                        <div class="h-2 bg-white/90" style="width: {{ $pctAwaiting }}%"></div>
-                    </div>
-                </div>
-                <div class="bg-white/10 backdrop-blur rounded-xl p-4 text-white">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm opacity-90">Submitted</span>
-                        <span class="text-xs px-2 py-0.5 rounded bg-white/10">{{ $pctSubmitted }}%</span>
-                    </div>
-                    <div class="mt-2 h-2 w-full rounded bg-white/20 overflow-hidden">
-                        <div class="h-2 bg-white/90" style="width: {{ $pctSubmitted }}%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div
+  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
+  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
+>
+  <div class="flex items-start justify-between gap-6">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Admin Dashboard</h2>
     </div>
+
+    <a href="{{ route('announcements.index') }}"
+       class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 text-white text-xs font-medium hover:bg-white/20 transition">
+      <i data-feather="volume-2" class="w-4 h-4"></i>
+      <span>Announcements</span>
+      <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-white/20 text-[11px]">
+        {{ $announcementsTotal ?? 0 }}
+      </span>
+    </a>
+  </div>
+</div>
+
+
+
+
 
     <!-- KPI Cards -->
     <div class="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
