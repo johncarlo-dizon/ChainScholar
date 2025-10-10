@@ -6,7 +6,7 @@
 >
   <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
     <div>
-      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">{{ $title->title }}</h2>
+      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">{{ $title->title }}</h2>
 
       <div class="mt-2 text-sm text-gray-300">
         Authors: <span class="font-semibold text-white">{{ $title->authors }}</span>

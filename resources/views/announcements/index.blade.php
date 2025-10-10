@@ -4,7 +4,7 @@
   class="rounded-2xl shadow-lg mb-6 flex items-center justify-between text-white"
   style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
 >
-  <h1 class="text-2xl md:text-3xl font-bold tracking-tight">Announcements</h1>
+  <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">Announcements</h1>
 
   @can('isAdmin')
     <a

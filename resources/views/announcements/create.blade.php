@@ -7,7 +7,7 @@
 >
   <div class="flex items-start justify-between gap-6">
     <div>
-      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Create Announcement</h2>
+      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">Create Announcement</h2>
     </div>
    
   </div>

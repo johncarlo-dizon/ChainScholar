@@ -7,7 +7,7 @@
 >
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
     <div class="flex items-center gap-6 flex-1">
-      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">
+      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">
         Research Library
       </h2>
     </div>

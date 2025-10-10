@@ -11,7 +11,7 @@
 >
   <div class="flex items-start justify-between gap-6">
     <div>
-      <h2 class="text-2xl md:text-3xl font-bold tracking-tight">Chapters </h2>
+      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">Chapters </h2>
         <p class="text-sm-5 text-gray-300 mt-1">    {{$title->title }}</p>
     </div>
      
