@@ -666,9 +666,8 @@ foreach ($tokens as $t) {
             'plagiarism_score' => $plagPct,
         ]);
 
-        return redirect()
-            ->route('titles.chapters', $document->title_id)
-            ->with('success', "Chapter updated successfully! Similarity: {$plagPct}%");
+      return back()->with('status', "Chapter updated successfully! Similarity: {$plagPct}%");
+
     }
 
 

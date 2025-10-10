@@ -1527,5 +1527,208 @@ pollingTimer = setTimeout(tick, 0);
         }
         
     </style>
+
+<!-- Unsaved Changes Modal -->
+<div id="unsavedModal"
+     class="fixed inset-0 z-[9999] hidden bg-black/40 backdrop-blur-sm flex items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-2">Unsaved Changes</h2>
+    <p class="text-gray-600 mb-6">
+      You have unsaved edits. Are you sure you want to leave this page?  
+      Your work will be lost if you continue.
+    </p>
+    <div class="flex justify-end gap-3">
+      <button id="stayBtn" type="button"
+              class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition">
+        Stay on Page
+      </button>
+      <button id="leaveBtn" type="button"
+              class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+        Leave Anyway
+      </button>
+    </div>
+  </div>
+</div>
+<script>
+/**
+ * Add-only patch to suppress native "Changes you made may not be saved."
+ * and use your Tailwind modal instead.
+ *
+ * What this does:
+ *  - Cancels any beforeunload handlers (ours or others) from triggering the native prompt
+ *    by stopping propagation in the CAPTURE phase and NOT setting returnValue.
+ *  - Shows your modal for internal links, back navigation, and reload keys (F5/Ctrl+R).
+ *  - Allows form submissions to proceed without prompts.
+ *
+ * NOTE: True tab/window close cannot be replaced with a custom modal in all browsers;
+ * we either allow close (risking data loss) or show the native prompt. This patch
+ * prefers the modal everywhere we can control it (internal/back/reload).
+ */
+
+(() => {
+  // Reuse modal elements from your previous snippet
+  const modal   = document.getElementById('unsavedModal');
+  const stayBtn = document.getElementById('stayBtn');
+  const leaveBtn= document.getElementById('leaveBtn');
+
+  // Reuse these if present
+  const docForm   = document.getElementById('doc-form');
+  const finalForm = document.getElementById('submit-final-form');
+  const noteTA    = document.getElementById('studentNoteTextarea');
+
+  // Shared state (try to reuse existing if already created)
+  window.__unsavedState = window.__unsavedState || {
+    isDirty: false,
+    isSubmitting: false,
+    pendingHref: null,
+    leavingForReload: false,
+    leavingForBack: false
+  };
+  const S = window.__unsavedState;
+
+  function openModal(msg) {
+    if (!modal) return;
+    if (msg) {
+      const p = modal.querySelector('p');
+      if (p) p.textContent = msg;
+    }
+    modal.classList.remove('hidden');
+  }
+  function closeModal() {
+    if (!modal) return;
+    modal.classList.add('hidden');
+  }
+
+  // 1) Mark page dirty on edits (editor + inputs)
+  function markDirty(){ S.isDirty = true; }
+  (function watchEditor(){
+    const wait = setInterval(() => {
+      const el = document.querySelector('.ck-content');
+      if (!el) return;
+      clearInterval(wait);
+      const mo = new MutationObserver(() => { S.isDirty = true; });
+      mo.observe(el, { subtree:true, childList:true, characterData:true, attributes:true });
+    }, 120);
+  })();
+  if (docForm) {
+    docForm.addEventListener('input', markDirty, {capture:true});
+    docForm.addEventListener('change', markDirty, {capture:true});
+    docForm.addEventListener('keyup', markDirty, {capture:true});
+  }
+  if (noteTA) {
+    ['input','change','keyup'].forEach(evt => noteTA.addEventListener(evt, markDirty));
+  }
+
+  // 2) Allow form submits
+  [docForm, finalForm].forEach(f => {
+    if (!f) return;
+    f.addEventListener('submit', () => { S.isSubmitting = true; S.isDirty = false; });
+  });
+
+  // 3) Intercept internal links (modal instead of navigating)
+  document.addEventListener('click', (ev) => {
+    const a = ev.target.closest('a[href]');
+    if (!a) return;
+    if (a.classList.contains('skip-guard') || a.dataset.skipGuard === 'true') return;
+
+    const href   = a.getAttribute('href') || '';
+    const target = (a.getAttribute('target') || '').toLowerCase();
+    if (!href || href.startsWith('#') || target === '_blank') return;
+    if (S.isSubmitting) return;
+
+    if (S.isDirty) {
+      ev.preventDefault();
+      S.pendingHref = href;
+      S.leavingForReload = false;
+      S.leavingForBack   = false;
+      openModal('You have unsaved edits. Leave this page and discard your work?');
+    }
+  }, true);
+
+  // 4) Intercept BACK navigation using history trick
+  // Push a dummy state so Back pops here first
+  if (window.history && window.history.pushState) {
+    window.history.pushState({guard:true}, '');
+    window.addEventListener('popstate', (e) => {
+      if (!S.isDirty || S.isSubmitting) {
+        // let it go back normally
+        window.history.back();
+        return;
+      }
+      // Block the back and show modal
+      S.leavingForBack = true;
+      openModal('You have unsaved edits. Leave this page and discard your work?');
+      // Immediately push back our guard state so the history length stays stable
+      window.history.pushState({guard:true}, '');
+    });
+  }
+
+  // 5) Intercept reload keys (F5, Ctrl/Cmd+R)
+  window.addEventListener('keydown', (e) => {
+    if (!S.isDirty || S.isSubmitting) return;
+    const isMac = navigator.platform.toUpperCase().includes('MAC');
+    const reloadCombo = (!isMac && e.ctrlKey && e.key.toLowerCase()==='r') || (isMac && e.metaKey && e.key.toLowerCase()==='r');
+    const f5 = e.key === 'F5';
+
+    if (reloadCombo || f5) {
+      e.preventDefault();
+      e.stopPropagation();
+      S.leavingForReload = true;
+      openModal('You have unsaved edits. Reload and lose your changes?');
+    }
+  }, true);
+
+  // 6) SUPPRESS the native beforeunload dialog.
+  // We attach a CAPTURE-phase handler that stops any other beforeunload listeners
+  // from setting e.returnValue, and we DO NOT set returnValue ourselves.
+  window.onbeforeunload = null; // clears property-based handler if someone used it
+  window.addEventListener('beforeunload', function(e){
+    if (S.isSubmitting) return;                // allow normal unload on submit
+    if (!S.isDirty) return;                    // no changes → do nothing
+    // We prefer our modal; block other handlers and STOP native prompt:
+    e.stopImmediatePropagation();
+    e.preventDefault();                        // Some browsers require this to block
+    // DO NOT set e.returnValue — that’s what triggers the native dialog.
+    // We cannot show a custom modal here reliably (unload imminent), so rely on
+    // our link/back/reload interceptions above which fire BEFORE unload.
+  }, true);
+
+  // 7) Modal buttons
+  if (stayBtn) {
+    stayBtn.addEventListener('click', () => {
+      S.pendingHref = null;
+      S.leavingForReload = false;
+      S.leavingForBack = false;
+      closeModal();
+    });
+  }
+  if (leaveBtn) {
+    leaveBtn.addEventListener('click', () => {
+      closeModal();
+      // Mark clean so any last-chance handlers don't re-trigger
+      S.isDirty = false;
+
+      if (S.pendingHref) {
+        const href = S.pendingHref;
+        S.pendingHref = null;
+        window.location.href = href;  // proceed to link
+        return;
+      }
+      if (S.leavingForReload) {
+        S.leavingForReload = false;
+        window.location.reload();     // proceed to reload
+        return;
+      }
+      if (S.leavingForBack) {
+        S.leavingForBack = false;
+        window.history.back();        // proceed with back
+        return;
+      }
+      // Fallback: no specific target; do nothing
+    });
+  }
+})();
+</script>
+
 </x-userlayout>
  
