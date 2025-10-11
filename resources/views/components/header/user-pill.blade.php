@@ -5,7 +5,7 @@
 @php
   $avatar = $user?->avatar
       ? asset('storage/avatars/' . $user->avatar)
-      : asset('storage/images/default.png');
+      : asset('storage/avatars/default.png');
 @endphp
 
 <!-- Pill -->
