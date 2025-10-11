@@ -126,14 +126,9 @@
                           </span>
 
                           @if($finalDoc)
-                              <span class="text-gray-500">    
-                                  @if($finalDoc->chapter)
-                                      <span class="text-gray-400"> {{ $finalDoc->chapter }}</span>
-                                  @endif
-                              </span>
                               {{-- quick link to the final doc if you have a route --}}
                               <a href="{{ route('documents.view', ['id' => $finalDoc->id]) }}"
-                                 class="text-indigo-600 hover:underline ml-1 font-medium text-sm">Open</a>
+                                 class="text-indigo-600 hover:underline ml-1 font-medium text-sm">View</a>
                           @endif
                       @endif
                     </div>
