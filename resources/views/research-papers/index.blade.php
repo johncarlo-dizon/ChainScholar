@@ -125,7 +125,7 @@
                                         class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="" disabled selected>Select department</option>
                                     <option value="Senior High School">Senior High School</option>
-                                    <option value="School of Computing, Information Technology and Engineering">School of Computing, IT and Engineering</option>
+                                    <option value="School of Computing, Information Technology and Engineering">School of Computing, Information Technology and Engineering</option>
                                     <option value="School of Arts, Sciences, and Education">School of Arts, Sciences, and Education</option>
                                     <option value="School of Criminal Justice">School of Criminal Justice</option>
                                     <option value="School of Tourism and Hospitality Management">School of Tourism and Hospitality</option>

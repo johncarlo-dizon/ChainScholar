@@ -57,7 +57,7 @@
 
             <div class="flex items-center gap-2">
   <a href="{{ route('announcements.create') }}"
-     class="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition">
+     class="inline-flex items-center bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition">
        New 
   </a>
 

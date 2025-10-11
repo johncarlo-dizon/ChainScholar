@@ -13,7 +13,7 @@
   <div class="flex justify-end mb-4 gap-2">
     <a
       href="{{ route('announcements.manage') }}"
-     class="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+     class="inline-flex items-center bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition"
     >
       Manage
     </a>
@@ -56,9 +56,9 @@
                 <select name="tier"
                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5"
                         required>
-                    <option value="URGENT"    {{ old('tier')==='URGENT' ? 'selected' : '' }}>URGENT (red)</option>
-                    <option value="IMPORTANT" {{ old('tier')==='IMPORTANT' ? 'selected' : '' }}>IMPORTANT (amber)</option>
-                    <option value="GENERAL"   {{ old('tier','GENERAL')==='GENERAL' ? 'selected' : '' }}>GENERAL (blue)</option>
+                    <option value="URGENT"    {{ old('tier')==='URGENT' ? 'selected' : '' }}>URGENT  </option>
+                    <option value="IMPORTANT" {{ old('tier')==='IMPORTANT' ? 'selected' : '' }}>IMPORTANT </option>
+                    <option value="GENERAL"   {{ old('tier','GENERAL')==='GENERAL' ? 'selected' : '' }}>GENERAL </option>
                 </select>
                 @error('tier') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
             </div>
