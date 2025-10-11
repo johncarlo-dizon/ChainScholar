@@ -9,6 +9,24 @@
   :user="Auth::user()"
 />
 
+@can('isAdmin')
+  <div class="flex justify-end mb-4 gap-2">
+    <a
+      href="{{ route('announcements.manage') }}"
+     class="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+    >
+      Manage
+    </a>
+    
+  <a href="{{ route('announcements.index') }}"
+     class="inline-flex items-center bg-white text-slate-800 px-4 py-2 rounded-lg shadow border border-gray-200 hover:bg-gray-100 transition">
+      View 
+  </a>
+  </div>
+@endcan
+
+
+
     <!-- Form Card -->
     <div class="bg-white rounded-xl shadow p-6">
         <form method="POST" action="{{ route('announcements.store') }}" class="space-y-5">

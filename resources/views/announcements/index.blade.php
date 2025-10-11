@@ -66,15 +66,18 @@
             @endcan
         </div>
 
-        <!-- Add New Button -->
+            <!-- Actions -->
         @can('isAdmin')
+
             <a
-                href="{{ route('announcements.create') }}"
-                class="bg-white text-slate-800 px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition font-medium border border-gray-200 whitespace-nowrap"
+              href="{{ route('announcements.manage') }}"
+             class="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
             >
-                + New Announcement
+              Manage
             </a>
+   
         @endcan
+
     </div>
 
     <!-- List -->

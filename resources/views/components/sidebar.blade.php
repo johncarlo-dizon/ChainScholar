@@ -317,7 +317,7 @@
 @if(auth()->check() && auth()->user()->isAdmin())
     <li>
         <a href="{{ route('announcements.index') }}"
-           class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+           class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.*') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
             View Announcements
             @if($announcementsCount > 0)
@@ -327,20 +327,7 @@
             @endif
         </a>
     </li>
-    <li>
-        <a href="{{ route('announcements.create') }}"
-           class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-            <i data-feather="plus-circle" class="mr-3 w-4 h-4"></i>
-            Create Announcement
-        </a>
-    </li>
-    <li>
-        <a href="{{ route('announcements.manage') }}"
-           class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.manage','announcements.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-            <i data-feather="settings" class="mr-3 w-4 h-4"></i>
-            Manage Announcements
-        </a>
-    </li>
+    
 @else
     <li>
         <a href="{{ route('announcements.index') }}"
