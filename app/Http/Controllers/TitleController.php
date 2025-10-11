@@ -56,11 +56,13 @@ class TitleController extends Controller
     public function verifyAndProceed(Request $request)
     {
         $data = $request->validate([
-            'title'        => 'required|string|max:255',
-            'authors'      => 'required|string|max:255',
-            'adviser_mode' => 'required|in:with,later',
-            'adviser_id'   => 'nullable|integer|exists:users,id',
-        ]);
+        'title'        => 'required|string|max:255',
+        'description'  => 'required|string|min:20', // <-- NEW
+        'authors'      => 'required|string|max:255',
+        'adviser_mode' => 'required|in:with,later',
+        'adviser_id'   => 'nullable|integer|exists:users,id',
+    ]);
+
 
         // If the user chose "with", enforce that the chosen user is an ADVISER
         $adviser = null;
@@ -89,11 +91,13 @@ class TitleController extends Controller
             $title = Title::create([
                 'owner_id'     => auth()->id(),
                 'title'        => $data['title'],
+                'description'  => $data['description'], // <-- NEW
                 'authors'      => $data['authors'],
                 'status'       => 'awaiting_adviser', // stays here until adviser is assigned/accepts
                 'submitted_at' => now(),
                 'verified_at'  => now(),
             ]);
+
 
             // Default chapters
             foreach (['Chapter 1','Chapter 2','Chapter 3','Chapter 4','Chapter 5'] as $chapterName) {

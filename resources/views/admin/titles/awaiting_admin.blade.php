@@ -1,8 +1,6 @@
 {{-- resources/views/admin/titles/awaiting_admin.blade.php --}}
 <x-userlayout>
 
- 
-
    <x-header.bar
   title="Waiting For Approval"
   subtitle="Review and manage pending student and adviser requests"
@@ -95,13 +93,34 @@
                             {{-- Title --}}
                             <td class="px-6 py-4 align-top">
                                 <div class="font-semibold text-gray-900">{{ $t->title }}</div>
-                                @if($t->abstract)
-                                    <div class="text-gray-500 text-xs mt-1 line-clamp-2">{{ Str::limit(strip_tags($t->abstract), 150) }}</div>
+                                
+                                {{-- Description section with modal trigger --}}
+                                @php
+                                  $description = trim((string)($t->description ?? ''));
+                                @endphp
+                                @if($description !== '')
+                                  <div class="mt-2">
+                                    <div class="text-gray-500 text-xs">
+                                      <div class="line-clamp-2">{{ Str::limit($description, 150, '…') }}</div>
+                                      <button 
+                                        type="button" 
+                                        class="text-blue-600 hover:text-blue-800 text-xs font-medium mt-1 js-view-description"
+                                        data-title="{{ $t->title }}"
+                                        data-student="{{ $t->owner->name ?? 'Student' }}"
+                                        data-description="{{ $description }}"
+                                      >
+                                        View full description →
+                                      </button>
+                                    </div>
+                                  </div>
+                                @else
+                                  <div class="mt-2 text-xs text-gray-400 italic">
+                                    No description provided.
+                                  </div>
                                 @endif
+                                
                                 <div class="mt-2">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                        awaiting_admin
-                                    </span>
+                              
                                     @if($t->finalDocument)
                                         <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-50 text-gray-700 border border-gray-200">
                                             has combined doc
@@ -116,7 +135,7 @@
                                 <div class="text-gray-500 text-xs">{{ $t->owner->email ?? '' }}</div>
                             </td>
 
-                            {{-- Adviser + “View profile” --}}
+                            {{-- Adviser + "View profile" --}}
                             <td class="px-6 py-4 align-top">
                                 @if($adv)
                                     <div class="flex items-start gap-3">
@@ -163,36 +182,28 @@
                                 @endif
                             </td>
 
-                 
-                           {{-- Actions --}}
-                        <td class="px-6 py-4 align-top">
-                        <div class="flex items-center justify-end gap-2">
-                            {{-- Approve --}}
-                            <form method="POST" action="{{ route('admin.titles.approve', $t) }}"
-                                onsubmit="return confirm('Approve this adviser assignment and unlock editing for the student?');">
-                            @csrf
-                           {{-- Approve (opens modal) --}}
-<button type="button"
-    class="inline-flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 whitespace-nowrap"
-    data-open-approve
-    data-url="{{ route('admin.titles.approve', $t) }}"
-    data-title="{{ $t->title }}">
-    Approve
-</button>
+                            {{-- Actions --}}
+                            <td class="px-6 py-4 align-top">
+                                <div class="flex items-center justify-end gap-2">
+                                    {{-- Approve (opens modal) --}}
+                                    <button type="button"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 whitespace-nowrap"
+                                        data-open-approve
+                                        data-url="{{ route('admin.titles.approve', $t) }}"
+                                        data-title="{{ $t->title }}">
+                                        Approve
+                                    </button>
 
-                            </form>
-
-                            {{-- Return (opens modal) --}}
-                            <button type="button"
-                            class="inline-flex items-center px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 whitespace-nowrap"
-                            data-open-return
-                            data-url="{{ route('admin.titles.return', $t) }}"
-                            data-title="{{ $t->title }}">
-                            Return
-                            </button>
-                        </div>
-                        </td>
-
+                                    {{-- Return (opens modal) --}}
+                                    <button type="button"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 whitespace-nowrap"
+                                        data-open-return
+                                        data-url="{{ route('admin.titles.return', $t) }}"
+                                        data-title="{{ $t->title }}">
+                                        Return
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     @empty
                         <tr>
@@ -212,12 +223,42 @@
         @endif
     </div>
 
+    <!-- Description View Modal -->
+    <div id="description-modal" class="fixed inset-0 hidden items-center justify-center z-50">
+      <div id="description-overlay" class="absolute inset-0 bg-black/50"></div>
+      <div class="relative bg-white rounded-xl shadow-lg max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col z-10 overflow-hidden">
+        <div class="flex items-center justify-between p-6 border-b border-gray-200">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900" id="description-modal-title">Title Description</h3>
+            <p class="text-sm text-gray-600 mt-1" id="description-modal-subtitle"></p>
+          </div>
+          <button type="button" id="description-close" class="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-6">
+          <div class="prose max-w-none">
+            <p class="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed" id="description-modal-content"></p>
+          </div>
+        </div>
+        
+        <div class="flex justify-end p-6 border-t border-gray-200 bg-gray-50">
+          <button type="button" id="description-close-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
     {{-- ===== Adviser Profile Modal (single instance, reused) ===== --}}
     <div id="admin-adv-modal" class="fixed inset-0 hidden z-50">
         <div class="absolute inset-0 bg-black/40"></div>
         <div class="absolute inset-0 flex items-center justify-center p-4">
             <div class="w-full max-w-2xl rounded-xl bg-white shadow-lg">
-                <div class="px-5 py-4 border-b flex items-center justify-between">
+                <div class="px-5 py-4 border-b border-gray-300 flex items-center justify-between">
                     <h3 class="text-base font-semibold text-gray-900">Adviser Profile</h3>
                     <button type="button" class="text-gray-500 hover:text-gray-700" data-action="close-adv-modal">
                         ✕
@@ -236,28 +277,28 @@
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div class="rounded-lg bg-gray-50 border p-3">
+                        <div class="rounded-lg bg-gray-50 border border-gray-300 p-3">
                             <div class="text-xs text-gray-500">Highest Degree</div>
                             <div id="advm-degree" class="text-sm font-medium text-gray-800">—</div>
                         </div>
-                        <div class="rounded-lg bg-gray-50 border p-3">
+                        <div class="rounded-lg bg-gray-50 border border-gray-300 p-3">
                             <div class="text-xs text-gray-500">Advisory Years</div>
                             <div id="advm-years" class="text-sm font-medium text-gray-800">—</div>
                         </div>
-                        <div class="rounded-lg bg-gray-50 border p-3">
+                        <div class="rounded-lg bg-gray-50 border border-gray-300 p-3">
                             <div class="text-xs text-gray-500">Projects Handled</div>
                             <div id="advm-projects" class="text-sm font-medium text-gray-800">—</div>
                         </div>
                     </div>
 
-                    <div class="rounded-lg bg-gray-50 border p-3">
+                    <div class="rounded-lg bg-gray-50 border border-gray-300 p-3">
                         <div class="text-xs text-gray-500 mb-1">Research Interests</div>
                         <div id="advm-interests" class="flex flex-wrap gap-2">
                             <span class="text-xs text-gray-400 italic">—</span>
                         </div>
                     </div>
 
-                    <div class="rounded-lg bg-gray-50 border p-3">
+                    <div class="rounded-lg bg-gray-50 border border-gray-300 p-3">
                         <div class="flex items-center justify-between">
                             <div class="text-sm font-semibold text-gray-800">Major Achievements</div>
                             <button type="button" class="text-xs text-blue-600 hover:underline" id="advm-toggle-ach" aria-expanded="true">
@@ -269,13 +310,13 @@
                         </ul>
                     </div>
 
-                    <div class="rounded-lg bg-gray-50 border p-3">
+                    <div class="rounded-lg bg-gray-50 border border-gray-300 p-3">
                         <div class="text-xs text-gray-500 mb-1">Notes / Bio</div>
                         <p id="advm-notes" class="text-sm text-gray-700">—</p>
                     </div>
                 </div>
 
-                <div class="px-5 py-3 border-t flex justify-end">
+                <div class="px-5 py-3 border-t border-gray-300 flex justify-end">
                     <button type="button" class="px-4 py-2 rounded-md border text-gray-700 hover:bg-gray-50"
                             data-action="close-adv-modal">Close</button>
                 </div>
@@ -283,173 +324,225 @@
         </div>
     </div>
 
-
-
-
     {{-- ===== Return Modal (reused for all rows) ===== --}}
-<div id="return-modal" class="fixed inset-0 hidden z-50">
-  <div class="absolute inset-0 bg-black/40" data-close-return></div>
+    <div id="return-modal" class="fixed inset-0 hidden z-50">
+      <div class="absolute inset-0 bg-black/40" data-close-return></div>
 
-  <div class="absolute inset-0 flex items-center justify-center p-4">
-    <div class="w-full max-w-md rounded-xl bg-white shadow-lg">
-      <div class="px-5 pt-2 border-b border-gray-200 flex items-center justify-between">
-        <h3 class="text-base font-semibold text-gray-900">
-          Send Back to Student
-        </h3>
-        <button type="button" class="text-gray-500 hover:text-gray-700" data-close-return>✕</button>
+      <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="w-full max-w-md rounded-xl bg-white shadow-lg">
+          <div class="px-5 pt-2 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-base font-semibold text-gray-900">
+              Send Back to Student
+            </h3>
+            <button type="button" class="text-gray-500 hover:text-gray-700" data-close-return>✕</button>
+          </div>
+
+          <form id="return-form" method="POST" action="#">
+            @csrf
+            <div class="p-5 space-y-2">
+              <div class="rounded-md bg-yellow-50 border border-yellow-200 text-yellow-900 text-xs px-3 py-2">
+                <span class="font-semibold">Waiting for: Admin approval</span> • You can include a note before sending back.
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Reason (optional)
+                </label>
+                <textarea name="reason" rows="4"
+                  class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+                  placeholder="What needs to be revised?"></textarea>
+              </div>
+
+              <div class="text-xs text-gray-500" id="return-context">Title: —</div>
+            </div>
+
+            <div class="px-5 py-3 border-t border-gray-200 flex justify-end gap-2">
+              <button type="button" class="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50" data-close-return>
+                Cancel
+              </button>
+              <button type="submit" class="px-3 py-1.5 text-xs rounded-md bg-red-600 text-white font-semibold hover:bg-red-700">
+                Send Back
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-
-      <form id="return-form" method="POST" action="#">
-        @csrf
-        <div class="p-5 space-y-2">
-          <div class="rounded-md bg-yellow-50 border border-yellow-200 text-yellow-900 text-xs px-3 py-2">
-            <span class="font-semibold">Waiting for: Admin approval</span> • You can include a note before sending back.
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Reason (optional)
-            </label>
-            <textarea name="reason" rows="4"
-              class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-              placeholder="What needs to be revised?"></textarea>
-          </div>
-
-          <div class="text-xs text-gray-500" id="return-context">Title: —</div>
-        </div>
-
-        <div class="px-5 py-3 border-t border-gray-200 flex justify-end gap-2">
-          <button type="button" class="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50" data-close-return>
-            Cancel
-          </button>
-          <button type="submit" class="px-3 py-1.5 text-xs rounded-md bg-red-600 text-white font-semibold hover:bg-red-700">
-            Send Back
-          </button>
-        </div>
-      </form>
     </div>
-  </div>
-</div>
 
+    {{-- ===== Approve Modal (reused for all rows) ===== --}}
+    <div id="approve-modal" class="fixed inset-0 hidden z-50">
+      <div class="absolute inset-0 bg-black/40" data-close-approve></div>
 
+      <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="w-full max-w-md rounded-xl bg-white shadow-lg">
+          <div class="px-5 pt-2 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-base font-semibold text-gray-900">
+              Approve Adviser Assignment
+            </h3>
+            <button type="button" class="text-gray-500 hover:text-gray-700" data-close-approve>✕</button>
+          </div>
 
+          <form id="approve-form" method="POST" action="#">
+            @csrf
+            <div class="p-5 space-y-3">
+              <div class="rounded-md bg-green-50 border border-green-200 text-green-900 text-xs px-3 py-2">
+                <span class="font-semibold">Action:</span> Approve this adviser assignment and unlock editing for the student.
+              </div>
 
-{{-- ===== Approve Modal (reused for all rows) ===== --}}
-<div id="approve-modal" class="fixed inset-0 hidden z-50">
-  <div class="absolute inset-0 bg-black/40" data-close-approve></div>
+              <div class="text-sm text-gray-700">
+                Are you sure you want to approve <span class="font-semibold">this title</span>?
+              </div>
+              <div class="text-xs text-gray-500" id="approve-context">Title: —</div>
+            </div>
 
-  <div class="absolute inset-0 flex items-center justify-center p-4">
-    <div class="w-full max-w-md rounded-xl bg-white shadow-lg">
-      <div class="px-5 pt-2 border-b border-gray-200 flex items-center justify-between">
-        <h3 class="text-base font-semibold text-gray-900">
-          Approve Adviser Assignment
-        </h3>
-        <button type="button" class="text-gray-500 hover:text-gray-700" data-close-approve>✕</button>
+            <div class="px-5 py-3 border-t border-gray-200 flex justify-end gap-2">
+              <button type="button" class="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50" data-close-approve>
+                Cancel
+              </button>
+              <button type="submit" class="px-3 py-1.5 text-xs rounded-md bg-green-600 text-white font-semibold hover:bg-green-700">
+                Confirm Approve
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-
-      <form id="approve-form" method="POST" action="#">
-        @csrf
-        <div class="p-5 space-y-3">
-          <div class="rounded-md bg-green-50 border border-green-200 text-green-900 text-xs px-3 py-2">
-            <span class="font-semibold">Action:</span> Approve this adviser assignment and unlock editing for the student.
-          </div>
-
-          <div class="text-sm text-gray-700">
-            Are you sure you want to approve <span class="font-semibold">this title</span>?
-          </div>
-          <div class="text-xs text-gray-500" id="approve-context">Title: —</div>
-        </div>
-
-        <div class="px-5 py-3 border-t border-gray-200 flex justify-end gap-2">
-          <button type="button" class="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50" data-close-approve>
-            Cancel
-          </button>
-          <button type="submit" class="px-3 py-1.5 text-xs rounded-md bg-green-600 text-white font-semibold hover:bg-green-700">
-            Confirm Approve
-          </button>
-        </div>
-      </form>
     </div>
-  </div>
-</div>
 
-
-<script>
-(function () {
-  const modal = document.getElementById('approve-modal');
-  const form  = document.getElementById('approve-form');
-  const ctx   = document.getElementById('approve-context');
-
-  function openApprove(url, title) {
-    form.setAttribute('action', url);
-    ctx.textContent = 'Title: ' + (title || '—');
-    modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
-  }
-  function closeApprove() {
-    modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
-    // no inputs to reset, but keep symmetrical with return modal
-  }
-
-  document.addEventListener('click', (e) => {
-    const openBtn = e.target.closest('[data-open-approve]');
-    if (openBtn) {
-      openApprove(openBtn.dataset.url, openBtn.dataset.title);
+    <style>
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
-    if (e.target.matches('[data-close-approve]')) {
-      closeApprove();
-    }
-  });
+    </style>
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeApprove();
-  });
-})();
-</script>
-
-
-<script>
-(function () {
-  const modal   = document.getElementById('return-modal');
-  const form    = document.getElementById('return-form');
-  const ctx     = document.getElementById('return-context');
-
-  function openReturn(url, title) {
-    form.setAttribute('action', url);
-    ctx.textContent = 'Title: ' + (title || '—');
-    modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
-  }
-  function closeReturn() {
-    modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
-    form.reset();
-  }
-
-  document.addEventListener('click', (e) => {
-    // open buttons
-    const openBtn = e.target.closest('[data-open-return]');
-    if (openBtn) {
-      openReturn(openBtn.dataset.url, openBtn.dataset.title);
-    }
-    // close (overlay or buttons)
-    if (e.target.matches('[data-close-return]')) {
-      closeReturn();
-    }
-  });
-
-  // ESC closes
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeReturn();
-  });
-})();
-</script>
-
-
-
-    {{-- ===== Modal JS (event delegation; no duplicate IDs per row) ===== --}}
     <script>
+    // Description Modal functionality
+    (function() {
+      const modal = document.getElementById('description-modal');
+      const overlay = document.getElementById('description-overlay');
+      const closeBtn = document.getElementById('description-close');
+      const closeBtn2 = document.getElementById('description-close-btn');
+      const titleEl = document.getElementById('description-modal-title');
+      const subtitleEl = document.getElementById('description-modal-subtitle');
+      const contentEl = document.getElementById('description-modal-content');
+
+      function openDescription(title, student, description) {
+        titleEl.textContent = title;
+        subtitleEl.textContent = `Owner: ${student}`;
+        contentEl.textContent = description;
+        
+        // Ensure modal is in body
+        if (modal.parentElement !== document.body) {
+          document.body.appendChild(modal);
+        }
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+      }
+
+      function closeDescription() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = ''; // Restore scrolling
+      }
+
+      // Open via view description buttons
+      document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.js-view-description');
+        if (!btn) return;
+        e.preventDefault();
+        
+        const title = btn.dataset.title || 'Untitled';
+        const student = btn.dataset.student || 'Student';
+        const description = btn.dataset.description || 'No description available.';
+        
+        openDescription(title, student, description);
+      });
+
+      // Close handlers
+      closeBtn && closeBtn.addEventListener('click', closeDescription);
+      closeBtn2 && closeBtn2.addEventListener('click', closeDescription);
+      overlay && overlay.addEventListener('click', closeDescription);
+      
+      // ESC key close
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+          closeDescription();
+        }
+      });
+    })();
+
+    // Existing modal scripts (approve/return/adviser profile) remain the same...
+    (function () {
+      const modal = document.getElementById('approve-modal');
+      const form  = document.getElementById('approve-form');
+      const ctx   = document.getElementById('approve-context');
+
+      function openApprove(url, title) {
+        form.setAttribute('action', url);
+        ctx.textContent = 'Title: ' + (title || '—');
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+      }
+      function closeApprove() {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+      }
+
+      document.addEventListener('click', (e) => {
+        const openBtn = e.target.closest('[data-open-approve]');
+        if (openBtn) {
+          openApprove(openBtn.dataset.url, openBtn.dataset.title);
+        }
+        if (e.target.matches('[data-close-approve]')) {
+          closeApprove();
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeApprove();
+      });
+    })();
+
+    (function () {
+      const modal   = document.getElementById('return-modal');
+      const form    = document.getElementById('return-form');
+      const ctx     = document.getElementById('return-context');
+
+      function openReturn(url, title) {
+        form.setAttribute('action', url);
+        ctx.textContent = 'Title: ' + (title || '—');
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+      }
+      function closeReturn() {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        form.reset();
+      }
+
+      document.addEventListener('click', (e) => {
+        // open buttons
+        const openBtn = e.target.closest('[data-open-return]');
+        if (openBtn) {
+          openReturn(openBtn.dataset.url, openBtn.dataset.title);
+        }
+        // close (overlay or buttons)
+        if (e.target.matches('[data-close-return]')) {
+          closeReturn();
+        }
+      });
+
+      // ESC closes
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeReturn();
+      });
+    })();
+
+    // Adviser Profile Modal JS
     (function(){
         const modal = document.getElementById('admin-adv-modal');
         const $ = (id) => document.getElementById(id);
@@ -555,5 +648,4 @@
         });
     })();
     </script>
-
 </x-userlayout>

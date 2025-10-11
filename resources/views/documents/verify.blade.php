@@ -25,6 +25,28 @@
         >
       </div>
 
+
+      <!-- NEW: Title Description -->
+<!-- NEW: Title Description (shown only AFTER verification passes) -->
+<div id="description-box" class="mb-5 sm:mb-6 hidden">
+  <label for="description" class="block mb-2 font-bold text-blue-600 text-sm sm:text-base">
+    Title Description
+  </label>
+  <textarea
+    name="description"
+    id="description"
+    rows="4"
+    class="w-full border border-gray-300 rounded-md px-3 sm:px-4 py-2.5 sm:py-3 text-base sm:text-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
+    placeholder="Briefly describe what the research is about (scope, population/context, method, expected contribution)"
+    disabled
+  ></textarea>
+  <p class="text-xs text-gray-500 mt-1">
+    Provide a concise summary (e.g., 2–4 sentences) so advisers can quickly understand your study.
+  </p>
+</div>
+
+
+
       <!-- Buttons Row -->
       <div class="mb-4 sm:mb-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <!-- Verify -->
@@ -491,6 +513,25 @@ function showDecisionBlock(show){
   if (show) dec.classList.remove('hidden'); else dec.classList.add('hidden');
 }
 
+function showDescriptionField(show){
+  const box = document.getElementById('description-box');
+  const desc = document.getElementById('description');
+  if (!box || !desc) return;
+
+  if (show) {
+    box.classList.remove('hidden');
+    desc.disabled = false;
+    desc.setAttribute('required','required');
+  } else {
+    box.classList.add('hidden');
+    desc.disabled = true;
+    desc.removeAttribute('required');
+    // Optional: clear value if you want
+    // desc.value = '';
+  }
+}
+
+
 function showSectionsForMode(mode){
   const advBox = document.getElementById('adviser-box');
   const advSel = document.getElementById('adviser_id');
@@ -520,25 +561,35 @@ function getSelectedMode(){
   return 'with'; // default
 }
 
+document.addEventListener('input', (e) => {
+  if (e.target && (e.target.id === 'adviser_id' || e.target.id === 'authors' || e.target.id === 'description')) {
+    updateProceedButton();
+  }
+});
+
+
 function updateProceedButton(){
   const btn   = document.getElementById('proceed-btn');
   const adv   = document.getElementById('adviser_id');
   const auth  = document.getElementById('authors');
+  const desc  = document.getElementById('description');
   const passed = (window.passedInternal && window.passedExternal);
 
   const mode = getSelectedMode();
   if (passed) {
-    showDecisionBlock(true);       // show radio buttons (with adviser / later)
-    showSectionsForMode(mode);     // show the right inputs
+    showDecisionBlock(true);
+    showSectionsForMode(mode);
   } else {
-    showDecisionBlock(false);      // hide radios until they pass verification
+    showDecisionBlock(false);
   }
 
   const authorsOk = auth ? (auth.value && auth.value.trim().length > 0) : true;
   const adviserOk = (mode === 'later') ? true : (adv ? (adv.value && adv.value !== '') : true);
+  const descOk    = desc ? (desc.value && desc.value.trim().length > 0) : true; // required by HTML too
 
-  btn.disabled = !(passed && authorsOk && adviserOk);
+  btn.disabled = !(passed && authorsOk && adviserOk && descOk);
 }
+
 
 // React when user switches mode
 document.addEventListener('change', (e) => {
@@ -689,6 +740,9 @@ async function startVerification(event){
   closeAIPanel();
   enableAIToggle(false);
   setAIHeading(true); // default
+  // Hide description until checks pass
+showDescriptionField(false);
+
 
   const title = document.getElementById('title').value.trim();
   if (title.length < 5){
@@ -831,10 +885,15 @@ if (positiveResults.length) {
   // NEW: external pass stored using 50% threshold
   window.passedExternal = externalApproved;
 
-  const finalPass = (window.passedInternal && window.passedExternal);
-  toggleRejectHint(!finalPass);
+ const finalPass = (window.passedInternal && window.passedExternal);
+toggleRejectHint(!finalPass);
 
-  updateProceedButton();
+// Show/Hide Description field based on verification
+showDescriptionField(finalPass);
+
+// Recompute Proceed enablement after toggling description
+updateProceedButton();
+
 
 
 

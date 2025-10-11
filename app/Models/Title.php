@@ -9,6 +9,7 @@ class Title extends Model
     protected $fillable = [
         'owner_id',
         'title',
+        'description', 
         'authors',
         'abstract',
         'keywords',

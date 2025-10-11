@@ -94,6 +94,53 @@
   </div>
 </div>
 
+{{-- ABSTRACT (Fixed Height - Tailwind Only) --}}
+@php
+  $abs = trim((string)($document->titleRelation->abstract ?? ''));
+  $hasAbstract = $abs !== '';
+@endphp
+<div class="mt-6" role="region" aria-labelledby="abstract-heading">
+  <h3 id="abstract-heading" class="font-semibold text-gray-900 text-base mb-3 flex items-center gap-2">
+    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    Abstract
+    @if($hasAbstract)
+      <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+        {{ str_word_count($abs) }} words
+      </span>
+    @endif
+  </h3>
+  
+  <div class="border border-gray-300 rounded-lg bg-white shadow-sm overflow-hidden h-48">
+    @if($hasAbstract)
+      <div class="h-40 overflow-y-auto p-4 text-gray-700 leading-relaxed text-sm
+                  scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100
+                  hover:scrollbar-thumb-gray-400" style="height: 300px;"
+           tabindex="0"
+           aria-label="Abstract content - scrollable area"
+           role="textbox"
+           aria-readonly="true">
+        <div class="whitespace-pre-wrap break-words">
+          {{ $abs }}
+        </div>
+      </div>
+    @else
+      <div class="h-48 flex items-center justify-center text-gray-500 italic p-4">
+        <div class="text-center">
+          <svg class="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <p class="text-sm">No abstract provided</p>
+        </div>
+      </div>
+    @endif
+  </div>
+  
+  
+</div>
+
+
 </div>
 
                     </div>
