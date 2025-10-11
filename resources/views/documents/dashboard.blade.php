@@ -1,28 +1,13 @@
 <x-userlayout>
     <div class="container mx-auto">
         <!-- Header / Hero -->
-<div
-  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
-  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
->
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-    <div class="flex items-center gap-6 flex-1">
-      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">
-        Research Library
-      </h2>
-    </div>
-
-    <div class="hidden md:block text-right shrink-0">
-      <span class="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-white/10 text-white">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M8 7V3m8 4V3m-9 8h10m-8 4h6M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2h-2M7 5H5a2 2 0 00-2 2v12a2 2 0 002 2h2"/>
-        </svg>
-        Tip: Press <kbd class="px-1.5 py-0.5 bg-white/20 rounded">/</kbd> to search
-      </span>
-    </div>
-  </div>
-</div>
+<x-header.bar
+  title="Research Library"
+  subtitle="Your collection of academic resources"
+  :unread-count="$unreadCount ?? 0"
+  :notifications="$notifications ?? collect()"
+  :user="Auth::user()"
+/>
 
 
 

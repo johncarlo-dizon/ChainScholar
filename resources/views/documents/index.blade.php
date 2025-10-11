@@ -1,16 +1,11 @@
 <x-userlayout>
-
-  <div
-  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
-  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
->
-  <div class="flex items-start justify-between gap-6">
-    <div>
-      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">Approved Titles</h2>
-    </div>
-   
-  </div>
-</div>
+<x-header.bar
+  title="Approved Titles"
+  subtitle="Research titles approved for development"
+  :unread-count="$unreadCount ?? 0"
+  :notifications="$notifications ?? collect()"
+  :user="Auth::user()"
+/>
 
     <div class="container mx-auto px-4 mt-4">
  

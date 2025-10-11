@@ -1,21 +1,12 @@
 <x-userlayout>
     <!-- Page Header -->
-    <div
-  class="rounded-2xl shadow-lg mb-6 flex items-center justify-between text-white"
-  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
->
-  <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">Announcements</h1>
-
-  @can('isAdmin')
-    <a
-      href="{{ route('announcements.create') }}"
-      class="bg-white text-slate-800 px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition font-medium"
-    >
-      + New Announcement
-    </a>
-  @endcan
-</div>
-
+    <x-header.bar
+      title="Announcements"
+      subtitle="View important updates and platform notifications"
+      :unread-count="$unreadCount ?? 0"
+      :notifications="$notifications ?? collect()"
+      :user="Auth::user()"
+    />
 
     <!-- Success Alert -->
     @if(session('success'))
@@ -24,53 +15,67 @@
         </div>
     @endif
 
-    <!-- Filters -->
-    @php
-        $activeTier = request('tier');
-        $activeAud  = request('audience');
-        $tierChips = [
-            'ALL'       => ['label' => 'All Tiers', 'q' => null],
-            'URGENT'    => ['label' => 'Urgent',    'q' => 'URGENT'],
-            'IMPORTANT' => ['label' => 'Important', 'q' => 'IMPORTANT'],
-            'GENERAL'   => ['label' => 'General',   'q' => 'GENERAL'],
-        ];
-        $audChips = [
-            'ALL'     => ['label' => 'Everyone', 'q' => 'ALL'],
-            'STUDENT' => ['label' => 'Students', 'q' => 'STUDENT'],
-            'ADVISER' => ['label' => 'Advisers', 'q' => 'ADVISER'],
-            'ADMIN'   => ['label' => 'Admins',   'q' => 'ADMIN'],
-        ];
-    @endphp
-
-    <div class="mb-4 flex flex-wrap items-center gap-2">
-        @foreach($tierChips as $key => $opt)
+    <!-- Filters and Actions Row -->
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <!-- Filters -->
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Tier Filters -->
             @php
-                $isActive = ($activeTier === $opt['q']) || ($key === 'ALL' && $activeTier === null);
-                $url = $opt['q'] ? request()->fullUrlWithQuery(['tier' => $opt['q']]) : route('announcements.index');
-                $base = 'px-3 py-1.5 rounded-full text-sm border';
-                $active = 'bg-blue-600 text-white border-blue-600';
-                $idle = 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+                $activeTier = request('tier');
+                $tierChips = [
+                    'ALL'       => ['label' => 'All Tiers', 'q' => null],
+                    'URGENT'    => ['label' => 'Urgent',    'q' => 'URGENT'],
+                    'IMPORTANT' => ['label' => 'Important', 'q' => 'IMPORTANT'],
+                    'GENERAL'   => ['label' => 'General',   'q' => 'GENERAL'],
+                ];
             @endphp
-            <a href="{{ $url }}" class="{{ $base }} {{ $isActive ? $active : $idle }}">{{ $opt['label'] }}</a>
-        @endforeach
-    </div>
-
-    @can('isAdmin')
-        <div class="mb-6 flex flex-wrap items-center gap-2">
-            @foreach($audChips as $key => $opt)
+            @foreach($tierChips as $key => $opt)
                 @php
-                    $isActive = ($activeAud === $opt['q']) || ($key === 'ALL' && $activeAud === null);
-                    $url = $opt['q'] ? request()->fullUrlWithQuery(['audience' => $opt['q']]) : route('announcements.index');
+                    $isActive = ($activeTier === $opt['q']) || ($key === 'ALL' && $activeTier === null);
+                    $url = $opt['q'] ? request()->fullUrlWithQuery(['tier' => $opt['q']]) : route('announcements.index');
                     $base = 'px-3 py-1.5 rounded-full text-sm border';
-                    $active = 'bg-gray-900 text-white border-gray-900';
+                    $active = 'bg-blue-600 text-white border-blue-600';
                     $idle = 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
                 @endphp
-                <a href="{{ $url }}" class="{{ $base }} {{ $isActive ? $active : $idle }}">
-                    {{ $opt['label'] }}
-                </a>
+                <a href="{{ $url }}" class="{{ $base }} {{ $isActive ? $active : $idle }}">{{ $opt['label'] }}</a>
             @endforeach
+
+            <!-- Audience Filters (Admin only) -->
+            @can('isAdmin')
+                @php
+                    $activeAud = request('audience');
+                    $audChips = [
+                        'ALL'     => ['label' => 'Everyone', 'q' => 'ALL'],
+                        'STUDENT' => ['label' => 'Students', 'q' => 'STUDENT'],
+                        'ADVISER' => ['label' => 'Advisers', 'q' => 'ADVISER'],
+                        'ADMIN'   => ['label' => 'Admins',   'q' => 'ADMIN'],
+                    ];
+                @endphp
+                @foreach($audChips as $key => $opt)
+                    @php
+                        $isActive = ($activeAud === $opt['q']) || ($key === 'ALL' && $activeAud === null);
+                        $url = $opt['q'] ? request()->fullUrlWithQuery(['audience' => $opt['q']]) : route('announcements.index');
+                        $base = 'px-3 py-1.5 rounded-full text-sm border';
+                        $active = 'bg-gray-900 text-white border-gray-900';
+                        $idle = 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+                    @endphp
+                    <a href="{{ $url }}" class="{{ $base }} {{ $isActive ? $active : $idle }}">
+                        {{ $opt['label'] }}
+                    </a>
+                @endforeach
+            @endcan
         </div>
-    @endcan
+
+        <!-- Add New Button -->
+        @can('isAdmin')
+            <a
+                href="{{ route('announcements.create') }}"
+                class="bg-white text-slate-800 px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition font-medium border border-gray-200 whitespace-nowrap"
+            >
+                + New Announcement
+            </a>
+        @endcan
+    </div>
 
     <!-- List -->
     <div class="space-y-6">
@@ -133,7 +138,6 @@
     <div class="mt-6">
         {{ $announcements->links() }}
     </div>
-
 
     <!-- Global Delete Modal -->
 <div id="delete-modal" class="fixed inset-0 hidden items-center justify-center z-50">

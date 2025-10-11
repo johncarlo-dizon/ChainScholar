@@ -1,42 +1,22 @@
 <x-userlayout>
     <!-- Header -->
- <div
-  class="rounded-2xl shadow-lg text-white mb-6"
-  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
->
-  <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-    <div>
-      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">{{ $title->title }}</h2>
+<x-header.bar
+  title="{{ $title->title }}"
+  subtitle="Authors: {{ $title->authors }}"
+  :unread-count="$unreadCount ?? 0"
+  :notifications="$notifications ?? collect()"
+  :user="Auth::user()"
+/>
 
-      <div class="mt-2 text-sm text-gray-300">
-        Authors: <span class="font-semibold text-white">{{ $title->authors }}</span>
-      </div>
-
-      <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-        @if($title->status)
-          <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-gray-800 ring-1 ring-emerald-200">
-            {{ $title->status }}
-          </span>
-        @endif
-
-        @if($title->adviser_assigned_at)
-          <span class="text-gray-400">
-            Assigned {{ $title->adviser_assigned_at->diffForHumans() }}
-          </span>
-        @endif
-      </div>
-    </div>
-
-    <div class="md:text-right">
-      <a
+<div class="pb-3">
+ <a
         href="{{ route('adviser.advised.index') }}"
-        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 text-white text-sm hover:bg-white/20 transition"
+        class="inline-flex items-center gap-1.5 px-3 py-2 text-gray-500  rounded-lg bg-white   text-sm hover:bg-white/20 transition shadow"
       >
         ← Back to list
       </a>
-    </div>
-  </div>
 </div>
+
 
 
     <!-- Chapters -->

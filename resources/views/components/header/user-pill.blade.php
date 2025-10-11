@@ -53,7 +53,7 @@
 
     <!-- Logout Button -->
     <button type="button"
-            class="w-full rounded-lg bg-red-600 text-white px-4 py-2.5 hover:bg-red-700 transition font-medium text-sm shadow-sm mt-4"
+            class="w-full rounded-lg text-red-600 bg-white px-4 py-2.5 hover:text-red-700 transition font-medium text-sm border border-gray-300 mt-4"
             id="profileLogoutBtn">
       Logout
     </button>

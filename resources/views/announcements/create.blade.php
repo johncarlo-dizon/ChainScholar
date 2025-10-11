@@ -1,17 +1,13 @@
 <x-userlayout>
     <!-- Page Header -->
   
-    <div
-  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
-  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
->
-  <div class="flex items-start justify-between gap-6">
-    <div>
-      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">Create Announcement</h2>
-    </div>
-   
-  </div>
-</div>
+   <x-header.bar
+  title="Create Announcement"
+  subtitle="Post new announcements and updates for users"
+  :unread-count="$unreadCount ?? 0"
+  :notifications="$notifications ?? collect()"
+  :user="Auth::user()"
+/>
 
     <!-- Form Card -->
     <div class="bg-white rounded-xl shadow p-6">

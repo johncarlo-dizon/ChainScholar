@@ -3,17 +3,13 @@
      
 
 
-    <div
-  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
-  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
->
-  <div class="flex items-start justify-between gap-6">
-    <div>
-      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">Adviser Profile</h2>
-    </div>
-   
-  </div>
-</div>
+  <x-header.bar
+  title="Adviser Background"
+  subtitle="Academic profile, expertise, and research background"
+  :unread-count="$unreadCount ?? 0"
+  :notifications="$notifications ?? collect()"
+  :user="Auth::user()"
+/>
 
     <div class="container mx-auto px-3 sm:px-4 py-6 sm:py-8 bg-white mt-5 sm:mt-7 shadow rounded-xl">
         @if (session('status'))

@@ -1,17 +1,13 @@
 <x-userlayout>
     <!-- Page Header -->
    
-    <div
-  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
-  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
->
-  <div class="flex items-start justify-between gap-6">
-    <div>
-      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">Manage Announcements</h2>
-    </div>
-   
-  </div>
-</div>
+   <x-header.bar
+  title="Manage Announcements"
+  subtitle="Administrative control for all system announcements"
+  :unread-count="$unreadCount ?? 0"
+  :notifications="$notifications ?? collect()"
+  :user="Auth::user()"
+/>
 
     <!-- Top Bar: Create + Filters -->
     <div class="mb-6 flex items-center justify-between gap-3 flex-wrap">

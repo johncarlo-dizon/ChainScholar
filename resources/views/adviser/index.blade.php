@@ -1,16 +1,12 @@
 <x-userlayout>
      
-    <div
-  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
-  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
->
-  <div class="flex items-start justify-between gap-6">
-    <div>
-      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">Adviser Dashboard</h2>
-    </div>
-   
-  </div>
-</div>
+ <x-header.bar
+  title="Dashboard"
+  :subtitle="'Welcome back, ' . (Auth::user()->name ?? 'User') . '!'"
+  :unread-count="$unreadCount ?? 0"
+  :notifications="$notifications ?? collect()"
+  :user="Auth::user()"
+/>
 
     <div class="container mx-auto px-4 py-6 grid md:grid-cols-3 gap-4">
         <a href="{{ route('adviser.requests.pending') }}" class="block bg-white p-5 rounded-xl shadow hover:shadow-md">
