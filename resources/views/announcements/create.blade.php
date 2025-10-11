@@ -51,31 +51,35 @@
             </div>
 
             <!-- Tier -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Tier</label>
-                <select name="tier"
-                        class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5"
-                        required>
-                    <option value="URGENT"    {{ old('tier')==='URGENT' ? 'selected' : '' }}>URGENT  </option>
-                    <option value="IMPORTANT" {{ old('tier')==='IMPORTANT' ? 'selected' : '' }}>IMPORTANT </option>
-                    <option value="GENERAL"   {{ old('tier','GENERAL')==='GENERAL' ? 'selected' : '' }}>GENERAL </option>
-                </select>
-                @error('tier') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
-            </div>
+      <!-- Tier -->
+<div>
+  <label class="block text-sm font-medium text-gray-700 mb-1">Tier</label>
+  <select name="tier"
+          class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5"
+          required>
+    <option value="" disabled {{ old('tier') ? '' : 'selected' }}>— Select Tier —</option>
+    <option value="URGENT"    {{ old('tier')==='URGENT' ? 'selected' : '' }}>URGENT</option>
+    <option value="IMPORTANT" {{ old('tier')==='IMPORTANT' ? 'selected' : '' }}>IMPORTANT</option>
+    <option value="GENERAL"   {{ old('tier')==='GENERAL' ? 'selected' : '' }}>GENERAL</option>
+  </select>
+  @error('tier') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+</div>
 
-            <!-- Audience -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Audience</label>
-                <select name="audience"
-                        class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5"
-                        required>
-                    <option value="ALL"     {{ old('audience','ALL')==='ALL' ? 'selected' : '' }}>Everyone</option>
-                    <option value="STUDENT" {{ old('audience')==='STUDENT' ? 'selected' : '' }}>Students</option>
-                    <option value="ADVISER" {{ old('audience')==='ADVISER' ? 'selected' : '' }}>Advisers</option>
-                    <option value="ADMIN"   {{ old('audience')==='ADMIN' ? 'selected' : '' }}>Admins</option>
-                </select>
-                @error('audience') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
-            </div>
+<!-- Audience -->
+<div>
+  <label class="block text-sm font-medium text-gray-700 mb-1">Audience</label>
+  <select name="audience"
+          class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5"
+          required>
+    <option value="" disabled {{ old('audience') ? '' : 'selected' }}>— Select Audience —</option>
+    <option value="ALL"     {{ old('audience')==='ALL' ? 'selected' : '' }}>Everyone</option>
+    <option value="STUDENT" {{ old('audience')==='STUDENT' ? 'selected' : '' }}>Students</option>
+    <option value="ADVISER" {{ old('audience')==='ADVISER' ? 'selected' : '' }}>Advisers</option>
+    <option value="ADMIN"   {{ old('audience')==='ADMIN' ? 'selected' : '' }}>Admins</option>
+  </select>
+  @error('audience') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+</div>
+
 
             <!-- Event Date -->
             <div>

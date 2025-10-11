@@ -55,6 +55,10 @@
                 <select name="tier"
                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5"
                         required>
+                            <option value="" disabled {{ old('tier', $announcement->tier) ? '' : 'selected' }}>
+            — Select Tier —
+        </option>
+                        
                     <option value="URGENT"    {{ old('tier', $announcement->tier)==='URGENT' ? 'selected' : '' }}>URGENT </option>
                     <option value="IMPORTANT" {{ old('tier', $announcement->tier)==='IMPORTANT' ? 'selected' : '' }}>IMPORTANT </option>
                     <option value="GENERAL"   {{ old('tier', $announcement->tier)==='GENERAL' ? 'selected' : '' }}>GENERAL </option>
@@ -68,6 +72,9 @@
                 <select name="audience"
                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5"
                         required>
+                            <option value="" disabled {{ old('tier', $announcement->audience) ? '' : 'selected' }}>
+            — Select Audience —
+        </option>
                     <option value="ALL"     {{ old('audience', $announcement->audience)==='ALL' ? 'selected' : '' }}>Everyone</option>
                     <option value="STUDENT" {{ old('audience', $announcement->audience)==='STUDENT' ? 'selected' : '' }}>Students</option>
                     <option value="ADVISER" {{ old('audience', $announcement->audience)==='ADVISER' ? 'selected' : '' }}>Advisers</option>
