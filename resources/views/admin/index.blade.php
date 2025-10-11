@@ -23,29 +23,15 @@
     $pctAwaiting      = $pc($titlesAwaiting,$totalTitles);
     $pctSubmitted     = $pc($titlesSubmitted,$totalTitles);
 @endphp
+ 
 
-    <!-- Header / Hero -->
-<div
-  class="relative overflow-hidden rounded-2xl text-white shadow-lg mb-4"
-  style="background: linear-gradient(to bottom right, #1E293B, #334155, #0F172A); padding: 1.5rem 2rem;"
->
-  <div class="flex items-start justify-between gap-6">
-    <div>
-      <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">Admin Dashboard</h2>
-    </div>
-
-    <a href="{{ route('announcements.index') }}"
-       class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 text-white text-xs font-medium hover:bg-white/20 transition">
-      <i data-feather="volume-2" class="w-4 h-4"></i>
-      <span>Announcements</span>
-      <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-white/20 text-[11px]">
-        {{ $announcementsTotal ?? 0 }}
-      </span>
-    </a>
-  </div>
-</div>
-
-
+<x-header.bar
+  title="Dashboard"
+  :subtitle="'Welcome back, ' . (Auth::user()->name ?? 'User') . '!'"
+  :unread-count="$unreadCount ?? 0"
+  :notifications="$notifications ?? collect()"
+  :user="Auth::user()"
+/>
 
 
 

@@ -64,26 +64,32 @@
     aria-label="Primary"
 >
     <!-- Logo/Brand + close (mobile) -->
-    <div class="p-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
+  <div class="p-4 flex items-center justify-between">
+    <a href="{{ route('dashboard') }}" class="flex items-center gap-3 min-w-0">
+        <!-- Logo container (rounded square + subtle ring like the sample) -->
+        <div class="w-10 h-10 rounded-2xl overflow-hidden ring-1 ring-slate-200 shadow-sm flex items-center justify-center bg-white">
             <img
-                class="w-14 h-14 rounded-full shadow-sm object-cover"
-                src="{{  Auth::user()->avatar ? asset('storage/avatars/' .  Auth::user()->avatar) : asset('storage/avatars/default.png') }}"
-                alt="Avatar"
+                src="{{ asset('storage/images/chainlogo.png') }}"
+                alt="Chainscholar Logo"
+                class="w-8 h-8 object-contain"
             />
-            <div class="min-w-0">
-                <p class="text-sm font-semibold text-gray-800 truncate">{{ Auth::user()->name }}</p>
-                <p class="text-xs text-gray-500 truncate">{{ $roleLabel }}</p>
-            </div>
         </div>
 
-        <!-- Close button (mobile only) -->
-        <button id="sidebarClose" class="md:hidden inline-flex items-center justify-center rounded-md p-2 text-gray-500 hover:bg-gray-100">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                 stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                 d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-    </div>
+        <!-- Brand text -->
+        <div class="min-w-0">
+            <p class="text-sm font-semibold text-gray-800 truncate">Chainscholar</p>
+            <p class="text-xs text-gray-500 truncate">Research platform</p>
+        </div>
+    </a>
+
+    <!-- Close button (mobile only) -->
+    <button id="sidebarClose" class="md:hidden inline-flex items-center justify-center rounded-md p-2 text-gray-500 hover:bg-gray-100">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+             stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+             d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+</div>
+
 
 
     <hr class="mx-auto w-[90%] border-gray-200">
@@ -262,70 +268,40 @@
                 @endauth
             </ul>
         </div>
-
-@php
-    $isResearchActive = request()->routeIs('research-papers.*');
-@endphp
+ 
               <hr class="mx-auto w-[90%] border-gray-200">
 
         <!-- Research Papers (collapsible like Announcements) -->
-        <nav class="p-4">
-            <details class="group" {{ $isResearchActive ? 'open' : '' }}>
-                <summary
-                    class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 {{ $isResearchActive ? 'bg-indigo-50 text-indigo-600' : '' }}"
-                >
-                    <i data-feather="book" class="mr-3 w-4 h-4"></i>
-                    <span>Research Papers</span>
-
-                    {{-- Chevron (rotates when open) --}}
-                    <i data-feather="chevron-down" class="ml-auto w-4 h-4 transition-transform group-open:rotate-180"></i>
-                </summary>
-
-                <ul class="mt-2 space-y-1 pl-9">
-                    <li>
-                        <a href="{{ route('research-papers.create') }}"
-                           class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('research-papers.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                            <i data-feather="upload" class="mr-3 w-4 h-4"></i>
-                            Upload Research
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{{ route('research-papers.student-index') }}"
-                           class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('research-papers.student-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                            <i data-feather="file-text" class="mr-3 w-4 h-4"></i>
-                            My Research Papers
-                        </a>
-                    </li>
-
-                    @if(auth()->user()->role === 'ADMIN')
-                        <li>
-                            <a href="{{ route('research-papers.admin-index') }}"
-                               class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('research-papers.admin-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <i data-feather="book-open" class="w-4 h-4 mr-3"></i>
-                                All Research Papers
-                            </a>
-                        </li>
-                    @endif
-                </ul>
-            </details>
-        </nav>
+       <!-- Research Papers (flat links) -->
+<nav class="p-4">
+    <ul class="space-y-2">
+        <li>
+            <a href="{{ route('research-papers.create') }}"
+               class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                <i data-feather="upload" class="mr-3 w-4 h-4"></i>
+                Upload Research
+            </a>
+        </li>
+        <li>
+            <a href="{{ route('research-papers.student-index') }}"
+               class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.student-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                <i data-feather="file-text" class="mr-3 w-4 h-4"></i>
+                My Research Papers
+            </a>
+        </li>
+        @if(auth()->user()->role === 'ADMIN')
+            <li>
+                <a href="{{ route('research-papers.admin-index') }}"
+                   class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('research-papers.admin-index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+                    <i data-feather="book-open" class="w-4 h-4 mr-3"></i>
+                    All Research Papers
+                </a>
+            </li>
+        @endif
+    </ul>
+</nav>
 
 
-
-
-
- 
-@php
-    $isAnnouncementsActive = request()->routeIs('announcements.*');
-    $isAccountActive = request()->routeIs('profile.show')
-        || request()->routeIs('activity.index')
-        || request()->routeIs('adviser.profile.edit');
-@endphp
 
 
 
@@ -337,57 +313,38 @@
         <nav class="p-4">
             <ul class="space-y-2">
 
-{{-- Announcements (moved here, next to Account & Notification) --}}
+{{-- Announcements (flat links) --}}
 @if(auth()->check() && auth()->user()->isAdmin())
-    <details class="group" {{ $isAnnouncementsActive ? 'open' : '' }}>
-        <summary
-            class="flex items-center py-1.5 px-2
-rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 {{ $isAnnouncementsActive ? 'bg-indigo-50 text-indigo-600' : '' }}"
-        >
+    <li>
+        <a href="{{ route('announcements.index') }}"
+           class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
-            <span>Announcements</span>
-
+            View Announcements
             @if($announcementsCount > 0)
                 <span class="ml-auto inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-indigo-500 rounded-full">
                     {{ $announcementsCount }}
                 </span>
-            @else
-                <i data-feather="chevron-down" class="ml-auto w-4 h-4 transition-transform group-open:rotate-180"></i>
             @endif
-        </summary>
-
-        <ul class="mt-2 space-y-1 pl-9">
-            <li>
-                <a href="{{ route('announcements.index') }}"
-                   class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                    <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
-                    View
-                </a>
-            </li>
-            <li>
-                <a href="{{ route('announcements.create') }}"
-                   class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('announcements.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                    <i data-feather="plus-circle" class="mr-3 w-4 h-4"></i>
-                    Create
-                </a>
-            </li>
-            <li>
-                <a href="{{ route('announcements.manage') }}"
-                   class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('announcements.manage','announcements.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                    <i data-feather="settings" class="mr-3 w-4 h-4"></i>
-                    Manage
-                </a>
-            </li>
-        </ul>
-    </details>
+        </a>
+    </li>
+    <li>
+        <a href="{{ route('announcements.create') }}"
+           class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.create') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="plus-circle" class="mr-3 w-4 h-4"></i>
+            Create Announcement
+        </a>
+    </li>
+    <li>
+        <a href="{{ route('announcements.manage') }}"
+           class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.manage','announcements.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <i data-feather="settings" class="mr-3 w-4 h-4"></i>
+            Manage Announcements
+        </a>
+    </li>
 @else
     <li>
         <a href="{{ route('announcements.index') }}"
-           class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+           class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('announcements.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
             <i data-feather="calendar" class="mr-3 w-4 h-4"></i>
             View Announcements
             @if($announcementsCount > 0)
@@ -399,59 +356,44 @@ rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 {{
     </li>
 @endif
 
-            <!-- Account (collapsible group like Announcements/Research) -->
-            <details class="group" {{ $isAccountActive ? 'open' : '' }}>
-                <summary
-                    class="flex items-center py-1.5 px-2
-s rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 {{ $isAccountActive ? 'bg-indigo-50 text-indigo-600' : '' }}"
-                >
-                    <i data-feather="user" class="mr-3 w-4 h-4"></i>
-                    <span>Account</span>
-                    <i data-feather="chevron-down" class="ml-auto w-4 h-4 transition-transform group-open:rotate-180"></i>
-                </summary>
 
-                <ul class="mt-2 space-y-1 pl-9">
-                    @if($user->role === 'ADVISER')
-                        <li>
-                            <a href="{{ route('adviser.profile.edit') }}"
-                               class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('adviser.profile.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                                <span class="relative mr-3">
-                                    <i data-feather="user-check" class="w-4 h-4"></i>
-                                    @if($profileIncomplete)
-                                        <span class="absolute -top-1 -right-1 inline-block w-2 h-2 bg-amber-500 rounded-full" title="Complete your adviser profile"></span>
-                                    @endif
-                                </span>
-                                 Info
-                                @if($profileIncomplete)
-                                    <span class="ml-auto text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                                        Incomplete
-                                    </span>
-                                @endif
-                            </a>
-                        </li>
-                    @endif
+           
+<!-- Account (flat links) -->
+@if($user->role === 'ADVISER')
+    <li>
+        <a href="{{ route('adviser.profile.edit') }}"
+           class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('adviser.profile.edit') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+            <span class="relative mr-3">
+                <i data-feather="user-check" class="w-4 h-4"></i>
+                @if($profileIncomplete)
+                    <span class="absolute -top-1 -right-1 inline-block w-2 h-2 bg-amber-500 rounded-full" title="Complete your adviser profile"></span>
+                @endif
+            </span>
+            Info
+            @if($profileIncomplete)
+                <span class="ml-auto text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                    Incomplete
+                </span>
+            @endif
+        </a>
+    </li>
+@endif
 
-                    <li>
-                        <a href="{{ route('activity.index') }}"
-                           class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('activity.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                            <i data-feather="activity" class="w-4 h-4 mr-3"></i>
-                            Activity Logs
-                        </a>
-                    </li>
+<li>
+    <a href="{{ route('activity.index') }}"
+       class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('activity.index') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+        <i data-feather="activity" class="w-4 h-4 mr-3"></i>
+        Activity Logs
+    </a>
+</li>
 
-                    <li>
-                        <a href="{{ route('profile.show') }}"
-                           class="flex items-center py-1.5 px-2
- rounded-lg transition text-sm {{ request()->routeIs('profile.show') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
-                            <i data-feather="user" class="mr-3 w-4 h-4"></i>
-                            Profile
-                        </a>
-                    </li>
-                </ul>
-            </details>
-
+<li>
+    <a href="{{ route('profile.show') }}"
+       class="flex items-center py-1.5 px-2 rounded-lg transition text-sm {{ request()->routeIs('profile.show') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50' }}">
+        <i data-feather="user" class="mr-3 w-4 h-4"></i>
+        Profile
+    </a>
+</li>
 
             
     
@@ -466,25 +408,7 @@ s rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 
                         Settings
                     </a>
                 </li>
-                <li>
-                    <!-- Notification Toggle Button -->
-                    <a id="toggleNotification"
-                       class="flex items-center gap-2 p-2 text-gray-700 text-sm hover:bg-indigo-50 rounded-lg transition cursor-pointer relative"
-                    >
-                        <div class="relative">
-                            <i data-feather="bell" class="w-5 h-5 transition-all" id="notificationIcon"></i>
-                        @if($unreadCount > 0)
-                            <span id="notifBadge"
-                                data-count="{{ $unreadCount }}"
-                                class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold text-white bg-red-400 rounded-full leading-none shadow">
-                                {{ $unreadCount }}
-                            </span>
-                        @endif
-                        </div>
-                        <span>Notification</span>
-                    </a>
-                </li>
-               
+     
 
         
 
@@ -501,107 +425,22 @@ s rounded-lg transition text-sm cursor-pointer text-gray-700 hover:bg-indigo-50 
     <hr class="mx-auto w-[90%] border-gray-200">
     <div class="p-4">
        <!-- Logout button (opens modal instead of submitting immediately) -->
+ <!-- Logout button (triggers GLOBAL modal) -->
 <button
     type="button"
-    onclick="openLogoutModal()"
+    onclick="window.showLogoutModal && window.showLogoutModal()"
     class="flex items-center text-sm w-full p-2 text-gray-700 hover:bg-red-50 rounded-lg transition"
 >
     <i data-feather="log-out" class="w-4 h-4 mr-3"></i>
     Logout
 </button>
 
-<!-- Confirmation Modal -->
-<div id="logoutModal"
-     class="hidden fixed inset-0 bg-black/30 flex items-center justify-center z-[3000]">
-    <div class="bg-white rounded-lg shadow-lg w-[90%] max-w-sm p-6 text-center">
-        <h2 class="text-lg font-semibold text-gray-800 mb-3">Confirm Logout</h2>
-        <p class="text-sm text-gray-600 mb-6">Are you sure you want to log out of your account?</p>
-
-        <div class="flex justify-center gap-3">
-            <button
-                onclick="closeLogoutModal()"
-                class="px-4 py-2 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
-            >
-                Cancel
-            </button>
-
-            <form id="logoutForm" action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button
-                    type="submit"
-                    class="px-4 py-2 rounded-lg text-xs font-medium text-white transition"
-                    style="background: linear-gradient(to right, #1E293B, #334155, #0F172A);"
-                    onmouseover="this.style.background='linear-gradient(to right, #334155, #475569, #1E293B)'"
-                    onmouseout="this.style.background='linear-gradient(to right, #1E293B, #334155, #0F172A)'"
-                >
-                     Logout
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
 
     </div>
 </div>
 
-<!-- Notification Panel: fixed on mobile, anchored on desktop -->
-<div
-    id="notificationPanel"
-    class="hidden fixed top-20 left-4 right-4 md:absolute md:top-4 md:left-[17rem] md:right-auto
-           w-auto md:w-96 bg-white shadow-lg rounded-xl p-6 z-[2000] overflow-hidden"
->
-    <!-- Header (non-scrolling) -->
-    <div class="mb-3">
-        <div class="font-semibold text-lg">Updates</div>
-        <div class="text-sm text-gray-500">Click to mark as read.</div>
-    </div>
-
-    <!-- Scrollable list only -->
-    <div id="notifList" class="space-y-3 max-h-90 overflow-y-auto pr-1">
-        @forelse($notifications as $notif)
-            <div class="bg-white border rounded-lg p-3 hover:bg-indigo-50 transition cursor-pointer"
-                 data-is-read="{{ $notif->is_read ? '1' : '0' }}"
-                 data-id="{{ $notif->id }}"
-                 onclick="handleNotifClick(event, {{ $notif->id }}, this)">
-                <h4 class="font-semibold text-sm {{ $notif->is_read ? 'text-gray-600' : 'text-indigo-600' }}">
-                    {{ $notif->title }}
-                </h4>
-                <p class="text-xs text-gray-600">{{ $notif->message }}</p>
-                <span class="text-[10px] text-gray-400">{{ $notif->created_at->diffForHumans() }}</span>
-            </div>
-        @empty
-            <div class="text-center space-y-2 text-gray-500">
-                <div class="flex justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 20h.01M19 13a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                </div>
-                <h3 class="text-sm font-semibold">Nothing to see here (yet)!</h3>
-                <p class="text-xs">You have no notifications at the moment.</p>
-            </div>
-        @endforelse
-    </div>
-
-    <!-- Footer: shows when there are older unread we didn't render -->
-    <div id="notifFooter" class="mt-3 hidden">
-        <button id="loadOlderNotifs"
-                class="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-between">
-            <span id="olderUnreadText">Load older</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v9.586l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5A1 1 0 014.707 10.293L8 13.586V4a1 1 0 011-1z"/></svg>
-        </button>
-     
-    </div>
-</div>
-
-
-<script>
-function openLogoutModal() {
-    document.getElementById('logoutModal').classList.remove('hidden');
-}
-function closeLogoutModal() {
-    document.getElementById('logoutModal').classList.add('hidden');
-}
-</script>
+ 
+ 
 
 
 <!-- ===== Scripts (scoped to sidebar only) ===== -->
@@ -631,175 +470,11 @@ function closeLogoutModal() {
     overlay?.addEventListener('click', closeSidebar);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSidebar(); });
 
-    // ===== Notification panel toggle (keep panel open on item click) =====
-    const toggleBtn = document.getElementById('toggleNotification');
-    const panel = document.getElementById('notificationPanel');
-    const icon = document.getElementById('notificationIcon');
-
-    toggleBtn?.addEventListener('click', function (e) {
-        e.stopPropagation();
-        const isHidden = panel.classList.contains('hidden');
-        panel.classList.toggle('hidden');
-        if (isHidden) {
-            toggleBtn.classList.add('bg-indigo-100','text-indigo-600');
-            icon?.classList.add('text-indigo-600');
-        } else {
-            toggleBtn.classList.remove('bg-indigo-100','text-indigo-600');
-            icon?.classList.remove('text-indigo-600');
-        }
-    });
-
-    // Close when clicking outside ONLY
-    document.addEventListener('click', function (event) {
-        if (!panel?.contains(event.target) && !toggleBtn?.contains(event.target)) {
-            panel?.classList.add('hidden');
-            toggleBtn?.classList.remove('bg-indigo-100','text-indigo-600');
-            icon?.classList.remove('text-indigo-600');
-        }
-    });
-
-    // ===== Mark-as-read without closing or reloading =====
-    const badge = document.getElementById('notifBadge');
-
-    function updateUnreadBadge(delta) {
-        if (!badge) return;
-        const current = parseInt(badge.getAttribute('data-count') || '0', 10);
-        const next = Math.max(0, current + delta);
-        badge.setAttribute('data-count', String(next));
-        if (next <= 0) {
-            // hide/remove badge when zero
-            badge.remove();
-        } else {
-            badge.textContent = String(next);
-        }
-    }
-
-    async function markAsReadRequest(id) {
-        const res = await fetch(`/notifications/read/${id}`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        });
-        if (!res.ok) throw new Error('Failed to mark as read');
-        return res.json().catch(() => ({}));
-    }
-
-    // Click handler on each notification card
-    async function handleNotifClick(e, id, el) {
-        // Keep the panel open
-        e.stopPropagation();
-
-        // If already marked, do nothing
-        if (el.dataset.isRead === '1') return;
-
-        // Optimistic UI: mark styles immediately
-        el.dataset.isRead = '1';
-        const titleEl = el.querySelector('h4');
-        titleEl?.classList.remove('text-indigo-600');
-        titleEl?.classList.add('text-gray-600');
-        el.classList.add('opacity-80');
-
-        // Decrement unread badge
-        updateUnreadBadge(-1);
-
-        try {
-            await markAsReadRequest(id);
-            // success: do nothing else (panel remains open)
-        } catch (err) {
-            // Revert UI on error
-            el.dataset.isRead = '0';
-            titleEl?.classList.remove('text-gray-600');
-            titleEl?.classList.add('text-indigo-600');
-            el.classList.remove('opacity-80');
-            updateUnreadBadge(+1);
-            console.error(err);
-        }
-    }
-
-    // Make available globally for inline onclick
-    window.handleNotifClick = handleNotifClick;
 </script>
 
 
 
-
-<script>
-    // Count visible unread vs. badge count; if fewer, show footer hint
-    (function computeHiddenUnreadHint(){
-        const badge = document.getElementById('notifBadge');
-        const list  = document.getElementById('notifList');
-        const footer = document.getElementById('notifFooter');
-        const text = document.getElementById('olderUnreadText');
-        if (!badge || !list || !footer || !text) return;
-
-        const badgeCount = parseInt(badge.getAttribute('data-count') || '0', 10);
-        const visibleUnread = Array.from(list.querySelectorAll('[data-is-read="0"]')).length;
-        const hiddenUnread = Math.max(0, badgeCount - visibleUnread);
-
-        if (hiddenUnread > 0) {
-            text.textContent = `Load older (${hiddenUnread} unread not shown)`;
-            footer.classList.remove('hidden');
-        } else {
-            footer.classList.add('hidden');
-        }
-    })();
-
-    // Progressive enhancement: try to fetch older items, else fallback opens /notifications
-    document.getElementById('loadOlderNotifs')?.addEventListener('click', async () => {
-        const list  = document.getElementById('notifList');
-        const last  = list.querySelector('[data-id]:last-child');
-        const lastId = last ? last.getAttribute('data-id') : '';
-
-        try {
-            // Adjust this URL to your real JSON endpoint when available.
-            // Expected JSON: { items: [{id, title, message, is_read, created_at}], next_after: "id-or-null" }
-            const res = await fetch(`/notifications/list?after=${encodeURIComponent(lastId)}`, {
-                headers: { 'Accept': 'application/json' }
-            });
-            if (!res.ok) throw new Error('No JSON endpoint yet');
-
-            const data = await res.json();
-            if (!data.items || !Array.isArray(data.items) || data.items.length === 0) return;
-
-            // Append new cards
-            for (const n of data.items) {
-                const card = document.createElement('div');
-                card.className = 'bg-white border rounded-lg p-3 hover:bg-indigo-50 transition cursor-pointer';
-                card.setAttribute('data-is-read', n.is_read ? '1' : '0');
-                card.setAttribute('data-id', n.id);
-                card.onclick = (e) => handleNotifClick(e, n.id, card);
-                card.innerHTML = `
-                    <h4 class="font-semibold text-sm ${n.is_read ? 'text-gray-600' : 'text-indigo-600'}">${n.title}</h4>
-                    <p class="text-xs text-gray-600">${n.message}</p>
-                    <span class="text-[10px] text-gray-400">${n.created_at}</span>
-                `;
-                list.appendChild(card);
-            }
-
-            // Recompute footer hint after appending
-            (function recompute(){
-                const badge = document.getElementById('notifBadge');
-                const footer = document.getElementById('notifFooter');
-                const text = document.getElementById('olderUnreadText');
-                const badgeCount = parseInt(badge?.getAttribute('data-count') || '0', 10);
-                const visibleUnread = Array.from(list.querySelectorAll('[data-is-read="0"]')).length;
-                const hiddenUnread = Math.max(0, badgeCount - visibleUnread);
-                if (hiddenUnread > 0) {
-                    text.textContent = `Load older (${hiddenUnread} unread not shown)`;
-                    footer.classList.remove('hidden');
-                } else {
-                    footer.classList.add('hidden');
-                }
-            })();
-        } catch (e) {
-            // If JSON route not implemented yet, just go to the full page
-            window.location.href = '/notifications';
-        }
-    });
-</script>
+ 
 
 <script>
 /**
