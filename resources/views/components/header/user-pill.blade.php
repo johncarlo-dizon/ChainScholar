@@ -13,7 +13,7 @@
   class="flex items-center gap-2 px-2 pr-3 h-10 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm transition cursor-pointer
          w-24 basis-24 flex-none overflow-hidden">
   <span class="sr-only">Open account menu</span>
-  <div class="w-6 h-6 shrink-0 rounded-full overflow-hidden ring-1 ring-white/10">
+  <div class="w-6 h-6 shrink-0 rounded-full overflow-hidden">
     <img src="{{ $avatar }}" alt="User avatar" class="w-full h-full object-cover" />
   </div>
   <span class="flex-1 min-w-0 text-sm font-medium text-white truncate whitespace-nowrap">
