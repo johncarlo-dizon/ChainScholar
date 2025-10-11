@@ -170,25 +170,37 @@
 <div id="description-modal" class="fixed inset-0 hidden items-center justify-center z-50">
   <div id="description-overlay" class="absolute inset-0 bg-black/50"></div>
   <div class="relative bg-white rounded-xl shadow-lg max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col z-10 overflow-hidden">
-    <div class="flex items-center justify-between p-6 border-b border-gray-200">
-      <div>
-        <h3 class="text-lg font-semibold text-gray-900" id="description-modal-title">Title Description</h3>
-        <p class="text-sm text-gray-600 mt-1" id="description-modal-subtitle"></p>
+    <!-- Header - Fixed height -->
+    <div class="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
+      <div class="min-w-0 pr-4">
+        <h3 class="text-lg font-semibold text-gray-900 truncate" id="description-modal-title">Title Description</h3>
+        <p class="text-sm text-gray-600 mt-1 truncate" id="description-modal-subtitle"></p>
       </div>
-      <button type="button" id="description-close" class="text-gray-400 hover:text-gray-600 transition-colors">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <button type="button" id="description-close" class="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 p-1 rounded hover:bg-gray-100">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
         </svg>
       </button>
     </div>
     
-    <div class="flex-1 overflow-y-auto p-6">
-      <div class="prose max-w-none">
-        <p class="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed" id="description-modal-content"></p>
+    <!-- Content Area - Fixed height container -->
+    <div class="p-6 flex-shrink-0" style="height: 400px;">
+      <div class="h-full border border-gray-300 rounded-lg bg-white shadow-sm overflow-hidden">
+        <div class="h-full overflow-y-auto p-4 text-gray-700 leading-relaxed text-sm whitespace-pre-wrap
+                    scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100
+                    hover:scrollbar-thumb-gray-400"
+             id="description-modal-content"
+             tabindex="0"
+             aria-label="Description content - scrollable area"
+             role="textbox"
+             aria-readonly="true">
+          <!-- Content will be inserted here -->
+        </div>
       </div>
     </div>
     
-    <div class="flex justify-end p-6 border-t border-gray-200 bg-gray-50">
+    <!-- Footer - Fixed height -->
+    <div class="flex justify-end p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
       <button type="button" id="description-close-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
         Close
       </button>
