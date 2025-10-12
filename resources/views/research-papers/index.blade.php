@@ -1,21 +1,6 @@
 <!-- resources/views/pdfconverter/index.blade.php -->
 <x-userlayout>
 
-    {{-- ===== Alerts (success / error) ===== --}}
-    @if(session('status'))
-    <div id="status-alert" class="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
-        <div class="flex items-start gap-3">
-            <svg class="h-5 w-5 text-blue-500 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M18 10A8 8 0 11.001 9.999 8 8 0 0118 10zM9 5a1 1 0 012 0v4a1 1 0 01-.293.707l-2.5 2.5a1 1 0 01-1.414-1.414L9 9.586V5z" clip-rule="evenodd"/>
-            </svg>
-            <p class="text-sm font-medium text-blue-800">{{ session('status') }}</p>
-            <button type="button" class="ml-auto inline-flex rounded-md p-1.5 text-blue-600/80 hover:bg-blue-100" data-dismiss="alert" aria-label="Dismiss">
-                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-            </button>
-        </div>
-    </div>
-    @endif
-
     @if ($errors->any())
     <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
         <div class="flex items-start gap-3">

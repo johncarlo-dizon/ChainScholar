@@ -23,7 +23,7 @@
 
 <!-- Dialog - No backdrop, matches notification styling -->
 <div id="profileDialog"
-     class="hidden fixed z-[5000] w-80 bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+     class="hidden fixed z-[99999] w-80 bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden" style="z-index:99999">
 
   <!-- Header -->
   <div class="px-4 py-3 border-b border-gray-200 bg-white">

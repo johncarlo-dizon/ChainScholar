@@ -32,6 +32,11 @@ use App\Http\Controllers\BlockchainController;
 use App\Http\Controllers\BlockchainRequestController;
 use App\Http\Controllers\CertificateController;
 use Illuminate\Auth\Events\Verified;
+
+
+Route::get('/documents/{id}/content', [DocumentController::class, 'getContent'])->name('documents.content');
+
+
 // CERTIFICATE CHAIN
 Route::get('/papers/{paper}/certificate', [CertificateController::class, 'download'])
     ->name('papers.certificate')

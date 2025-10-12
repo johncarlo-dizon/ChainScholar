@@ -16,6 +16,19 @@ class DocumentController extends Controller
 {
     use AuthorizesRequests;
 
+
+    public function getContent($id)
+{
+    $document = Document::findOrFail($id);
+    
+    // Return the raw HTML content for copying
+    return response()->json([
+        'content' => $document->content
+    ]);
+}
+ 
+
+
 public function __construct(private PlagiarismService $plag) {}
  
     // CHAIN START
@@ -578,7 +591,6 @@ foreach ($tokens as $t) {
 
 
 
- 
 
     public function create(Request $request)
     {

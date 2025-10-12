@@ -20,7 +20,7 @@
             <input type="text" name="search" value="{{ request('search') }}"
                    class="w-full sm:w-auto flex-1 border border-gray-300 rounded px-4 py-2 text-sm"
                    placeholder="Search by title...">
-                    <button type="submit"
+            <button type="submit"
                     class="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
                 Search
             </button>
@@ -31,7 +31,6 @@
                 <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
                 <option value="returned" {{ request('status') == 'returned' ? 'selected' : '' }}>Returned</option>
             </select>
-           
         </form>
 
         <div class="flex items-center justify-between mb-2">
@@ -40,20 +39,6 @@
                 <span class="font-medium">{{ $titles->lastItem() ?? 0 }}</span>
                 of <span class="font-medium">{{ $titles->total() }}</span>
             </p>
-
-            <!-- (Optional) per-page dropdown — if you implement it server-side -->
-            {{-- 
-            <form method="GET">
-                @foreach(request()->except('per_page', 'page') as $k => $v)
-                    <input type="hidden" name="{{ $k }}" value="{{ $v }}">
-                @endforeach
-                <select name="per_page" onchange="this.form.submit()" class="border rounded px-2 py-1 text-sm">
-                    @foreach([10,20,50,100] as $pp)
-                        <option value="{{ $pp }}" {{ request('per_page', 10) == $pp ? 'selected' : '' }}>{{ $pp }}/page</option>
-                    @endforeach
-                </select>
-            </form>
-            --}}
         </div>
 
         <div class="bg-white shadow rounded-lg overflow-hidden">
@@ -69,9 +54,7 @@
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Authors</th>
-
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted At</th>
-                        <!-- NEW -->
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Similarity</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
@@ -88,19 +71,17 @@
   {{ $title->authors ?? '—' }}
 </td>
 
-
   <td class="px-6 py-4 text-sm text-gray-500">
     {{ $title->submitted_at?->format('M d, Y h:i A') ?? '—' }}
   </td>
 
-  {{-- NEW: Similarity column --}}
+  {{-- Similarity column --}}
   <td class="px-6 py-4 text-sm">
     @if($title->finalDocument)
       @php
         $int = $title->finalDocument->plagiarism_internal;
         $ext = $title->finalDocument->plagiarism_external;
 
-        // simple severity colors: <20 green, 20–39 yellow, 40+ red
         $cls = function($v){
           if ($v === null) return 'bg-gray-100 text-gray-600';
           if ($v < 20)     return 'bg-green-100 text-green-800';
@@ -122,19 +103,29 @@
     @endif
   </td>
 
-  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
     @if($title->finalDocument)
+      <!-- Copy Content Button -->
+      <button onclick="copyContent({{ $title->finalDocument->id }})" 
+              class="text-blue-600 hover:text-blue-900 copy-btn"
+              data-id="{{ $title->finalDocument->id }}"
+              title="Copy document content to clipboard">
+        Copy 
+      </button>
+      
+      <!-- View Document Link -->
       <a href="{{ route('documents.view', ['id' => $title->finalDocument->id]) }}"
-         class="text-indigo-600 hover:text-indigo-900 mr-3">
-        View Document
+         class="text-indigo-600 hover:text-indigo-900">
+        View 
       </a>
     @endif
 
+    <!-- Cancel Submission Form -->
     <form method="POST" action="{{ route('titles.cancel', $title->id) }}" class="inline">
       @csrf
       @method('PATCH')
-      <button type="submit" class="text-red-600 hover:text-red-900 mr-3">
-        Cancel Submission
+      <button type="submit" class="text-red-600 hover:text-red-900">
+        Withdraw 
       </button>
     </form>
   </td>
@@ -153,8 +144,10 @@
         </div>
     </div>
 
+ 
+
     <!-- Comment Modal -->
-    <div id="commentModal" class="fixed inset-0 hidden  backdrop-blur-sm bg-opacity-50  flex items-center justify-center z-50">
+    <div id="commentModal" class="fixed inset-0 hidden backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white w-full max-w-lg rounded shadow p-6 space-y-4">
             <h3 class="text-xl font-bold text-gray-800">Admin Comment</h3>
             <p id="commentContent" class="text-gray-700 whitespace-pre-line"></p>
@@ -172,8 +165,127 @@
             document.getElementById('commentContent').textContent = comment;
             document.getElementById('commentModal').classList.remove('hidden');
         }
+        
         function closeCommentModal() {
             document.getElementById('commentModal').classList.add('hidden');
+        }
+
+        // Copy Content Function
+        async function copyContent(documentId) {
+            try {
+                // Show loading state
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                const originalText = button.textContent;
+                button.textContent = 'Copying...';
+                button.disabled = true;
+
+                // Fetch the document content
+                const response = await fetch(`/documents/${documentId}/content`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch content');
+                }
+
+                const data = await response.json();
+                
+                if (!data.content) {
+                    throw new Error('No content available');
+                }
+
+                // Create a temporary div to parse HTML and preserve formatting
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = data.content;
+
+                // Use Clipboard API to copy with formatting
+                const clipboardItem = new ClipboardItem({
+                    'text/html': new Blob([data.content], { type: 'text/html' }),
+                    'text/plain': new Blob([tempDiv.textContent || tempDiv.innerText || ''], { type: 'text/plain' })
+                });
+
+                await navigator.clipboard.write([clipboardItem]);
+                
+                // Show success toast
+                showCopySuccess();
+                
+            } catch (error) {
+                console.error('Copy failed:', error);
+                alert('Failed to copy content: ' + error.message);
+            } finally {
+                // Restore button state
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                if (button) {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }
+            }
+        }
+
+        // Alternative simpler method (fallback)
+        async function copyContentSimple(documentId) {
+            try {
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                const originalText = button.textContent;
+                button.textContent = 'Copying...';
+                button.disabled = true;
+
+                const response = await fetch(`/documents/${documentId}/content`);
+                const data = await response.json();
+                
+                if (!data.content) {
+                    throw new Error('No content available');
+                }
+
+                // Create temporary element to handle HTML content
+                const tempElement = document.createElement('div');
+                tempElement.innerHTML = data.content;
+                document.body.appendChild(tempElement);
+
+                // Select the content
+                const range = document.createRange();
+                range.selectNode(tempElement);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                // Execute copy command
+                const successful = document.execCommand('copy');
+                selection.removeAllRanges();
+                document.body.removeChild(tempElement);
+
+                if (successful) {
+                    showCopySuccess();
+                } else {
+                    throw new Error('Copy command failed');
+                }
+                
+            } catch (error) {
+                console.error('Copy failed:', error);
+                alert('Failed to copy content: ' + error.message);
+            } finally {
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                if (button) {
+                    button.textContent = 'Copy Content';
+                    button.disabled = false;
+                }
+            }
+        }
+
+        function showCopySuccess() {
+    Swal.fire({
+        icon: 'success',
+        title: 'Content copied!',
+        showConfirmButton: false,
+        timer: 3000,
+        toast: true,
+        position: 'top-end'
+    });
+}
+
+
+        // Use the modern Clipboard API if available, otherwise fallback
+        if (!navigator.clipboard || !navigator.clipboard.write) {
+            // Replace the copy function with simpler version if Clipboard API not available
+            window.copyContent = copyContentSimple;
         }
     </script>
 </x-userlayout>
