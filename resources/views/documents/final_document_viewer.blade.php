@@ -1,7 +1,4 @@
 <x-userlayout> 
-
-
-
 <x-header.bar
   title="Submitted Research"
   subtitle="Viewing: {{ $document->titleRelation->title ?? 'Untitled Title' }}"
@@ -10,31 +7,25 @@
   :user="Auth::user()"
 />
 
-
-     
-
-
-
-
-
     <div class="container mx-auto px-4 pt-2 pb-8">
         <div class="flex flex-col lg:flex-row gap-6">
             <!-- Left: Document Display -->
             <div class="main-container w-full lg:w-2/3">
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-6">
-                        <div class="mb-6">
-                            <label class="block mb-2 font-bold text-blue-600">Title</label>
-                            <input 
-                                type="text" 
-                                value="{{ $document->titleRelation->title }}" 
-                                disabled 
-                                class="w-full bg-gray-100 border border-gray-300 rounded-md px-4 py-3 text-lg"
-                            >
-                        </div>
+                     
 
                         <div class="mb-6">
-                            <label class="block mb-2 font-bold text-blue-600">Document Content</label>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block font-bold text-blue-600">Document Content</label>
+                                <!-- Copy Button -->
+                                <button onclick="copyContent({{ $document->id }})" 
+                                        class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition copy-btn"
+                                        data-id="{{ $document->id }}"
+                                        title="Copy document content to clipboard">
+                                    Copy Content
+                                </button>
+                            </div>
                             <div class="editor-container editor-container_classic-editor editor-container_include-style editor-container_include-word-count editor-container_include-fullscreen" id="viewer-container">
                                 <div class="editor-container__editor">
                                     <div class="ck-content w-full min-h-[600px]  bg-white border border-gray-300 rounded-md shadow-sm leading-relaxed text-base">
@@ -136,18 +127,13 @@
       </div>
     @endif
   </div>
-  
-  
 </div>
-
 
 </div>
 
                     </div>
 
-
-
-                       <div class="space-y-4 hidden">
+                    <div class="space-y-4 hidden">
                         <div class="flex items-center justify-between">
                             <h3 class="text-lg font-semibold text-gray-700">Comment</h3>
                         </div>
@@ -177,6 +163,126 @@
             </div>
         </div>
     </div>
+
+    <!-- Copy functionality script -->
+    <script>
+        // Copy Content Function
+        async function copyContent(documentId) {
+            try {
+                // Show loading state
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                const originalText = button.textContent;
+                button.textContent = 'Copying...';
+                button.disabled = true;
+
+                // Fetch the document content
+                const response = await fetch(`/documents/${documentId}/content`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch content');
+                }
+
+                const data = await response.json();
+                
+                if (!data.content) {
+                    throw new Error('No content available');
+                }
+
+                // Create a temporary div to parse HTML and preserve formatting
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = data.content;
+
+                // Use Clipboard API to copy with formatting
+                const clipboardItem = new ClipboardItem({
+                    'text/html': new Blob([data.content], { type: 'text/html' }),
+                    'text/plain': new Blob([tempDiv.textContent || tempDiv.innerText || ''], { type: 'text/plain' })
+                });
+
+                await navigator.clipboard.write([clipboardItem]);
+                
+                // Show success toast
+                showCopySuccess();
+                
+            } catch (error) {
+                console.error('Copy failed:', error);
+                alert('Failed to copy content: ' + error.message);
+            } finally {
+                // Restore button state
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                if (button) {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }
+            }
+        }
+
+        // Alternative simpler method (fallback)
+        async function copyContentSimple(documentId) {
+            try {
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                const originalText = button.textContent;
+                button.textContent = 'Copying...';
+                button.disabled = true;
+
+                const response = await fetch(`/documents/${documentId}/content`);
+                const data = await response.json();
+                
+                if (!data.content) {
+                    throw new Error('No content available');
+                }
+
+                // Create temporary element to handle HTML content
+                const tempElement = document.createElement('div');
+                tempElement.innerHTML = data.content;
+                document.body.appendChild(tempElement);
+
+                // Select the content
+                const range = document.createRange();
+                range.selectNode(tempElement);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                // Execute copy command
+                const successful = document.execCommand('copy');
+                selection.removeAllRanges();
+                document.body.removeChild(tempElement);
+
+                if (successful) {
+                    showCopySuccess();
+                } else {
+                    throw new Error('Copy command failed');
+                }
+                
+            } catch (error) {
+                console.error('Copy failed:', error);
+                alert('Failed to copy content: ' + error.message);
+            } finally {
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                if (button) {
+                    button.textContent = 'Copy Content';
+                    button.disabled = false;
+                }
+            }
+        }
+
+        function showCopySuccess() {
+            Swal.fire({
+                icon: 'success',
+                title: 'Content copied!',
+                showConfirmButton: false,
+                timer: 3000,
+                toast: true,
+                position: 'top-end'
+            });
+        }
+
+        // Use the modern Clipboard API if available, otherwise fallback
+        if (!navigator.clipboard || !navigator.clipboard.write) {
+            // Replace the copy function with simpler version if Clipboard API not available
+            window.copyContent = copyContentSimple;
+        }
+    </script>
 
     <!-- Styles to mirror editor.blade.php -->
     <link rel="stylesheet" href="{{ asset('assets/editor.css') }}">
