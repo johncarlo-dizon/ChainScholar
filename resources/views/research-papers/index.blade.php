@@ -41,16 +41,43 @@
     <h3 id="upload-section" class="text-base font-semibold text-gray-800">Upload PDF</h3>
     <p class="mt-1 text-sm text-gray-500">Choose a <strong>.pdf</strong> file with <strong>selectable text</strong> (not scanned images only).</p>
 
-    <div class="mt-3">
-        <input
-            id="pdfFile"
-            name="fileToUpload"
-            type="file"
-            accept=".pdf,application/pdf"
-            required
-            class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700 rounded-lg shadow-sm cursor-pointer"
-        />
+    <!-- Pretty drag/drop upload card -->
+<div class="mt-3">
+  <!-- Completely hidden input (no native button/text) -->
+  <input
+    id="pdfFile"
+    name="fileToUpload"
+    type="file"
+    accept=".pdf,application/pdf"
+    required
+    class="hidden"
+  />
+
+  <!-- Label acts as the clickable dropzone -->
+  <label for="pdfFile" id="pdf-dropzone"
+         class="group relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-white/90 px-4 py-8 text-center shadow-sm transition
+                hover:border-indigo-400 hover:bg-indigo-50/50 focus-within:ring-2 focus-within:ring-indigo-500 cursor-pointer select-none">
+    <!-- Icon -->
+    <svg class="mb-3 h-10 w-10 text-indigo-400 transition group-hover:text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+      <path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+      <path d="M14 3v6h6"/>
+    </svg>
+
+    <!-- Text -->
+    <div class="space-y-1">
+      <p class="text-sm font-medium text-gray-800">
+        Drop your PDF here, or <span class="text-indigo-600">click to browse</span>
+      </p>
+      <p class="text-xs text-gray-500">Only *.pdf with selectable text</p>
     </div>
+
+    <!-- Selected filename pill -->
+    <div id="pdf-filename"
+         class="pointer-events-none mt-4 hidden max-w-full truncate rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200"></div>
+  </label>
+</div>
+
+
 
     @error('fileToUpload')
     <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>
@@ -190,6 +217,44 @@
 
     {{-- ===== pdf.js ===== --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
+<script>
+(() => {
+  const dz   = document.getElementById('pdf-dropzone');
+  const inp  = document.getElementById('pdfFile');
+  const pill = document.getElementById('pdf-filename');
+
+  if (!dz || !inp) return;
+
+  function showName(file) {
+    if (!file) { pill.classList.add('hidden'); pill.textContent = ''; return; }
+    const size = (file.size/1024/1024).toFixed(2) + ' MB';
+    pill.textContent = `${file.name} • ${size}`;
+    pill.classList.remove('hidden');
+  }
+
+  inp.addEventListener('change', e => showName(e.target.files?.[0]));
+
+  // Drag-over highlight
+  ['dragenter','dragover'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('ring-2','ring-indigo-400','bg-indigo-50/60'); })
+  );
+  ['dragleave','drop'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('ring-2','ring-indigo-400','bg-indigo-50/60'); })
+  );
+
+  // Support dropping a file directly
+  dz.addEventListener('drop', e => {
+    const file = e.dataTransfer?.files?.[0];
+    if (file) {
+      // assign to input so your existing listeners run
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      inp.files = dt.files;
+      inp.dispatchEvent(new Event('change', { bubbles:true }));
+    }
+  });
+})();
+</script>
 
     <script>
     /** Safely read JSON. Never throws. */
