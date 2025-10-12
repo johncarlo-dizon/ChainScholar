@@ -2,18 +2,20 @@
 
 namespace App\Services;
 
+use App\Models\Title;
+use App\Models\Document;
 use App\Models\ResearchPaper;
 use Illuminate\Support\Facades\Cache;
 
 /**
  * PdfPlagiarismService
  * - Input: plain text (extracted from PDF)
- * - Corpus: ResearchPapers only (extracted_text from PDFs)
+ * - Corpus: submitted final documents + ResearchPapers (extracted_text)
  * - Same logic as PlagiarismService (sliding windows; TF-IDF cosine + 5-gram Jaccard)
  */
 class PdfPlagiarismService
 {
-    /** -------- Tunable parameters -------- */
+    /** -------- Tunables (aligned to your CKEditor checker) -------- */
     private const WINDOW_WORDS        = 60;
     private const STRIDE_WORDS        = 20;
     private const MIN_CHUNK_WORDS     = 12;
@@ -22,7 +24,7 @@ class PdfPlagiarismService
     private const SCORE_SCALE         = 100.0;
     private const CACHE_MINUTES       = 10;
 
-    // Blend the two signals
+    // Blend the two signals (recommend turning this on)
     private const USE_WEIGHTED = true;
     private const COS_W        = 0.6;
     private const JAC_W        = 0.4;
@@ -55,7 +57,7 @@ class PdfPlagiarismService
         $max = 0.0;
         foreach ($your as $yc) {
             foreach ($cands as $cc) {
-                $cc = $this->enrichCandidate($cc);
+                $cc = $this->enrichCandidate($cc); // <-- add this
                 $sim = $this->combinedSimilarity($yc, $cc);
                 if ($sim > $max) $max = $sim;
             }
@@ -93,7 +95,7 @@ class PdfPlagiarismService
                     'source_title'   => $cc['source_title'],
                     'source_chapter' => $cc['source_chapter'],
                     'document_id'    => $cc['document_id'],
-                    'source_type'    => $cc['source_type'], // "ResearchPaper" only now
+                    'source_type'    => $cc['source_type'], // "FinalDocument" | "ResearchPaper"
                 ];
                 if ($best === null || $m['percent'] > $best['percent']) $best = $m;
             }
@@ -250,57 +252,82 @@ class PdfPlagiarismService
         $f=[]; foreach($tokens as $t){ $f[$t]=($f[$t]??0)+1; } return $f;
     }
 
-    /** ---------- Candidates: research_papers ONLY (PDFs) ---------- */
+    /** ---------- Candidates: finals + research_papers ---------- */
 
     private function candidateChunksCorpus(): array
     {
-        $ver      = $this->corpusVersion();
-        $cacheKey = "plag:candidates:pdf:{$ver}";
-        $store      = $this->cacheStore();
-        $lockStore  = Cache::store($this->lockStoreName());
-        $lock       = $lockStore->lock('plag:lock:candidates:v2', 60);
+    $ver      = $this->corpusVersion();
+    $cacheKey = "plag:candidates:pdf:{$ver}";
+    $store      = $this->cacheStore();
+    $lockStore  = Cache::store($this->lockStoreName());
+    $lock       = $lockStore->lock('plag:lock:candidates:v2', 60); // 60s build window
 
-        // Fast path: cached
-        $cached = $store->get($cacheKey);
-        if (is_array($cached) && !empty($cached)) {
-            return $cached;
-        }
-
-        // Single-writer build
-        if ($lock->get()) {
-            try {
-                $out = [];
-
-                // ONLY Research papers (PDFs)
-                $papers = ResearchPaper::query()
-                    ->whereNotNull('extracted_text')
-                    ->get(['id', 'title', 'extracted_text']);
-
-                foreach ($papers as $p) {
-                    $src = $this->stripBoilerplate((string) $p->extracted_text);
-                    foreach ($this->makeChunks($src) as $c) {
-                        $out[] = [
-                            'document_id'    => $p->id,
-                            'source_title'   => $p->title ?? 'Untitled',
-                            'source_chapter' => 'ResearchPaper',
-                            'source_type'    => 'ResearchPaper',
-                            'text'           => $c['text'],
-                        ];
-                    }
-                }
-
-                // Cache for a bit longer to avoid rebuilds on hot pages
-                $store->put($cacheKey, $out, now()->addMinutes(self::CACHE_MINUTES * 3));
-                return $out;
-            } finally {
-                optional($lock)->release();
-            }
-        }
-
-        // Readers wait briefly for the builder, then return whatever is there (or empty)
-        usleep(250 * 1000); // 250ms
-        return $store->get($cacheKey, []);
+    // Fast path: cached
+    $cached = $store->get($cacheKey);
+    if (is_array($cached) && !empty($cached)) {
+        return $cached;
     }
+
+    // Single-writer build
+    if ($lock->get()) {
+        try {
+            $out = [];
+
+            // 1) Final documents
+            $titles = Title::query()
+                ->where('status', 'submitted')
+                ->whereNotNull('final_document_id')
+                ->with(['finalDocument:id,title_id,chapter,content'])
+                ->get(['id', 'title', 'final_document_id']);
+
+            foreach ($titles as $t) {
+                $final = $t->finalDocument ?: Document::find($t->final_document_id);
+                if (!$final || empty($final->content)) continue;
+
+                $src = $this->stripBoilerplate($this->htmlToCleanText($final->content));
+                foreach ($this->makeChunks($src) as $c) {
+                    $out[] = [
+                        'document_id'    => $final->id,
+                        'source_title'   => $t->title ?? 'Untitled',
+                        'source_chapter' => $final->chapter ?? 'Final',
+                        'source_type'    => 'FinalDocument',
+                        'text'           => $c['text'],
+                    ];
+                }
+            }
+
+            // 2) Research papers
+            $papers = ResearchPaper::query()
+                ->whereNotNull('extracted_text')
+                ->get(['id', 'title', 'extracted_text']);
+
+            foreach ($papers as $p) {
+                $src = $this->stripBoilerplate((string) $p->extracted_text);
+                foreach ($this->makeChunks($src) as $c) {
+                    $out[] = [
+                        'document_id'    => $p->id,
+                        'source_title'   => $p->title ?? 'Untitled',
+                        'source_chapter' => 'ResearchPaper',
+                        'source_type'    => 'ResearchPaper',
+                        'text'           => $c['text'],
+                    ];
+                }
+            }
+
+            // Cache for a bit longer to avoid rebuilds on hot pages
+            $store->put($cacheKey, $out, now()->addMinutes(self::CACHE_MINUTES * 3));
+            return $out;
+        } finally {
+            optional($lock)->release();
+        }
+    }
+
+    // Readers wait briefly for the builder, then return whatever is there (or empty)
+    usleep(250 * 1000); // 250ms
+    return $store->get($cacheKey, []);
+}
+
+
 
     /** ---------- Cleaning ---------- */
 
@@ -350,78 +377,93 @@ class PdfPlagiarismService
 
     /** ---------- Corpus stats (IDF + common 5-grams) ---------- */
 
-    private function ensureCorpusStats(): void
-    {
-        if (!empty($this->idf)) return;
+private function ensureCorpusStats(): void
+{
+    if (!empty($this->idf)) return;
 
-        $store     = $this->cacheStore();
-        $lockStore = Cache::store($this::lockStoreName());
-        $ver     = $this->corpusVersion();
-        $statsKey= "plag:stats:pdf:{$ver}";
+    $store     = $this->cacheStore();
+    $lockStore = Cache::store($this->lockStoreName());
+    $ver     = $this->corpusVersion();
+    $statsKey= "plag:stats:pdf:{$ver}";
 
-        $lock      = $lockStore->lock('plag:lock:stats:v2', 60);
+    $lock      = $lockStore->lock('plag:lock:stats:v2', 60);
 
-        $cached = $store->get($statsKey);
-        if (is_array($cached) && isset($cached['idf'], $cached['common'])) {
-            $this->idf = $cached['idf'];
-            $this->commonNgrams = $cached['common'];
-            return;
-        }
-
-        if ($lock->get()) {
-            try {
-                // Build fresh - ONLY from ResearchPapers
-                $texts = [];
-
-                $papers = ResearchPaper::query()
-                    ->whereNotNull('extracted_text')
-                    ->get(['id', 'extracted_text']);
-
-                foreach ($papers as $p) {
-                    $texts[] = $this->stripBoilerplate((string)$p->extracted_text);
-                }
-
-                $docCount = 0; $tokenDF = []; $ngDF = [];
-                foreach ($texts as $txt) {
-                    if (!$txt) continue;
-                    $docCount++;
-                    $words   = $this->splitWords($txt);
-                    $tokens  = array_unique($this->normalizeTokens($words));
-                    $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
-
-                    foreach ($tokens as $tok) { $tokenDF[$tok] = ($tokenDF[$tok] ?? 0) + 1; }
-                    foreach ($ngrams5 as $g)  { $ngDF[$g]      = ($ngDF[$g]      ?? 0) + 1; }
-                }
-
-                $idf = []; $N = max(1, $docCount);
-                foreach ($tokenDF as $tok => $df) {
-                    $idf[$tok] = log((1 + $N) / (1 + $df)) + 1.0;
-                }
-
-                $common = [];
-                if ($N < 25) { $minDF = max(2, (int)ceil($N * 0.30)); }
-                else         { $minDF = max(3, (int)ceil($N * 0.40)); }
-                foreach ($ngDF as $g => $df) {
-                    if ($df >= $minDF) $common[$g] = true;
-                }
-
-                $stats = ['idf' => $idf, 'common' => $common];
-                $store->put($statsKey, $stats, now()->addMinutes(self::CACHE_MINUTES * 3));
-
-                $this->idf = $idf;
-                $this->commonNgrams = $common;
-                return;
-            } finally {
-                optional($lock)->release();
-            }
-        }
-
-        // Wait a tick for writer; if still empty, use safe defaults
-        usleep(250 * 1000);
-        $stats = $store->get($statsKey, ['idf' => [], 'common' => []]);
-        $this->idf = $stats['idf'] ?? [];
-        $this->commonNgrams = $stats['common'] ?? [];
+    $cached = $store->get($statsKey);
+    if (is_array($cached) && isset($cached['idf'], $cached['common'])) {
+        $this->idf = $cached['idf'];
+        $this->commonNgrams = $cached['common'];
+        return;
     }
+
+    if ($lock->get()) {
+        try {
+            // Build fresh
+            $texts = [];
+
+            $titles = Title::query()
+                ->where('status', 'submitted')
+                ->whereNotNull('final_document_id')
+                ->with(['finalDocument:id,title_id,content'])
+                ->get(['id', 'final_document_id']);
+
+            foreach ($titles as $t) {
+                $final = $t->finalDocument;
+                if ($final && !empty($final->content)) {
+                    $texts[] = $this->stripBoilerplate($this->htmlToCleanText($final->content));
+                }
+            }
+
+            $papers = ResearchPaper::query()
+                ->whereNotNull('extracted_text')
+                ->get(['id', 'extracted_text']);
+
+            foreach ($papers as $p) {
+                $texts[] = $this->stripBoilerplate((string)$p->extracted_text);
+            }
+
+            $docCount = 0; $tokenDF = []; $ngDF = [];
+            foreach ($texts as $txt) {
+                if (!$txt) continue;
+                $docCount++;
+                $words   = $this->splitWords($txt);
+                $tokens  = array_unique($this->normalizeTokens($words));
+                $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
+
+                foreach ($tokens as $tok) { $tokenDF[$tok] = ($tokenDF[$tok] ?? 0) + 1; }
+                foreach ($ngrams5 as $g)  { $ngDF[$g]      = ($ngDF[$g]      ?? 0) + 1; }
+            }
+
+            $idf = []; $N = max(1, $docCount);
+            foreach ($tokenDF as $tok => $df) {
+                $idf[$tok] = log((1 + $N) / (1 + $df)) + 1.0;
+            }
+
+            $common = [];
+            if ($N < 25) { $minDF = max(2, (int)ceil($N * 0.30)); }
+            else         { $minDF = max(3, (int)ceil($N * 0.40)); }
+            foreach ($ngDF as $g => $df) {
+                if ($df >= $minDF) $common[$g] = true;
+            }
+
+            $stats = ['idf' => $idf, 'common' => $common];
+            $store->put($statsKey, $stats, now()->addMinutes(self::CACHE_MINUTES * 3));
+
+            $this->idf = $idf;
+            $this->commonNgrams = $common;
+            return;
+        } finally {
+            optional($lock)->release();
+        }
+    }
+
+    // Wait a tick for writer; if still empty, use safe defaults
+    usleep(250 * 1000);
+    $stats = $store->get($statsKey, ['idf' => [], 'common' => []]);
+    $this->idf = $stats['idf'] ?? [];
+    $this->commonNgrams = $stats['common'] ?? [];
+}
+
+
 
     /** ---------- Optional stemming ---------- */
     private function getStemmer(): ?\Closure
@@ -433,20 +475,24 @@ class PdfPlagiarismService
         return null;
     }
 
+
     private function cacheStore()
     {
+        // Prefer fast, persistent stores. Avoid 'array' (ephemeral) and 'database' (big blobs).
         $default = config('cache.default');
+
         if (in_array($default, ['array', 'database'], true)) {
-            return Cache::store('file');
+            return Cache::store('file');  // or 'redis' if you have it
         }
         return Cache::store($default);
     }
-
     private function lockStoreName(): string
     {
         $default = config('cache.default');
         return in_array($default, ['array', 'database'], true) ? 'file' : $default;
     }
+
+
 
     private function enrichCandidate(array $c): array
     {
@@ -460,13 +506,27 @@ class PdfPlagiarismService
 
     private function corpusVersion(): string
     {
+           $tMaxRaw = Title::query()
+        ->where('status','submitted')
+        ->whereNotNull('final_document_id')
+        ->max('updated_at');
         $pMaxRaw = ResearchPaper::query()
             ->whereNotNull('extracted_text')
             ->max('updated_at');
+        $tMax = $tMaxRaw ? \Illuminate\Support\Carbon::parse($tMaxRaw)->timestamp : 0;
+        $pMax = $pMaxRaw ? \Illuminate\Support\Carbon::parse($pMaxRaw)->timestamp : 0;
+
+        // Also include counts (cheap) to catch inserts/deletes with same timestamps
+         $tCnt = Title::query()
+         ->where('status','submitted')
+         ->whereNotNull('final_document_id')
+         ->count();
         $pCnt = ResearchPaper::query()
             ->whereNotNull('extracted_text')
             ->count();
 
-        return "v3:p{$pCnt}-" . ($pMaxRaw ? \Illuminate\Support\Carbon::parse($pMaxRaw)->timestamp : 0);
+     return "v3:t{$tCnt}-{$tMax}:p{$pCnt}-{$pMax}";
     }
+
+
 }
