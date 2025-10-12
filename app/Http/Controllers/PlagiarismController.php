@@ -50,4 +50,14 @@ class PlagiarismController extends Controller
         }
     }
 
+    public function testSettings(Request $request)
+    {
+        $document = Document::findOrFail((int)$request->input('document_id'));
+        $this->authorize('view', $document);
+
+        $sample = $request->input('sample_text', '');
+        $result = $this->plag->testPlagiarismSettings($sample, $document);
+
+        return response()->json($result);
+    }
 }
