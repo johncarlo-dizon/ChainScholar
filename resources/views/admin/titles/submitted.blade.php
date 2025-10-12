@@ -1,16 +1,11 @@
 <x-userlayout>
-     
-   
-
-
- <x-header.bar
-  title="Submitted Titles"
-  subtitle="View and manage your submitted research titles"
-  :unread-count="$unreadCount ?? 0"
-  :notifications="$notifications ?? collect()"
-  :user="Auth::user()"
-/>
-
+    <x-header.bar
+        title="Submitted Titles"
+        subtitle="View and manage your submitted research titles"
+        :unread-count="$unreadCount ?? 0"
+        :notifications="$notifications ?? collect()"
+        :user="Auth::user()"
+    />
 
     <div class="container mx-auto px-4 mt-4">
         @if(session('success'))
@@ -59,78 +54,84 @@
             @else
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-  <tr>
-    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Authors</th>
-    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted At</th>
-    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Similarity</th>
-    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-  </tr>
-</thead>
-
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Authors</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted At</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Similarity</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
 
                         <tbody class="bg-white divide-y divide-gray-200">
-@foreach($titles as $t)
-  <tr>
-  <td class="px-6 py-4 text-sm font-medium text-gray-900">
-    {{ $t->title }}
-  </td>
+                            @foreach($titles as $t)
+                                <tr>
+                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                                        {{ $t->title }}
+                                    </td>
 
-  <td class="px-6 py-4 text-sm text-gray-700">
-    {{ $t->authors ?? '—' }}
-  </td>
+                                    <td class="px-6 py-4 text-sm text-gray-700">
+                                        {{ $t->authors ?? '—' }}
+                                    </td>
 
-  <td class="px-6 py-4 text-sm text-gray-700">
-    {{ optional($t->owner)->name ?? '—' }}
-  </td>
+                                    <td class="px-6 py-4 text-sm text-gray-700">
+                                        {{ optional($t->owner)->name ?? '—' }}
+                                    </td>
 
-  <td class="px-6 py-4 text-sm text-gray-500">
-    {{ optional($t->submitted_at)->format('M d, Y h:i A') ?? '—' }}
-  </td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">
+                                        {{ optional($t->submitted_at)->format('M d, Y h:i A') ?? '—' }}
+                                    </td>
 
-  <td class="px-6 py-4 text-sm">
-    @if($t->finalDocument)
-      @php
-        $int = $t->finalDocument->plagiarism_internal;
-        $ext = $t->finalDocument->plagiarism_external;
+                                    <td class="px-6 py-4 text-sm">
+                                        @if($t->finalDocument)
+                                            @php
+                                                $int = $t->finalDocument->plagiarism_internal;
+                                                $ext = $t->finalDocument->plagiarism_external;
 
-        $badge = function($v){
-          if ($v === null) return 'bg-gray-100 text-gray-600';
-          if ($v < 20)     return 'bg-green-100 text-green-800';
-          if ($v < 40)     return 'bg-yellow-100 text-yellow-800';
-          return            'bg-red-100 text-red-800';
-        };
-      @endphp
-      <div class="flex items-center gap-2">
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $badge($int) }}">
-          Int: {{ is_null($int) ? '—' : number_format($int, 2) . '%' }}
-        </span>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $badge($ext) }}">
-          Ext: {{ is_null($ext) ? '—' : number_format($ext, 2) . '%' }}
-        </span>
-      </div>
-    @else
-      —
-    @endif
-  </td>
+                                                $badge = function($v){
+                                                    if ($v === null) return 'bg-gray-100 text-gray-600';
+                                                    if ($v < 20)     return 'bg-green-100 text-green-800';
+                                                    if ($v < 40)     return 'bg-yellow-100 text-yellow-800';
+                                                    return            'bg-red-100 text-red-800';
+                                                };
+                                            @endphp
+                                            <div class="flex items-center gap-2">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $badge($int) }}">
+                                                    Int: {{ is_null($int) ? '—' : number_format($int, 2) . '%' }}
+                                                </span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $badge($ext) }}">
+                                                    Ext: {{ is_null($ext) ? '—' : number_format($ext, 2) . '%' }}
+                                                </span>
+                                            </div>
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
 
-  <td class="px-6 py-4 text-sm">
-    @if($t->finalDocument)
-      <a href="{{ route('admin.titles.submitted.view', $t->finalDocument) }}"
-             class="text-indigo-600 hover:text-indigo-900 mr-3 text-sm font-medium">
-        View
-      </a>
-    @else
-      <span class="text-gray-500">No final document</span>
-    @endif
-  </td>
-</tr>
-
-@endforeach
-</tbody>
-
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        @if($t->finalDocument)
+                                            <!-- Copy Content Button -->
+                                            <button onclick="copyContent({{ $t->finalDocument->id }})" 
+                                                    class="text-blue-600 hover:text-blue-900 copy-btn"
+                                                    data-id="{{ $t->finalDocument->id }}"
+                                                    title="Copy document content to clipboard">
+                                                Copy
+                                            </button>
+                                            
+                                            <!-- View Document Link -->
+                                            <a href="{{ route('admin.titles.submitted.view', $t->finalDocument) }}"
+                                                class="text-indigo-600 hover:text-indigo-900">
+                                                View
+                                            </a>
+                                        @else
+                                            <span class="text-gray-500">No final document</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
                     </table>
                 </div>
 
@@ -141,4 +142,124 @@
             @endif
         </div>
     </div>
+
+    <!-- Copy functionality script -->
+    <script>
+        // Copy Content Function
+        async function copyContent(documentId) {
+            try {
+                // Show loading state
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                const originalText = button.textContent;
+                button.textContent = 'Copying...';
+                button.disabled = true;
+
+                // Fetch the document content
+                const response = await fetch(`/documents/${documentId}/content`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch content');
+                }
+
+                const data = await response.json();
+                
+                if (!data.content) {
+                    throw new Error('No content available');
+                }
+
+                // Create a temporary div to parse HTML and preserve formatting
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = data.content;
+
+                // Use Clipboard API to copy with formatting
+                const clipboardItem = new ClipboardItem({
+                    'text/html': new Blob([data.content], { type: 'text/html' }),
+                    'text/plain': new Blob([tempDiv.textContent || tempDiv.innerText || ''], { type: 'text/plain' })
+                });
+
+                await navigator.clipboard.write([clipboardItem]);
+                
+                // Show success toast
+                showCopySuccess();
+                
+            } catch (error) {
+                console.error('Copy failed:', error);
+                alert('Failed to copy content: ' + error.message);
+            } finally {
+                // Restore button state
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                if (button) {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }
+            }
+        }
+
+        // Alternative simpler method (fallback)
+        async function copyContentSimple(documentId) {
+            try {
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                const originalText = button.textContent;
+                button.textContent = 'Copying...';
+                button.disabled = true;
+
+                const response = await fetch(`/documents/${documentId}/content`);
+                const data = await response.json();
+                
+                if (!data.content) {
+                    throw new Error('No content available');
+                }
+
+                // Create temporary element to handle HTML content
+                const tempElement = document.createElement('div');
+                tempElement.innerHTML = data.content;
+                document.body.appendChild(tempElement);
+
+                // Select the content
+                const range = document.createRange();
+                range.selectNode(tempElement);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                // Execute copy command
+                const successful = document.execCommand('copy');
+                selection.removeAllRanges();
+                document.body.removeChild(tempElement);
+
+                if (successful) {
+                    showCopySuccess();
+                } else {
+                    throw new Error('Copy command failed');
+                }
+                
+            } catch (error) {
+                console.error('Copy failed:', error);
+                alert('Failed to copy content: ' + error.message);
+            } finally {
+                const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
+                if (button) {
+                    button.textContent = 'Copy';
+                    button.disabled = false;
+                }
+            }
+        }
+
+        function showCopySuccess() {
+            Swal.fire({
+                icon: 'success',
+                title: 'Content copied!',
+                showConfirmButton: false,
+                timer: 3000,
+                toast: true,
+                position: 'top-end'
+            });
+        }
+
+        // Use the modern Clipboard API if available, otherwise fallback
+        if (!navigator.clipboard || !navigator.clipboard.write) {
+            // Replace the copy function with simpler version if Clipboard API not available
+            window.copyContent = copyContentSimple;
+        }
+    </script>
 </x-userlayout>
