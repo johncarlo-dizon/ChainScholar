@@ -98,14 +98,31 @@
                 <form id="avatar-form" action="{{ route('profile.update.avatar') }}" method="POST" enctype="multipart/form-data" class="space-y-3">
                     @csrf
                     <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                        <div class="flex-1">
-                            <input type="file" 
-                                   id="avatar-input" 
-                                   name="avatar" 
-                                   class="w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-sm file:text-gray-500   "
-                                   accept="image/*">
-                            <p id="avatar-error" class="mt-1 text-sm text-red-600 hidden"></p>
-                        </div>
+                       <div class="flex-1">
+  <label
+    for="avatar-input"
+    class="flex items-center justify-center gap-2 w-full border-2 border-dashed border-gray-300 rounded-xl p-4 bg-white/80
+           text-gray-500 cursor-pointer transition hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50
+           focus-within:ring-2 focus-within:ring-blue-500"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+    <span id="avatar-label" class="text-sm font-medium">Click to upload avatar (PNG, JPG)</span>
+  </label>
+
+  <input 
+    type="file" 
+    id="avatar-input" 
+    name="avatar" 
+    class="hidden"
+    accept="image/*"
+    onchange="updateAvatarLabel(this)"
+  >
+
+  <p id="avatar-error" class="mt-1 text-sm text-red-600 hidden"></p>
+</div>
+
                         <button type="submit" 
                                 id="avatar-submit" 
                                 class="bg-indigo-500 hover:bg-indigo-600 text-white py-2 px-4 rounded-lg transition text-sm whitespace-nowrap">
@@ -186,6 +203,18 @@
   </div>
 </div>
 
+<script>
+function updateAvatarLabel(input) {
+  const label = document.getElementById('avatar-label');
+  if (input.files && input.files[0]) {
+    label.textContent = input.files[0].name;
+    label.classList.add('text-gray-800');
+  } else {
+    label.textContent = 'Click to upload avatar (PNG, JPG)';
+    label.classList.remove('text-gray-800');
+  }
+}
+</script>
 
 
 <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
