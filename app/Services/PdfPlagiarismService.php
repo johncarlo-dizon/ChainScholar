@@ -6,42 +6,43 @@ use App\Models\ResearchPaper;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * PdfPlagiarismService
- * - Input: plain text (extracted from PDF)
- * - Corpus: ResearchPapers only (extracted_text from PDFs)
- * - Same logic as PlagiarismService (sliding windows; TF-IDF cosine + 5-gram Jaccard)
+ * Conservative PDF Plagiarism Service
+ * - Uses SAME conservative algorithm as PlagiarismService
+ * - Only searches against ResearchPaper PDFs
  */
 class PdfPlagiarismService
 {
-    /** -------- Tunable parameters -------- */
-    private const WINDOW_WORDS        = 60;
-    private const STRIDE_WORDS        = 20;
-    private const MIN_CHUNK_WORDS     = 12;
-    private const NGRAM_N             = 5;
-    private const RETURN_TOP_MATCHES  = 30;
+    /** -------- SAME Conservative Tunables as PlagiarismService -------- */
+    private const WINDOW_WORDS        = 25;
+    private const STRIDE_WORDS        = 15;
+    private const MIN_CHUNK_WORDS     = 20;
+    private const NGRAM_N             = 8;
+    private const RETURN_TOP_MATCHES  = 10;
     private const SCORE_SCALE         = 100.0;
     private const CACHE_MINUTES       = 10;
+    private const MIN_SIMILARITY      = 0.25;
+    private const MIN_MATCH_LENGTH    = 100;
 
-    // Blend the two signals
     private const USE_WEIGHTED = true;
-    private const COS_W        = 0.6;
-    private const JAC_W        = 0.4;
+    private const COS_W        = 0.8;
+    private const JAC_W        = 0.2;
 
-    // Optional: add Filipino stopwords (minimal set)
     private static array $STOP = [
-        // EN
         'a'=>1,'an'=>1,'the'=>1,'and'=>1,'or'=>1,'but'=>1,'if'=>1,'while'=>1,'at'=>1,'by'=>1,'for'=>1,'with'=>1,'about'=>1,'against'=>1,'between'=>1,'into'=>1,'through'=>1,'during'=>1,'before'=>1,'after'=>1,'above'=>1,'below'=>1,'to'=>1,'from'=>1,'up'=>1,'down'=>1,'in'=>1,'out'=>1,'on'=>1,'off'=>1,'over'=>1,'under'=>1,'again'=>1,'further'=>1,'then'=>1,'once'=>1,'here'=>1,'there'=>1,'when'=>1,'where'=>1,'why'=>1,'how'=>1,'all'=>1,'any'=>1,'both'=>1,'each'=>1,'few'=>1,'more'=>1,'most'=>1,'other'=>1,'some'=>1,'such'=>1,'no'=>1,'nor'=>1,'not'=>1,'only'=>1,'own'=>1,'same'=>1,'so'=>1,'than'=>1,'too'=>1,'very'=>1,'can'=>1,'will'=>1,'just'=>1,'don'=>1,'should'=>1,'now'=>1,'is'=>1,'am'=>1,'are'=>1,'was'=>1,'were'=>1,'be'=>1,'been'=>1,'being'=>1,'of'=>1,'as'=>1,'it'=>1,'its'=>1,'this'=>1,'that'=>1,'these'=>1,'those'=>1,'which'=>1,'who'=>1,'whom'=>1,'what'=>1,'via'=>1,
-        // Minimal Filipino
-        'ang'=>1,'ng'=>1,'mga'=>1,'sa'=>1,'kay'=>1,'kina'=>1,'ito'=>1,'iyan'=>1,'iyon'=>1,'ako'=>1,'kami'=>1,'tayo'=>1,'kayo'=>1,'sila'=>1,'para'=>1,'dahil'=>1,'kung'=>1,'habang'=>1,'lamang'=>1,'lang'=>1,'rin'=>1,'din'=>1
+        'however'=>1,'therefore'=>1,'moreover'=>1,'furthermore'=>1,'consequently'=>1,'nevertheless'=>1,'thus'=>1,'hence'=>1,'accordingly'=>1,'meanwhile'=>1,'additionally'=>1,'likewise'=>1,'otherwise'=>1,'instead'=>1,'similarly'=>1,'indeed'=>1,'certainly'=>1,'probably'=>1,'perhaps'=>1,'maybe'=>1,'almost'=>1,'quite'=>1,'rather'=>1,'much'=>1,'many'=>1,'several'=>1,'various'=>1,'different'=>1,'important'=>1,'significant'=>1,'major'=>1,'minor'=>1,'higher'=>1,'lower'=>1,'better'=>1,'worse'=>1,'large'=>1,'small'=>1,'high'=>1,'low'=>1,'great'=>1,'good'=>1,'bad'=>1,'new'=>1,'old'=>1,'first'=>1,'last'=>1,'next'=>1,'previous'=>1,'current'=>1,'recent'=>1,'early'=>1,'late'=>1,'long'=>1,'short'=>1,
     ];
 
-    /** Cached corpus stats */
-    private array $idf = [];           // token => idf weight
-    private array $commonNgrams = [];  // 5-grams flagged as boilerplate
+    private static array $COMMON_PHRASES = [
+        'this study shows that', 'in this paper we', 'the results indicate that', 'as shown in table', 'it can be seen that', 'in conclusion we can say', 'the purpose of this', 'this research examines', 'the data suggest that', 'previous research has', 'literature review shows', 'methodology section describes', 'findings of this study', 'limitations of this study', 'future research should', 'according to the results', 'the analysis reveals that', 'in summary we can say', 'the main objective is', 'as previously mentioned', 'based on the findings', 'the study found that', 'research has shown that', 'it is important to note', 'the results show that', 'the data indicate that', 'this suggests that', 'it was found that', 'the author concludes that', 'this paper presents', 'the aim of this study', 'the objective of this research', 'this chapter discusses', 'the following section describes', 'as can be seen from', 'figure one shows', 'table two presents', 'the graph illustrates', 'the chart demonstrates', 'statistical analysis shows', 'significant difference was', 'no significant difference', 'correlation was found', 'regression analysis showed', 'anova results indicated', 'the hypothesis was', 'null hypothesis was', 'alternative hypothesis was', 'confidence interval was', 'standard deviation was', 'mean value was', 'median value was', 'standard error was', 'p value was', 'r squared value', 'the sample size was', 'participants were asked', 'subjects completed the', 'materials and methods', 'procedure was followed', 'experiment was conducted', 'survey was administered', 'questionnaire was used', 'interview was conducted', 'data was collected', 'data were analyzed', 'results are presented', 'discussion of results', 'implications of findings', 'recommendations for practice', 'suggestions for future', 'contribution to knowledge', 'theoretical implications', 'practical implications', 'study limitations include', 'strengths of this study', 'weaknesses of this study', 'further research is needed', 'additional studies should', 'in future research', 'subsequent investigations', 'later studies may', 'research questions were', 'research objectives were', 'the problem statement', 'background of the study', 'significance of the study', 'scope and limitations', 'definition of terms', 'theoretical framework', 'conceptual framework', 'review of literature', 'summary of literature', 'gaps in literature', 'research methodology', 'research design', 'data collection methods', 'data analysis methods', 'ethical considerations', 'informed consent was', 'approval was obtained', 'the institution review board', 'protection of human subjects'
+    ];
 
-    /** ---------- Public API ---------- */
+    private array $idf = [];
+    private array $commonNgrams = [];
 
-    /** Quick overall score = max similarity across windows */
+    private const MAX_PDFS                  = 300;
+    private const MAX_CHUNKS_PER_SOURCE     = 50;
+    private const MAX_EXCERPT_CHARS         = 300;
+
     public function quickScoreFromText(string $plainText): float
     {
         $clean = $this->stripBoilerplate($plainText);
@@ -50,7 +51,7 @@ class PdfPlagiarismService
         $cands = $this->candidateChunksCorpus();
         if (empty($your) || empty($cands)) return 0.0;
 
-        $this->ensureCorpusStats(); // load IDF + common n-grams
+        $this->ensureCorpusStats();
 
         $max = 0.0;
         foreach ($your as $yc) {
@@ -60,31 +61,36 @@ class PdfPlagiarismService
                 if ($sim > $max) $max = $sim;
             }
         }
-        return round($max * self::SCORE_SCALE, 2);
+        
+        $score = $max * self::SCORE_SCALE;
+        return $score < 10 ? 0.0 : round($score, 2);
     }
 
-    /** Detailed matches (cards) + overall score */
     public function detailedMatchesFromText(string $plainText, int $minPercent = 0): array
     {
         $txt    = $this->stripBoilerplate($plainText);
         $your   = $this->makeChunks($txt);
         $cands  = $this->candidateChunksCorpus();
-        $minSim = max(0, $minPercent);
+        $minSim = max($minPercent / self::SCORE_SCALE, self::MIN_SIMILARITY);
 
         $this->ensureCorpusStats();
 
         $matches = [];
         $overall = 0.0;
-        $seenYour = [];  // de-dup by your excerpt hash
-        $bySource = [];  // aggregate max per source
+        $seenYour = [];
 
         foreach ($your as $yc) {
             $best = null;
             foreach ($cands as $cc) {
-                $cc = $this->enrichCandidate($cc); 
-                $simPct = $this->combinedSimilarity($yc, $cc) * self::SCORE_SCALE;
+                $cc = $this->enrichCandidate($cc);
+                $sim = $this->combinedSimilarity($yc, $cc);
+                $simPct = $sim * self::SCORE_SCALE;
+                
+                if ($sim < $minSim) continue;
+                if (!$this->isSubstantialMatch($yc['text'], $cc['text'])) continue;
+                if ($this->isCommonPhrase($yc['text'])) continue;
+                
                 if ($simPct > $overall) $overall = $simPct;
-                if ($simPct < $minSim) continue;
 
                 $m = [
                     'percent'        => round($simPct, 2),
@@ -93,27 +99,17 @@ class PdfPlagiarismService
                     'source_title'   => $cc['source_title'],
                     'source_chapter' => $cc['source_chapter'],
                     'document_id'    => $cc['document_id'],
-                    'source_type'    => $cc['source_type'], // "ResearchPaper" only now
+                    'source_type'    => $cc['source_type'],
                 ];
+                
                 if ($best === null || $m['percent'] > $best['percent']) $best = $m;
             }
-            if ($best) {
+            
+            if ($best && $best['percent'] >= 25) {
                 $h = substr(md5(mb_strtolower($best['your_excerpt'])), 0, 16);
                 if (!isset($seenYour[$h])) {
                     $seenYour[$h] = true;
                     $matches[] = $best;
-
-                    $sid = $best['document_id'] . ':' . $best['source_type'];
-                    if (!isset($bySource[$sid]) || $best['percent'] > $bySource[$sid]['max_percent']) {
-                        $bySource[$sid] = [
-                            'document_id' => $best['document_id'],
-                            'source_type' => $best['source_type'],
-                            'source_title'=> $best['source_title'],
-                            'max_percent' => $best['percent'],
-                            'sample_your' => $best['your_excerpt'],
-                            'sample_src'  => $best['source_excerpt'],
-                        ];
-                    }
                 }
             }
         }
@@ -121,70 +117,134 @@ class PdfPlagiarismService
         usort($matches, fn($a,$b)=>$b['percent'] <=> $a['percent']);
         $matches = array_slice($matches, 0, self::RETURN_TOP_MATCHES);
 
+        $finalScore = $overall >= 25 ? round($overall, 2) : 0.0;
+
         return [
-            'score'     => round($overall, 2),
+            'score'     => $finalScore,
             'matches'   => $matches,
-            'aggregate' => array_values($bySource),
             'meta'      => [
                 'window'     => self::WINDOW_WORDS,
                 'stride'     => self::STRIDE_WORDS,
                 'ngram'      => self::NGRAM_N,
                 'candidates' => count($cands),
+                'note'       => 'Same conservative algorithm as document checker'
             ],
         ];
     }
-
-    /** ---------- Similarity ---------- */
 
     private function combinedSimilarity(array $a, array $b): float
     {
         $cos = $this->cosineTfidf($a['tf'], $b['tf'], $this->idf);
         $jac = $this->jaccardFiltered($a['ngrams'], $b['ngrams'], $this->commonNgrams);
-        if (self::USE_WEIGHTED) return (self::COS_W * $cos) + (self::JAC_W * $jac);
-        return max($cos, $jac);
+        
+        $combined = (self::COS_W * $cos) + (self::JAC_W * $jac);
+        
+        if ($combined < self::MIN_SIMILARITY) return 0.0;
+        if ($jac > 0.8 && $cos < 0.3) return 0.0;
+        
+        return min($combined, 0.95);
     }
 
     private function cosineTfidf(array $va, array $vb, array $idf): float
     {
-        // sub-linear tf to stabilize
-        $tfA = []; foreach ($va as $k=>$tf) { $tfA[$k] = 1.0 + log(max(1.0, $tf)); }
-        $tfB = []; foreach ($vb as $k=>$tf) { $tfB[$k] = 1.0 + log(max(1.0, $tf)); }
+        if (count($va) < 5 || count($vb) < 5) return 0.0;
+        
+        $ma=0.0; $mb=0.0; $dot=0.0;
+        
+        foreach ($va as $k=>$tf){ 
+            $w=$idf[$k]??0.1;
+            $wt=$tf*$w; 
+            $ma += $wt*$wt; 
+        }
+        foreach ($vb as $k=>$tf){ 
+            $w=$idf[$k]??0.1; 
+            $wt=$tf*$w; 
+            $mb += $wt*$wt; 
+        }
+        
+        $den = sqrt($ma)*sqrt($mb); 
+        if ($den <= 0.001) return 0.0;
 
-        $ma=0.0; foreach ($tfA as $k=>$tf){ $w=$idf[$k]??1.0; $wt=$tf*$w; $ma += $wt*$wt; }
-        $mb=0.0; foreach ($tfB as $k=>$tf){ $w=$idf[$k]??1.0; $wt=$tf*$w; $mb += $wt*$wt; }
-        $den = sqrt($ma)*sqrt($mb); if ($den<=0) return 0.0;
-
-        $dot=0.0;
-        $small = count($tfA) < count($tfB) ? $tfA : $tfB;
-        foreach ($small as $k=>$_){
-            if (isset($tfA[$k], $tfB[$k])){
-                $w = $idf[$k] ?? 1.0;
-                $dot += ($tfA[$k]*$w) * ($tfB[$k]*$w);
+        foreach ($va as $k=>$v){
+            if (isset($vb[$k])){
+                $w = $idf[$k] ?? 0.1;
+                $dot += ($v*$w) * ($vb[$k]*$w);
             }
         }
+        
         $c = $dot/$den;
-        return $c<0?0.0:($c>1?1.0:$c);
+        return max(0.0, min(1.0, $c));
     }
 
     private function jaccardFiltered(array $A, array $B, array $commonFlag): float
     {
-        if (empty($A) || empty($B)) return 0.0;
+        if (empty($A) || empty($B) || count($A) < 3 || count($B) < 3) return 0.0;
+        
         $fa=[]; foreach($A as $g){ if(!isset($commonFlag[$g])) $fa[]=$g; }
         $fb=[]; foreach($B as $g){ if(!isset($commonFlag[$g])) $fb[]=$g; }
+        
         if (empty($fa) || empty($fb)) return 0.0;
 
-        sort($fa); sort($fb);
-        $i=$j=0; $inter=0; $union=0;
-        while($i<count($fa)&&$j<count($fb)){
-            if($fa[$i]===$fb[$j]){ $inter++; $union++; $i++; $j++; }
-            elseif($fa[$i]<$fb[$j]){ $union++; $i++; }
-            else { $union++; $j++; }
-        }
-        $union += (count($fa)-$i)+(count($fb)-$j);
-        return $union ? $inter/$union : 0.0;
+        $inter = count(array_intersect($fa, $fb));
+        $union = count($fa) + count($fb) - $inter;
+        
+        return $union > 0 ? ($inter / $union) : 0.0;
     }
 
-    /** ---------- Chunking ---------- */
+    private function isSubstantialMatch(string $textA, string $textB): bool
+    {
+        if (mb_strlen($textA) < self::MIN_MATCH_LENGTH || mb_strlen($textB) < self::MIN_MATCH_LENGTH) {
+            return false;
+        }
+
+        $uniqueWordsA = $this->countUniqueWords($textA);
+        $uniqueWordsB = $this->countUniqueWords($textB);
+        
+        if ($uniqueWordsA < 8 || $uniqueWordsB < 8) return false;
+
+        return true;
+    }
+
+    private function isCommonPhrase(string $text): bool
+    {
+        $textLower = mb_strtolower(trim($text));
+        
+        foreach (self::$COMMON_PHRASES as $phrase) {
+            if (str_contains($textLower, $phrase)) {
+                $phraseRatio = mb_strlen($phrase) / mb_strlen($textLower);
+                if ($phraseRatio > 0.4) {
+                    return true;
+                }
+            }
+        }
+        
+        $wordCount = str_word_count($text);
+        $stopwordCount = 0;
+        $words = str_word_count($text, 1);
+        foreach ($words as $word) {
+            if (isset(self::$STOP[strtolower($word)])) {
+                $stopwordCount++;
+            }
+        }
+        
+        if ($wordCount > 0 && ($stopwordCount / $wordCount) > 0.6) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    private function countUniqueWords(string $text): int
+    {
+        $words = str_word_count(mb_strtolower($text), 1);
+        $unique = [];
+        foreach ($words as $word) {
+            if (!isset(self::$STOP[$word]) && strlen($word) > 2) {
+                $unique[$word] = true;
+            }
+        }
+        return count($unique);
+    }
 
     private function makeChunks(string $text): array
     {
@@ -198,11 +258,18 @@ class PdfPlagiarismService
             if (count($slice) < self::MIN_CHUNK_WORDS) break;
 
             $chunkText = implode(' ', $slice);
+            
+            if ($this->isCommonPhrase($chunkText)) continue;
+
             $normTokens = $this->normalizeTokens($slice);
             $tf  = $this->termFreq($normTokens);
             $ngr = $this->ngrams($slice, self::NGRAM_N);
 
-            $chunks[] = ['text'=>$chunkText, 'tf'=>$tf, 'ngrams'=>$ngr];
+            $chunks[] = [
+                'text'   => $chunkText,
+                'tf'     => $tf,
+                'ngrams' => $ngr,
+            ];
         }
         return $chunks;
     }
@@ -217,13 +284,11 @@ class PdfPlagiarismService
 
     private function normalizeTokens(array $tokens): array
     {
-        $stem = $this->getStemmer();
         $out=[];
         foreach($tokens as $t){
             $t = mb_strtolower($t,'UTF-8');
             $t = preg_replace('/[^\p{L}\p{M}\p{N}]+/u','',$t);
             if ($t==='' || isset(self::$STOP[$t])) continue;
-            if ($stem) $t = $stem($t);
             $out[] = $t;
         }
         return $out;
@@ -231,135 +296,115 @@ class PdfPlagiarismService
 
     private function ngrams(array $tokens, int $n): array
     {
-        $N=count($tokens); if ($N<$n) return [];
+        $N=count($tokens); 
+        if ($N<$n) return [];
+        
         $grams=[];
         for($i=0;$i<=$N-$n;$i++){
             $g=[];
             for($k=0;$k<$n;$k++){
                 $w = mb_strtolower($tokens[$i+$k],'UTF-8');
-                $w = preg_replace('/[^\p{L}\p{M}\p{N}’\'-]+/u','',$w);
+                $w = preg_replace('/[^\p{L}\p{M}\p{N}]+/u','',$w);
+                if ($w === '' || isset(self::$STOP[$w])) {
+                    continue 2;
+                }
                 $g[]=$w;
             }
-            $grams[] = implode(' ',$g);
+            if (count($g) === $n) {
+                $grams[] = implode(' ',$g);
+            }
         }
         return array_values(array_unique($grams));
     }
 
     private function termFreq(array $tokens): array
     {
-        $f=[]; foreach($tokens as $t){ $f[$t]=($f[$t]??0)+1; } return $f;
+        $f=[]; 
+        foreach($tokens as $t){ 
+            if (!isset(self::$STOP[$t]) && mb_strlen($t) > 2) {
+                $f[$t]=($f[$t]??0)+1; 
+            }
+        } 
+        return $f;
     }
-
-    /** ---------- Candidates: research_papers ONLY (PDFs) ---------- */
 
     private function candidateChunksCorpus(): array
     {
-        $ver      = $this->corpusVersion();
-        $cacheKey = "plag:candidates:pdf:{$ver}";
-        $store      = $this->cacheStore();
-        $lockStore  = Cache::store($this->lockStoreName());
-        $lock       = $lockStore->lock('plag:lock:candidates:v2', 60);
+        $ver = $this->corpusVersion();
+        $cacheKey = "plag:candidates:pdf:conservative:{$ver}";
+        $store = $this->cacheStore();
 
-        // Fast path: cached
         $cached = $store->get($cacheKey);
         if (is_array($cached) && !empty($cached)) {
             return $cached;
         }
 
-        // Single-writer build
-        if ($lock->get()) {
-            try {
-                $out = [];
+        $out = [];
 
-                // ONLY Research papers (PDFs)
-                $papers = ResearchPaper::query()
-                    ->whereNotNull('extracted_text')
-                    ->get(['id', 'title', 'extracted_text']);
+        $papers = ResearchPaper::query()
+            ->whereNotNull('extracted_text')
+            ->where('created_at', '>', now()->subMonths(24))
+            ->latest('updated_at')
+            ->limit(self::MAX_PDFS)
+            ->get(['id', 'title', 'year', 'authors', 'extracted_text']);
 
-                foreach ($papers as $p) {
-                    $src = $this->stripBoilerplate((string) $p->extracted_text);
-                    foreach ($this->makeChunks($src) as $c) {
-                        $out[] = [
-                            'document_id'    => $p->id,
-                            'source_title'   => $p->title ?? 'Untitled',
-                            'source_chapter' => 'ResearchPaper',
-                            'source_type'    => 'ResearchPaper',
-                            'text'           => $c['text'],
-                        ];
-                    }
-                }
+        foreach ($papers as $p) {
+            $src = $this->stripBoilerplate((string) $p->extracted_text);
+            $chunks = $this->makeChunks($src);
+            
+            $chunks = array_slice($chunks, 0, self::MAX_CHUNKS_PER_SOURCE);
+            
+            foreach ($chunks as $c) {
+                $excerpt = mb_strlen($c['text']) > self::MAX_EXCERPT_CHARS
+                    ? (mb_substr($c['text'], 0, self::MAX_EXCERPT_CHARS) . '…')
+                    : $c['text'];
 
-                // Cache for a bit longer to avoid rebuilds on hot pages
-                $store->put($cacheKey, $out, now()->addMinutes(self::CACHE_MINUTES * 3));
-                return $out;
-            } finally {
-                optional($lock)->release();
+                $out[] = [
+                    'document_id'    => $p->id,
+                    'source_title'   => $this->formatPaperTitle($p),
+                    'source_chapter' => 'PDF',
+                    'source_type'    => 'ResearchPaper',
+                    'text'           => $excerpt,
+                ];
             }
         }
 
-        // Readers wait briefly for the builder, then return whatever is there (or empty)
-        usleep(250 * 1000); // 250ms
-        return $store->get($cacheKey, []);
+        $store->put($cacheKey, $out, now()->addMinutes(self::CACHE_MINUTES * 2));
+        return $out;
     }
 
-    /** ---------- Cleaning ---------- */
-
-    private function htmlToCleanText(string $htmlOrText): string
+    private function formatPaperTitle($paper): string
     {
-        $s = preg_replace('/<img[^>]+src="data:image\/[^"]+"[^>]*>/i','',$htmlOrText);
-        $s = strip_tags($s);
-        $s = html_entity_decode($s, ENT_QUOTES|ENT_HTML5, 'UTF-8');
-        $s = preg_replace('/\s+/u',' ',$s);
-        return trim($s);
+        $title = $paper->title ?? 'Untitled';
+        $year = $paper->year ? " ({$paper->year})" : '';
+        $authors = $paper->authors ? " — {$paper->authors}" : '';
+        
+        return trim($title . $year . $authors);
     }
 
     public function stripBoilerplate(string $text): string
     {
-        $t = $this->startFromBody($text);
+        $t = $text;
 
-        foreach ([
-            '/\b(?:references|bibliography|works\s+cited|appendix|appendices)\b/i',
-            '/\b(?:acknowledg?ments?)\b/i',
-        ] as $rx) {
-            if (preg_match($rx, $t, $m, PREG_OFFSET_CAPTURE)) {
-                $t = trim(mb_substr($t, 0, $m[0][1]));
-                break;
+        if (preg_match('/\b(?:references|bibliography)\b/i', $t, $m, PREG_OFFSET_CAPTURE)) {
+            $pos = $m[0][1];
+            if ($pos > mb_strlen($t) * 0.8) {
+                $t = trim(mb_substr($t, 0, $pos));
             }
         }
 
-        $t = preg_replace('/\((?:[A-Z][A-Za-z\'-]+(?:\s*&\s*[A-Z][A-Za-z\'-]+)?(?:\s*,\s*\d{4})?(?:\s*;\s*)?)+\)/u',' ',$t);
-        $t = preg_replace('/\[\s*\d+(?:\s*[-,]\s*\d+)*\s*\]/u',' ',$t);
-        $t = preg_replace('#https?://\S+#i',' ',$t);
-        $t = preg_replace('/\b10\.\d{4,9}\/[-._;()\/:A-Za-z0-9]+\b/',' ',$t);
-
-        return preg_replace('/\s+/u',' ', trim($t));
+        $t = preg_replace('#https?://\S+#i', ' ', $t);
+        
+        return preg_replace('/\s+/u', ' ', trim($t));
     }
-
-    private function startFromBody(string $text): string
-    {
-        $t = ltrim($text);
-        if (preg_match('/\bchapter\s*(?:1|i|one)\b/iu',$t,$m, PREG_OFFSET_CAPTURE)) {
-            return ltrim(mb_substr($t, $m[0][1]));
-        }
-        if (preg_match('/\bintroduction\b/iu',$t,$m2,PREG_OFFSET_CAPTURE)) {
-            $pos = $m2[0][1];
-            if ($pos < (int)(mb_strlen($t)*0.25)) return ltrim(mb_substr($t,$pos));
-        }
-        return $t;
-    }
-
-    /** ---------- Corpus stats (IDF + common 5-grams) ---------- */
 
     private function ensureCorpusStats(): void
     {
         if (!empty($this->idf)) return;
 
-        $store     = $this->cacheStore();
-        $lockStore = Cache::store($this::lockStoreName());
-        $ver     = $this->corpusVersion();
-        $statsKey= "plag:stats:pdf:{$ver}";
-
-        $lock      = $lockStore->lock('plag:lock:stats:v2', 60);
+        $store = $this->cacheStore();
+        $ver = $this->corpusVersion();
+        $statsKey = "plag:stats:pdf:conservative:{$ver}";
 
         $cached = $store->get($statsKey);
         if (is_array($cached) && isset($cached['idf'], $cached['common'])) {
@@ -368,69 +413,45 @@ class PdfPlagiarismService
             return;
         }
 
-        if ($lock->get()) {
-            try {
-                // Build fresh - ONLY from ResearchPapers
-                $texts = [];
+        $texts = [];
+        $papers = ResearchPaper::query()
+            ->whereNotNull('extracted_text')
+            ->where('created_at', '>', now()->subMonths(24))
+            ->limit(100)
+            ->get(['id', 'extracted_text']);
 
-                $papers = ResearchPaper::query()
-                    ->whereNotNull('extracted_text')
-                    ->get(['id', 'extracted_text']);
-
-                foreach ($papers as $p) {
-                    $texts[] = $this->stripBoilerplate((string)$p->extracted_text);
-                }
-
-                $docCount = 0; $tokenDF = []; $ngDF = [];
-                foreach ($texts as $txt) {
-                    if (!$txt) continue;
-                    $docCount++;
-                    $words   = $this->splitWords($txt);
-                    $tokens  = array_unique($this->normalizeTokens($words));
-                    $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
-
-                    foreach ($tokens as $tok) { $tokenDF[$tok] = ($tokenDF[$tok] ?? 0) + 1; }
-                    foreach ($ngrams5 as $g)  { $ngDF[$g]      = ($ngDF[$g]      ?? 0) + 1; }
-                }
-
-                $idf = []; $N = max(1, $docCount);
-                foreach ($tokenDF as $tok => $df) {
-                    $idf[$tok] = log((1 + $N) / (1 + $df)) + 1.0;
-                }
-
-                $common = [];
-                if ($N < 25) { $minDF = max(2, (int)ceil($N * 0.30)); }
-                else         { $minDF = max(3, (int)ceil($N * 0.40)); }
-                foreach ($ngDF as $g => $df) {
-                    if ($df >= $minDF) $common[$g] = true;
-                }
-
-                $stats = ['idf' => $idf, 'common' => $common];
-                $store->put($statsKey, $stats, now()->addMinutes(self::CACHE_MINUTES * 3));
-
-                $this->idf = $idf;
-                $this->commonNgrams = $common;
-                return;
-            } finally {
-                optional($lock)->release();
-            }
+        foreach ($papers as $p) {
+            $txt = $this->stripBoilerplate((string)$p->extracted_text);
+            if ($txt) $texts[] = $txt;
         }
 
-        // Wait a tick for writer; if still empty, use safe defaults
-        usleep(250 * 1000);
-        $stats = $store->get($statsKey, ['idf' => [], 'common' => []]);
-        $this->idf = $stats['idf'] ?? [];
-        $this->commonNgrams = $stats['common'] ?? [];
-    }
+        $docCount = 0; $tokenDF = []; $ngDF = [];
+        foreach ($texts as $txt) {
+            $docCount++;
+            $words   = $this->splitWords($txt);
+            $tokens  = array_unique($this->normalizeTokens($words));
+            $ngrams5 = array_unique($this->ngrams($words, self::NGRAM_N));
 
-    /** ---------- Optional stemming ---------- */
-    private function getStemmer(): ?\Closure
-    {
-        if (class_exists(\Wamania\Snowball\English::class)) {
-            $stem = new \Wamania\Snowball\English();
-            return fn(string $w) => $stem->stem($w);
+            foreach ($tokens as $tok) { $tokenDF[$tok] = ($tokenDF[$tok] ?? 0) + 1; }
+            foreach ($ngrams5 as $g) { $ngDF[$g] = ($ngDF[$g] ?? 0) + 1; }
         }
-        return null;
+
+        $idf = []; $N = max(1, $docCount);
+        foreach ($tokenDF as $tok => $df) {
+            $idf[$tok] = log((1 + $N) / (1 + $df)) + 1.0;
+        }
+
+        $common = [];
+        $minDF = max(2, (int)ceil($N * 0.3));
+        foreach ($ngDF as $g => $df) {
+            if ($df >= $minDF) $common[$g] = true;
+        }
+
+        $stats = ['idf' => $idf, 'common' => $common];
+        $store->put($statsKey, $stats, now()->addMinutes(self::CACHE_MINUTES * 2));
+
+        $this->idf = $idf;
+        $this->commonNgrams = $common;
     }
 
     private function cacheStore()
@@ -440,12 +461,6 @@ class PdfPlagiarismService
             return Cache::store('file');
         }
         return Cache::store($default);
-    }
-
-    private function lockStoreName(): string
-    {
-        $default = config('cache.default');
-        return in_array($default, ['array', 'database'], true) ? 'file' : $default;
     }
 
     private function enrichCandidate(array $c): array
@@ -467,6 +482,19 @@ class PdfPlagiarismService
             ->whereNotNull('extracted_text')
             ->count();
 
-        return "v3:p{$pCnt}-" . ($pMaxRaw ? \Illuminate\Support\Carbon::parse($pMaxRaw)->timestamp : 0);
+        return "conservative:p{$pCnt}-" . ($pMaxRaw ? \Illuminate\Support\Carbon::parse($pMaxRaw)->timestamp : 0);
+    }
+
+    public function testPdfConservatism(string $sampleText): array
+    {
+        $result = $this->detailedMatchesFromText($sampleText);
+        
+        return [
+            'total_matches' => count($result['matches']),
+            'max_score' => $result['score'],
+            'candidates_checked' => $result['meta']['candidates'],
+            'settings_note' => 'CONSERVATIVE PDF: Same algorithm as document checker',
+            'match_samples' => array_slice($result['matches'], 0, 3)
+        ];
     }
 }
