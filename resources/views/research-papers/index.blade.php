@@ -56,44 +56,45 @@
                     <input type="hidden" name="plagiarism_score" id="plagiarism_score" value="">
 
                     {{-- Upload card (drag & drop) --}}
-                    <section aria-labelledby="upload-section">
-                        <h3 id="upload-section" class="text-base font-semibold text-gray-800">Upload PDF</h3>
-                        <p class="mt-1 text-sm text-gray-500">Drag & drop your file here or click to choose. Only <strong>.pdf</strong> is allowed.</p>
+                 <!-- Replace your existing drop area section with this: -->
+<section aria-labelledby="upload-section">
+    <h3 id="upload-section" class="text-base font-semibold text-gray-800">Upload PDF</h3>
+    <p class="mt-1 text-sm text-gray-500">Drag & drop your file here or click to choose. Only <strong>.pdf</strong> is allowed.</p>
 
-                        <label
-    for="pdfFile"
-    class="mt-3 block cursor-pointer rounded-xl border-2 border-dashed bg-gray-50/60 p-6 transition hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none
-    @error('fileToUpload') border-red-400 bg-red-50/50 @else border-gray-300 @enderror"
-    id="drop-area"
->
+    <label
+        for="pdfFile"
+        class="mt-3 block cursor-pointer rounded-xl border-2 border-dashed bg-gray-50/60 p-6 transition hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none
+        @error('fileToUpload') border-red-400 bg-red-50/50 @else border-gray-300 @enderror"
+        id="drop-area"
+    >
+        <div class="flex flex-col items-center justify-center gap-3 text-center">
+            <svg class="h-10 w-10 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+            <div class="flex flex-col gap-1">
+                <span class="text-sm font-medium text-gray-700">Choose file or drop it here</span>
+                <span class="text-xs text-gray-500">Max size depends on server limits</span>
+            </div>
+            <span class="inline-flex items-center rounded-md bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-200">Browse PDF</span>
+        </div>
+        <input id="pdfFile" name="fileToUpload" type="file" class="sr-only" accept=".pdf" required>
+    </label>
+    
+    @error('fileToUpload')
+    <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>
+    @enderror
 
-                            <div class="flex flex-col items-center justify-center gap-3 text-center">
-                                <svg class="h-10 w-10 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                </svg>
-                                <div class="flex flex-col gap-1">
-                                    <span class="text-sm font-medium text-gray-700">Choose file or drop it here</span>
-                                    <span class="text-xs text-gray-500">Max size depends on server limits</span>
-                                </div>
-                                <span class="inline-flex items-center rounded-md bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-200">Browse PDF</span>
-                            </div>
-                            <input id="pdfFile" name="fileToUpload" type="file" class="sr-only" accept=".pdf" required>
-                        </label>
-@error('fileToUpload')
-  <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>
-@enderror
-
-                        {{-- Selected file pill + warnings --}}
-                        <div class="mt-3 flex flex-wrap items-center gap-3">
-                            <span id="file-name" class="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
-                                <svg class="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M4 4a2 2 0 012-2h5l5 5v9a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
-                                </svg>
-                                No file selected
-                            </span>
-                            <p id="filename-warning" class="text-xs font-medium text-red-600"></p>
-                        </div>
-                    </section>
+    {{-- Selected file pill + warnings --}}
+    <div class="mt-3 flex flex-wrap items-center gap-3">
+        <span id="file-name" class="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
+            <svg class="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M4 4a2 2 0 012-2h5l5 5v9a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+            </svg>
+            No file selected
+        </span>
+        <p id="filename-warning" class="text-xs font-medium text-red-600"></p>
+    </div>
+</section>
 
                     {{-- Basic metadata --}}
                     <section aria-labelledby="meta-section">
@@ -302,25 +303,68 @@
         });
 
         // Drag & drop styling
-        ;['dragenter','dragover'].forEach(evt=>{
-            dropArea.addEventListener(evt, e=>{
-                e.preventDefault(); e.stopPropagation();
-                dropArea.classList.add('ring-2','ring-indigo-300');
-            });
-        });
-        ;['dragleave','drop'].forEach(evt=>{
-            dropArea.addEventListener(evt, e=>{
-                e.preventDefault(); e.stopPropagation();
-                dropArea.classList.remove('ring-2','ring-indigo-300');
-            });
-        });
-        dropArea.addEventListener('drop', e=>{
-            const file = e.dataTransfer?.files?.[0];
-            if (file) {
-                pdfFileInput.files = e.dataTransfer.files;
-                pdfFileInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        });
+        // ===== DRAG & DROP FIXED VERSION =====
+// Prevent default drag behaviors
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    });
+});
+
+// Highlight drop area when dragging over
+['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, function() {
+        dropArea.classList.add('ring-2', 'ring-indigo-300', 'bg-indigo-50');
+    });
+});
+
+// Remove highlight when dragging leaves or file is dropped
+['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, function() {
+        dropArea.classList.remove('ring-2', 'ring-indigo-300', 'bg-indigo-50');
+    });
+});
+
+// Handle file drop
+dropArea.addEventListener('drop', function(e) {
+    const files = e.dataTransfer.files;
+    
+    if (files.length > 0) {
+        const file = files[0];
+        
+        // Check if it's a PDF file
+        if (file.type !== 'application/pdf') {
+            filenameWarning.textContent = 'Only PDF files are allowed!';
+            return;
+        }
+        
+        // Clear any previous warnings
+        filenameWarning.textContent = '';
+        
+        // Set the file to input
+        pdfFileInput.files = files;
+        
+        // Update file name display
+        fileNameEl.textContent = file.name;
+        fileNameEl.classList.remove('bg-gray-100', 'text-gray-700');
+        fileNameEl.classList.add('bg-green-100', 'text-green-700');
+        
+        // Trigger the change event to process the file
+        const changeEvent = new Event('change', { bubbles: true });
+        pdfFileInput.dispatchEvent(changeEvent);
+    }
+});
+
+// Make sure clicking the drop area opens file dialog
+dropArea.addEventListener('click', function() {
+    pdfFileInput.click();
+});
+
+// Allow same file to be selected again
+pdfFileInput.addEventListener('click', function(e) {
+    this.value = '';
+});
 
         if (typeof pdfjsLib !== 'undefined') {
             pdfFileInput.addEventListener('change', async (event) => {
@@ -608,5 +652,8 @@
     pdfFileInput.value = ''; // ensures same file re-triggers change event
 });
     </script>
+
+
+
 
 </x-userlayout>
