@@ -8,16 +8,31 @@
   :user="Auth::user()"
 />
 
-    <div class="container mx-auto px-4 py-6">
-        <form method="GET" class="mb-4">
-            <div class="flex gap-2">
-                <input name="q" value="{{ request('q') }}"
-                       placeholder="Search by title or student name"
-                         class="w-full md:w-1/2 border border-gray-300 rounded-md px-4 py-3 text-lg focus:outline-none focus:ring-1 focus:ring-blue-400" />
-                     
-                <button class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">Search</button>
-            </div>
-        </form>
+    <div class="container mx-auto px-4 ">
+      <!-- Search Bar (matches Research Library style) -->
+<form method="GET" class="flex-1 max-w-2xl mb-4" role="search" aria-label="Advised titles search">
+  @foreach(request()->except(['q','page']) as $k => $v)
+    <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+  @endforeach
+
+  <div class="flex items-center rounded-lg border border-blue-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-blue-400">
+    <input
+      type="text"
+      name="q"
+      value="{{ request('q') }}"
+      autocomplete="off"
+      placeholder="Search by title or student name"
+      class="w-full px-4 py-2 rounded-l-lg focus:outline-none text-gray-800 placeholder-gray-400 text-base"
+      aria-label="Search by title or student name"
+    />
+
+    <button type="submit"
+      class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-r-lg flex items-center justify-center">
+      <i data-feather="search" class="w-5 h-5"></i>
+    </button>
+  </div>
+</form>
+
 
         @if($titles->isEmpty())
             <div class="bg-white rounded-xl shadow p-8 text-center text-gray-600">

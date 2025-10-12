@@ -8,7 +8,7 @@
   :notifications="$notifications ?? collect()"
   :user="Auth::user()"
 />
-  <div class="container mx-auto px-4 py-6 space-y-4">
+  <div class="container mx-auto px-4 space-y-4">
     <!-- Filters -->
     <form method="GET" class="bg-white rounded-xl shadow-sm p-4 grid gap-3 md:grid-cols-12 items-end">
       <!-- Search -->

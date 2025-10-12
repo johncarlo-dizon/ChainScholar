@@ -9,7 +9,7 @@
   :user="Auth::user()"
 />
 
-    <div class="container mx-auto px-4 py-6 space-y-4">
+    <div class="container mx-auto px-4 space-y-4">
         @forelse($requests as $r)
             <div class="bg-white rounded-xl shadow p-5">
                 <div class="flex items-start justify-between">
