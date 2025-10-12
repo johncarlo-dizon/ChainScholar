@@ -204,7 +204,7 @@
                 <h3 class="text-lg font-semibold text-gray-800">Research Interests / Specialization</h3>
                 <p class="text-sm text-gray-500">Add interests as tags. Press <kbd>Enter</kbd> to add (comma also supported).</p>
 
-                <div class="border  border-gray-300 rounded-lg p-3">
+                <div class=" rounded-lg p-3">
                     <div id="tagsWrap" class="flex flex-wrap gap-2 mb-2">
                         @php
                             $existingTags = old('research_interests', ($profile?->researchInterests ?? collect())->pluck('name')->values()->toArray());
