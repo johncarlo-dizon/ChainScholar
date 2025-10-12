@@ -56,45 +56,31 @@
                     <input type="hidden" name="plagiarism_score" id="plagiarism_score" value="">
 
                     {{-- Upload card (drag & drop) --}}
-                 <!-- Replace your existing drop area section with this: -->
-<section aria-labelledby="upload-section">
-    <h3 id="upload-section" class="text-base font-semibold text-gray-800">Upload PDF</h3>
-    <p class="mt-1 text-sm text-gray-500">Drag & drop your file here or click to choose. Only <strong>.pdf</strong> is allowed.</p>
+                    <section aria-labelledby="upload-section">
+                        <h3 id="upload-section" class="text-base font-semibold text-gray-800">Upload PDF</h3>
+                       <p class="mt-1 text-sm text-gray-500">Choose a <strong>.pdf</strong> file to upload.</p>
 
-    <label
-        for="pdfFile"
-        class="mt-3 block cursor-pointer rounded-xl border-2 border-dashed bg-gray-50/60 p-6 transition hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none
-        @error('fileToUpload') border-red-400 bg-red-50/50 @else border-gray-300 @enderror"
-        id="drop-area"
-    >
-        <div class="flex flex-col items-center justify-center gap-3 text-center">
-            <svg class="h-10 w-10 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
-            <div class="flex flex-col gap-1">
-                <span class="text-sm font-medium text-gray-700">Choose file or drop it here</span>
-                <span class="text-xs text-gray-500">Max size depends on server limits</span>
-            </div>
-            <span class="inline-flex items-center rounded-md bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-200">Browse PDF</span>
-        </div>
-        <input id="pdfFile" name="fileToUpload" type="file" class="sr-only" accept=".pdf" required>
-    </label>
-    
-    @error('fileToUpload')
-    <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>
-    @enderror
+<div class="mt-3">
+  <input
+      id="pdfFile"
+      name="fileToUpload"
+      type="file"
+      accept=".pdf,application/pdf"
+      required
+      class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700 cursor-pointer"
+  />
+</div>
 
-    {{-- Selected file pill + warnings --}}
-    <div class="mt-3 flex flex-wrap items-center gap-3">
-        <span id="file-name" class="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
-            <svg class="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M4 4a2 2 0 012-2h5l5 5v9a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
-            </svg>
-            No file selected
-        </span>
-        <p id="filename-warning" class="text-xs font-medium text-red-600"></p>
-    </div>
-</section>
+@error('fileToUpload')
+  <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>
+@enderror
+
+                        {{-- Selected file pill + warnings --}}
+                      <div class="mt-3">
+  <p id="filename-warning" class="text-xs font-medium text-red-600"></p>
+</div>
+
+                    </section>
 
                     {{-- Basic metadata --}}
                     <section aria-labelledby="meta-section">
@@ -175,14 +161,10 @@
         <aside class="lg:col-span-1">
             <div class="rounded-xl border border-gray-200 bg-white shadow-sm lg:sticky lg:top-20">
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-                    <div class="flex items-center gap-2">
-                        <h3 class="text-base font-semibold text-gray-800">Plagiarism Checker</h3>
-                        <span
-                            id="pdf-plag-badge"
-                            class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700"
-                            title="Shows the current similarity score"
-                        >—</span>
-                    </div>
+                 <div class="flex items-center gap-2">
+    <h3 class="text-base font-semibold text-gray-800">Plagiarism Checker</h3>
+</div>
+
                     <button type="button" id="btnPdfViewMatches"
                             class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-red-700">
                         View Matches
@@ -287,373 +269,280 @@
         });
     </script>
 
-    {{-- ===== PDF extraction + filename validation ===== --}}
     <script>
-        const pdfFileInput    = document.getElementById('pdfFile');
-        const pdfTextArea     = document.getElementById('pdfText');
-        const submitBtn       = document.getElementById('submitBtn');
-        const filenameWarning = document.getElementById('filename-warning');
-        const fileNameEl      = document.getElementById('file-name');
-        const headerStatus    = document.getElementById('header-status-chip');
-        const dropArea        = document.getElementById('drop-area');
+(() => {
+  // ==== Element refs ====
+  const pdfFileInput    = document.getElementById('pdfFile');
+  const pdfTextArea     = document.getElementById('pdfText');
+  const submitBtn       = document.getElementById('submitBtn');
+  const filenameWarning = document.getElementById('filename-warning');
+  const scoreInput      = document.getElementById('plagiarism_score');
+  const resultBox       = document.getElementById('pdf-plagiarism-result');
+  const viewBtn         = document.getElementById('btnPdfViewMatches');
 
-        // Alert dismiss
-        document.querySelectorAll('[data-dismiss="alert"]').forEach(btn=>{
-            btn.addEventListener('click', ()=> btn.closest('[id$="-alert"]')?.remove());
-        });
+  // Off-canvas
+  const offcanvas  = document.getElementById('pdfPlagOffcanvas');
+  const dim        = document.getElementById('pdfPlagDim');
+  const closeBtn   = document.getElementById('pdfPlagClose');
+  const bodyBox    = document.getElementById('pdfPlagBody');
 
-        // Drag & drop styling
-        // ===== DRAG & DROP FIXED VERSION =====
-// Prevent default drag behaviors
-['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropArea.addEventListener(eventName, function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    });
-});
+  // ==== Config ====
+  const BLOCK_THRESHOLD = 45; // similarity % that blocks submission
+  let lastScore = null;
 
-// Highlight drop area when dragging over
-['dragenter', 'dragover'].forEach(eventName => {
-    dropArea.addEventListener(eventName, function() {
-        dropArea.classList.add('ring-2', 'ring-indigo-300', 'bg-indigo-50');
-    });
-});
+  // ==== Helpers ====
+  function setSubmitDisabled(disabled) {
+    if (!submitBtn) return;
+    submitBtn.disabled = disabled;
+    submitBtn.classList.toggle('opacity-50', disabled);
+    submitBtn.classList.toggle('cursor-not-allowed', disabled);
+  }
 
-// Remove highlight when dragging leaves or file is dropped
-['dragleave', 'drop'].forEach(eventName => {
-    dropArea.addEventListener(eventName, function() {
-        dropArea.classList.remove('ring-2', 'ring-indigo-300', 'bg-indigo-50');
-    });
-});
-
-// Handle file drop
-dropArea.addEventListener('drop', function(e) {
-    const files = e.dataTransfer.files;
-    
-    if (files.length > 0) {
-        const file = files[0];
-        
-        // Check if it's a PDF file
-        if (file.type !== 'application/pdf') {
-            filenameWarning.textContent = 'Only PDF files are allowed!';
-            return;
-        }
-        
-        // Clear any previous warnings
-        filenameWarning.textContent = '';
-        
-        // Set the file to input
-        pdfFileInput.files = files;
-        
-        // Update file name display
-        fileNameEl.textContent = file.name;
-        fileNameEl.classList.remove('bg-gray-100', 'text-gray-700');
-        fileNameEl.classList.add('bg-green-100', 'text-green-700');
-        
-        // Trigger the change event to process the file
-        const changeEvent = new Event('change', { bubbles: true });
-        pdfFileInput.dispatchEvent(changeEvent);
+  // only updates hidden input + memory (no header chips/badges)
+  function setBadge(score) {
+    lastScore = score;
+    if (scoreInput) {
+      scoreInput.value = isNaN(Number(score)) ? '' : String(score);
     }
-});
+  }
 
-// Make sure clicking the drop area opens file dialog
-dropArea.addEventListener('click', function() {
-    pdfFileInput.click();
-});
+  function esc(s){
+    return (s ?? '').toString()
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;');
+  }
 
-// Allow same file to be selected again
-pdfFileInput.addEventListener('click', function(e) {
-    this.value = '';
-});
+  // Exposed for file-change flow
+  async function runLivePdfPlagiarismCheck(){
+    try {
+      const fileInput = pdfFileInput;
+      const file = fileInput?.files?.[0] || null;
+      const txt  = (pdfTextArea?.value || '').trim();
 
-        if (typeof pdfjsLib !== 'undefined') {
-            pdfFileInput.addEventListener('change', async (event) => {
-                filenameWarning.textContent = '';
-                submitBtn.disabled = true;
-                pdfTextArea.value = '';
-                headerStatus.textContent = 'Reading PDF…';
+      if (!file && !txt) {
+        resultBox.innerHTML = '<span class="text-gray-600">Waiting for PDF…</span>';
+        setBadge('—');
+        setSubmitDisabled(true);
+        return;
+      }
 
-                const file = event.target.files[0];
-                fileNameEl.textContent = file?.name || 'No file selected';
-                if (!file) return;
+      resultBox.innerHTML = `
+        <div class="flex items-center gap-2 text-gray-600">
+          <svg class="h-5 w-5 animate-spin text-red-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+            <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+          </svg>
+          <span>Checking for plagiarism...</span>
+        </div>`;
 
-                // Duplicate filename check
-                try {
-                   const response = await fetch(`{{ route('research-papers.check-filename') }}?filename=${encodeURIComponent(file.name)}`);
-                   const data = await readJsonSafe(response);
-                    if (data.exists) {
-                        filenameWarning.textContent = `You already have a file named "${file.name}". Please rename your file.`;
-                        submitBtn.disabled = true;
-                        pdfFileInput.value = '';
-                        headerStatus.textContent = 'Waiting for PDF';
-                        return;
-                    }
-                } catch (_) {}
+      let score = 0;
 
-                if (file.type !== 'application/pdf') {
-                    filenameWarning.textContent = 'Invalid file type. Only PDF is allowed.';
-                    submitBtn.disabled = true;
-                    headerStatus.textContent = 'Waiting for PDF';
-                    return;
-                }
+      if (file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('_token', '{{ csrf_token() }}');
 
-                // Client-side preview extraction (optional)
-                try {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    let fullText = '';
-                    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                        const page = await pdf.getPage(pageNum);
-                        const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => item.str).join(' ');
-                        fullText += pageText + '\n\n';
-                    }
-                    pdfTextArea.value = fullText;
-                } catch (error) {
-                    console.warn('pdf.js extraction failed (server will handle):', error);
-                    pdfTextArea.value = '';
-                }
+        const res  = await fetch("{{ route('research-papers.check-plagiarism') }}", { method:'POST', body: fd });
+        const data = await readJsonSafe(res);
+        score = Number(data.score ?? 0);
+      } else {
+        const res  = await fetch("{{ route('research-papers.check-plagiarism') }}", {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+          body: JSON.stringify({ pdf_text: txt })
+        });
+        const data = await readJsonSafe(res);
+        score = Number(data.score ?? 0);
+      }
 
-                // Always run authoritative server check
-                if (window.runLivePdfPlagiarismCheck) {
-                    headerStatus.textContent = 'Checking plagiarism…';
-                    window.runLivePdfPlagiarismCheck().finally(()=>{
-                        // status chip updated by checker via submit enable/disable visual
-                    });
-                }
-            });
-        } else {
-            console.error("pdf.js is not loaded.");
+      setBadge(score);
+
+      let html = `<div class="text-sm">Plagiarism Score: <strong>${isNaN(score)?'—':score+'%'}</strong></div>`;
+      if (!isNaN(score) && score >= BLOCK_THRESHOLD) {
+        html += `<div class="mt-1 text-sm text-red-600">High similarity detected! ⚠️ Upload disabled.</div>`;
+        setSubmitDisabled(true);
+      } else {
+        html += `<div class="mt-1 text-sm text-green-600">Content appears original ✅</div>`;
+        setSubmitDisabled(false);
+      }
+      resultBox.innerHTML = html;
+
+    } catch (err) {
+      console.error(err);
+      setBadge('—');
+      setSubmitDisabled(true);
+      resultBox.innerHTML = '<span class="text-red-600">Error checking plagiarism. Please try again.</span>';
+    }
+  }
+  window.runLivePdfPlagiarismCheck = runLivePdfPlagiarismCheck;
+
+  // ==== File input: extraction + filename validation ====
+  if (typeof pdfjsLib !== 'undefined' && pdfFileInput) {
+    pdfFileInput.addEventListener('change', async (event) => {
+      filenameWarning.textContent = '';
+      setSubmitDisabled(true);
+      if (pdfTextArea) pdfTextArea.value = '';
+
+      const file = event.target.files?.[0] || null;
+      if (!file) {
+        filenameWarning.textContent = '';
+        if (typeof window.runLivePdfPlagiarismCheck === 'function') {
+          window.runLivePdfPlagiarismCheck();
         }
-    </script>
+        return;
+      }
 
-    {{-- ===== Plagiarism UI + logic (file-first) ===== --}}
-    <script>
-        (function(){
-            const resultBox  = document.getElementById('pdf-plagiarism-result');
-            const submitBtn  = document.getElementById('submitBtn');
-            const textArea   = document.getElementById('pdfText');
-            const viewBtn    = document.getElementById('btnPdfViewMatches');
-            const badge      = document.getElementById('pdf-plag-badge');
-            const scoreInput = document.getElementById('plagiarism_score');
-            const headerChip = document.getElementById('header-status-chip');
+      // Duplicate filename check
+      try {
+        const response = await fetch(`{{ route('research-papers.check-filename') }}?filename=${encodeURIComponent(file.name)}`);
+        const data = await readJsonSafe(response);
+        if (data.exists) {
+          filenameWarning.textContent = `You already have a file named "${file.name}". Please rename your file.`;
+          setSubmitDisabled(true);
+          pdfFileInput.value = '';
+          return;
+        }
+      } catch (_) { /* ignore */ }
 
-            const offcanvas  = document.getElementById('pdfPlagOffcanvas');
-            const dim        = document.getElementById('pdfPlagDim');
-            const closeBtn   = document.getElementById('pdfPlagClose');
-            const bodyBox    = document.getElementById('pdfPlagBody');
+      if (file.type !== 'application/pdf') {
+        filenameWarning.textContent = 'Invalid file type. Only PDF is allowed.';
+        setSubmitDisabled(true);
+        return;
+      }
 
-            const BLOCK_THRESHOLD = 45;
-            let lastScore = null;
+      // Client-side preview extraction (optional)
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(' ');
+          fullText += pageText + '\n\n';
+        }
+        if (pdfTextArea) pdfTextArea.value = fullText;
+      } catch (error) {
+        console.warn('pdf.js extraction failed (server will handle):', error);
+        if (pdfTextArea) pdfTextArea.value = '';
+      }
 
-            function setSubmitDisabled(disabled){
-                submitBtn.disabled = disabled;
-                submitBtn.classList.toggle('opacity-50', disabled);
-                submitBtn.classList.toggle('cursor-not-allowed', disabled);
-            }
+      // Always run authoritative server check
+      if (typeof window.runLivePdfPlagiarismCheck === 'function') {
+        window.runLivePdfPlagiarismCheck();
+      }
+    });
 
-            function setBadge(score){
-                lastScore = score;
-                scoreInput.value = isNaN(Number(score)) ? '' : String(score);
-                if (score === '—' || isNaN(Number(score))) {
-                    badge.textContent = '—';
-                    badge.className = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700';
-                    headerChip.textContent = 'Waiting for PDF';
-                    return;
-                }
-                const blocked = Number(score) >= BLOCK_THRESHOLD;
-                badge.textContent = `${score}%`;
-                badge.className = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ' +
-                    (blocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700');
-                headerChip.textContent = blocked ? 'Blocked (High Similarity)' : 'Ready to Submit';
-            }
+    // allow selecting same file twice
+    pdfFileInput.addEventListener('click', () => { pdfFileInput.value = ''; });
+  } else {
+    console.error("pdf.js is not loaded or pdfFileInput missing.");
+  }
 
-            async function runLivePdfPlagiarismCheck(){
-                const fileInput = document.getElementById('pdfFile');
-                const file = fileInput?.files?.[0] || null;
-                const txt  = (textArea.value || '').trim();
+  // ==== Guard submit if similarity too high ====
+  document.getElementById('pdf-upload-form')?.addEventListener('submit', (e) => {
+    if (lastScore !== null && !isNaN(Number(lastScore)) && Number(lastScore) >= BLOCK_THRESHOLD){
+      e.preventDefault();
+      resultBox.innerHTML += `<div class="mt-2 text-sm text-red-600">Submission blocked due to high similarity (${lastScore}%).</div>`;
+    }
+  });
 
-                if (!file && !txt){
-                    resultBox.innerHTML = '<span class="text-gray-600">Waiting for PDF…</span>';
-                    setBadge('—');
-                    setSubmitDisabled(true);
-                    return;
-                }
+  // ==== Off-canvas handlers (View Matches) ====
+  function openOff(){ offcanvas?.classList.remove('hidden'); }
+  function closeOff(){ offcanvas?.classList.add('hidden'); }
+  dim?.addEventListener('click', closeOff);
+  closeBtn?.addEventListener('click', closeOff);
 
-                resultBox.innerHTML = `
-                  <div class="flex items-center gap-2 text-gray-600">
-                    <svg class="h-5 w-5 animate-spin text-red-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
-                      <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
-                    </svg>
-                    <span>Checking for plagiarism...</span>
-                  </div>`;
+  viewBtn?.addEventListener('click', async () => {
+    const file = pdfFileInput?.files?.[0] || null;
+    const txt  = (pdfTextArea?.value || '').trim();
 
-                try{
-                    let score = 0;
+    openOff();
+    bodyBox.innerHTML = `
+      <div class="flex items-center gap-2 text-gray-600">
+        <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+          <path d="M4 12a 8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+        </svg>
+        <span>Scanning for detailed matches…</span>
+      </div>`;
 
-                    if (file) {
-                        const fd = new FormData();
-                        fd.append('file', file);
-                        fd.append('_token', '{{ csrf_token() }}');
+    try {
+      let data, res;
+      if (file){
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('_token', '{{ csrf_token() }}');
+        res  = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", { method:'POST', body: fd });
+      } else {
+        res  = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+          body: JSON.stringify({ pdf_text: txt })
+        });
+      }
+      data = await readJsonSafe(res);
+      if (!res.ok) {
+        bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Server error (${res.status}). Please try again.</div>`;
+        return;
+      }
 
-                        const res = await fetch("{{ route('research-papers.check-plagiarism') }}", {
-                            method: 'POST',
-                            body: fd
-                        });
-                       const data = await readJsonSafe(res); 
-                        score = Number(data.score ?? 0);
-                    } else {
-                        const res = await fetch("{{ route('research-papers.check-plagiarism') }}", {
-                            method: 'POST',
-                            headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
-                            body: JSON.stringify({ pdf_text: txt })
-                        });
-                        const data = await readJsonSafe(res); 
-                        score = Number(data.score ?? 0);
-                    }
+      const matches = Array.isArray(data.matches) ? data.matches : [];
+      const score   = Number(data.score ?? 0);
 
-                    setBadge(score);
+      if (!matches.length) {
+        bodyBox.innerHTML = `
+          <div class="space-y-3">
+            <div class="text-sm text-gray-600">Overall Score: <strong>${isNaN(score)?'—':score+'%'}</strong></div>
+            <div class="rounded-lg bg-gray-50 p-4 text-gray-700">No matches found for the current settings.</div>
+          </div>`;
+        return;
+      }
 
-                    let html = `<div class="text-sm">Plagiarism Score: <strong>${score}%</strong></div>`;
-                    if (score >= BLOCK_THRESHOLD) {
-                        html += `<div class="mt-1 text-sm text-red-600">High similarity detected! ⚠️ Upload disabled.</div>`;
-                        setSubmitDisabled(true);
-                    } else {
-                        html += `<div class="mt-1 text-sm text-green-600">Content appears original ✅</div>`;
-                        setSubmitDisabled(false);
-                    }
-                    resultBox.innerHTML = html;
-                }catch(err){
-                    console.error(err);
-                    setBadge('—');
-                    setSubmitDisabled(true);
-                    headerChip.textContent = 'Error';
-                    resultBox.innerHTML = '<span class="text-red-600">Error checking plagiarism. Please try again.</span>';
-                }
-            }
+      const cards = matches.map(m => `
+        <div class="mb-4 overflow-hidden rounded-xl border border-gray-200">
+          <div class="flex items-center justify-between bg-gray-50 px-4 py-2">
+            <div class="text-sm text-gray-700"><span class="font-semibold">Similarity:</span> ${m.percent}%</div>
+          </div>
+          <div class="p-4">
+            <div class="mb-1 text-xs font-semibold text-gray-500">Your content</div>
+            <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.your_excerpt)}</pre>
+          </div>
+          <hr class="border-gray-100">
+          <div class="p-4">
+            <div class="mb-1 text-xs font-semibold text-gray-500">
+              Source: <span class="text-gray-800">${esc(m.source_title)}</span>
+            </div>
+            <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.source_excerpt)}</pre>
+          </div>
+        </div>
+      `).join('');
 
-            // expose to file-change handler
-            window.runLivePdfPlagiarismCheck = runLivePdfPlagiarismCheck;
+      bodyBox.innerHTML = `
+        <div class="mb-3 text-sm text-gray-600">
+          Overall Max Similarity: <strong>${isNaN(score)?'—':score+'%'}</strong> • Showing top ${matches.length} matches
+        </div>
+        ${cards}
+      `;
+    } catch (err) {
+      console.error(err);
+      bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Error generating matches. Please try again.</div>`;
+    }
+  });
 
-            // Guard submit
-            document.getElementById('pdf-upload-form').addEventListener('submit', (e)=>{
-                if (lastScore !== null && Number(lastScore) >= BLOCK_THRESHOLD){
-                    e.preventDefault();
-                    resultBox.innerHTML += `<div class="mt-2 text-sm text-red-600">Submission blocked due to high similarity (${lastScore}%).</div>`;
-                }
-            });
+  // ==== Init ====
+  document.addEventListener('DOMContentLoaded', () => {
+    setSubmitDisabled(true);
+    resultBox.innerHTML = '<span class="text-gray-600">Waiting for PDF…</span>';
+  });
 
-            // Off-canvas handlers
-            function esc(s){ return (s ?? '').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-            function openOff(){ offcanvas.classList.remove('hidden'); }
-            function closeOff(){ offcanvas.classList.add('hidden'); }
-            dim?.addEventListener('click', closeOff);
-            closeBtn?.addEventListener('click', closeOff);
-
-            document.getElementById('btnPdfViewMatches')?.addEventListener('click', async ()=>{
-                const fileInput = document.getElementById('pdfFile');
-                const file = fileInput?.files?.[0] || null;
-                const txt  = (document.getElementById('pdfText').value || '').trim();
-
-                openOff();
-                bodyBox.innerHTML = `
-                  <div class="flex items-center gap-2 text-gray-600">
-                    <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
-                      <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
-                    </svg>
-                    <span>Scanning for detailed matches…</span>
-                  </div>`;
-
-                try{
-                    let data;
-                    if (file){
-                        const fd = new FormData();
-                        fd.append('file', file);
-                        fd.append('_token', '{{ csrf_token() }}');
-
-                        const res = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", {
-                            method: 'POST',
-                            body: fd
-                        });
-                        data = await readJsonSafe(res);
-                          if (!res.ok) {
-                           bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Server error (${res.status}). Please try again.</div>`;
-                           return;
-                         }
-                    } else {
-                        const res = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", {
-                            method: 'POST',
-                            headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
-                            body: JSON.stringify({ pdf_text: txt })
-                        });
-                            data = await readJsonSafe(res);
-                          if (!res.ok) {
-                            bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Server error (${res.status}). Please try again.</div>`;
-                            return;
-                          }
-                    }
-
-                    const matches = Array.isArray(data.matches) ? data.matches : [];
-                    const score   = Number(data.score ?? 0);
-
-                    if(!matches.length){
-                        bodyBox.innerHTML = `
-                          <div class="space-y-3">
-                            <div class="text-sm text-gray-600">Overall Score: <strong>${score}%</strong></div>
-                            <div class="rounded-lg bg-gray-50 p-4 text-gray-700">No matches found for the current settings.</div>
-                          </div>`;
-                        return;
-                    }
-
-                    const cards = matches.map(m => `
-                      <div class="mb-4 overflow-hidden rounded-xl border border-gray-200">
-                        <div class="flex items-center justify-between bg-gray-50 px-4 py-2">
-                          <div class="text-sm text-gray-700"><span class="font-semibold">Similarity:</span> ${m.percent}%</div>
-                        </div>
-                        <div class="p-4">
-                          <div class="mb-1 text-xs font-semibold text-gray-500">Your content</div>
-                          <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.your_excerpt)}</pre>
-                        </div>
-                        <hr class="border-gray-100">
-                        <div class="p-4">
-                          <div class="mb-1 text-xs font-semibold text-gray-500">
-                            Source: <span class="text-gray-800">${esc(m.source_title)}</span>
-                          </div>
-                          <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.source_excerpt)}</pre>
-                        </div>
-                      </div>
-                    `).join('');
-
-                    bodyBox.innerHTML = `
-                      <div class="mb-3 text-sm text-gray-600">
-                        Overall Max Similarity: <strong>${score}%</strong> • Showing top ${matches.length} matches
-                      </div>
-                      ${cards}
-                    `;
-                }catch(err){
-                    console.error(err);
-                    bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Error generating matches. Please try again.</div>`;
-                }
-            });
-
-            // Initial state
-            document.addEventListener('DOMContentLoaded', () => {
-                setSubmitDisabled(true);
-                badge.textContent = '—';
-                headerChip.textContent = 'Waiting for PDF';
-            });
-        })();
-
-
-
-        pdfFileInput.addEventListener('click', () => {
-    pdfFileInput.value = ''; // ensures same file re-triggers change event
-});
-    </script>
-
-
+  // Dismiss alert buttons
+  document.querySelectorAll('[data-dismiss="alert"]').forEach(btn => {
+    btn.addEventListener('click', () => btn.closest('[id$="-alert"]')?.remove());
+  });
+})();
+</script>
 
 
 </x-userlayout>
