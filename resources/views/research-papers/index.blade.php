@@ -195,18 +195,12 @@
     {{-- ===== pdf.js ===== --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
 
-
-
-
     <script>
     /** Safely read JSON. Never throws. */
     async function readJsonSafe(res) {
-    // If the response looks like JSON, parse it; else return empty object
     try {
-        // Quick guard: non-2xx still allowed, we just try to parse
         const ct = res.headers.get('content-type') || '';
         if (!ct.includes('application/json')) {
-        // Try parse anyway (some servers send JSON without the header)
         try { return await res.json(); } catch { return {}; }
         }
         return await res.json();
@@ -287,8 +281,11 @@
   const bodyBox    = document.getElementById('pdfPlagBody');
 
   // ==== Config ====
-  const BLOCK_THRESHOLD = 45; // similarity % that blocks submission
+  const BLOCK_THRESHOLD = 45;
   let lastScore = null;
+  let currentScanData = null; // Store scan results to share between sidebar and offcanvas
+  let isScanning = false;
+  let currentScanId = null;
 
   // ==== Helpers ====
   function setSubmitDisabled(disabled) {
@@ -298,7 +295,6 @@
     submitBtn.classList.toggle('cursor-not-allowed', disabled);
   }
 
-  // only updates hidden input + memory (no header chips/badges)
   function setBadge(score) {
     lastScore = score;
     if (scoreInput) {
@@ -313,48 +309,78 @@
       .replaceAll('>','&gt;');
   }
 
-  // Exposed for file-change flow
+  // ==== Main Plagiarism Check Function ====
   async function runLivePdfPlagiarismCheck(){
+    if (isScanning) return;
+    
+    const fileInput = pdfFileInput;
+    const file = fileInput?.files?.[0] || null;
+    const txt  = (pdfTextArea?.value || '').trim();
+
+    if (!file && !txt) {
+      resultBox.innerHTML = '<span class="text-gray-600">Waiting for PDF…</span>';
+      setBadge('—');
+      setSubmitDisabled(true);
+      currentScanData = null;
+      return;
+    }
+
+    isScanning = true;
+    currentScanId = Date.now();
+    const scanId = currentScanId;
+
+    resultBox.innerHTML = `
+      <div class="flex items-center gap-2 text-gray-600">
+        <svg class="h-5 w-5 animate-spin text-red-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+          <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+        </svg>
+        <span>Checking for plagiarism...</span>
+      </div>`;
+
     try {
-      const fileInput = pdfFileInput;
-      const file = fileInput?.files?.[0] || null;
-      const txt  = (pdfTextArea?.value || '').trim();
-
-      if (!file && !txt) {
-        resultBox.innerHTML = '<span class="text-gray-600">Waiting for PDF…</span>';
-        setBadge('—');
-        setSubmitDisabled(true);
-        return;
-      }
-
-      resultBox.innerHTML = `
-        <div class="flex items-center gap-2 text-gray-600">
-          <svg class="h-5 w-5 animate-spin text-red-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
-            <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
-          </svg>
-          <span>Checking for plagiarism...</span>
-        </div>`;
-
       let score = 0;
+      let detailedData = null;
 
       if (file) {
         const fd = new FormData();
         fd.append('file', file);
         fd.append('_token', '{{ csrf_token() }}');
 
-        const res  = await fetch("{{ route('research-papers.check-plagiarism') }}", { method:'POST', body: fd });
+        // Get basic score first
+        const res = await fetch("{{ route('research-papers.check-plagiarism') }}", { method:'POST', body: fd });
         const data = await readJsonSafe(res);
         score = Number(data.score ?? 0);
+
+        // Get detailed matches for both sidebar and offcanvas
+        const detailedRes = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", { method:'POST', body: fd });
+        detailedData = await readJsonSafe(detailedRes);
       } else {
-        const res  = await fetch("{{ route('research-papers.check-plagiarism') }}", {
+        const res = await fetch("{{ route('research-papers.check-plagiarism') }}", {
           method:'POST',
           headers:{ 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
           body: JSON.stringify({ pdf_text: txt })
         });
         const data = await readJsonSafe(res);
         score = Number(data.score ?? 0);
+
+        const detailedRes = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+          body: JSON.stringify({ pdf_text: txt })
+        });
+        detailedData = await readJsonSafe(detailedRes);
       }
+
+      // Check if this scan is still relevant
+      if (scanId !== currentScanId) return;
+
+      // Store data for both sidebar and offcanvas
+      currentScanData = {
+        score: score,
+        matches: detailedData.matches || [],
+        timestamp: Date.now()
+      };
 
       setBadge(score);
 
@@ -370,9 +396,16 @@
 
     } catch (err) {
       console.error(err);
-      setBadge('—');
-      setSubmitDisabled(true);
-      resultBox.innerHTML = '<span class="text-red-600">Error checking plagiarism. Please try again.</span>';
+      if (scanId === currentScanId) {
+        setBadge('—');
+        setSubmitDisabled(true);
+        resultBox.innerHTML = '<span class="text-red-600">Error checking plagiarism. Please try again.</span>';
+        currentScanData = null;
+      }
+    } finally {
+      if (scanId === currentScanId) {
+        isScanning = false;
+      }
     }
   }
   window.runLivePdfPlagiarismCheck = runLivePdfPlagiarismCheck;
@@ -383,6 +416,7 @@
       filenameWarning.textContent = '';
       setSubmitDisabled(true);
       if (pdfTextArea) pdfTextArea.value = '';
+      currentScanData = null; // Clear previous scan data
 
       const file = event.target.files?.[0] || null;
       if (!file) {
@@ -428,7 +462,7 @@
         if (pdfTextArea) pdfTextArea.value = '';
       }
 
-      // Always run authoritative server check
+      // Run plagiarism check
       if (typeof window.runLivePdfPlagiarismCheck === 'function') {
         window.runLivePdfPlagiarismCheck();
       }
@@ -455,15 +489,28 @@
   closeBtn?.addEventListener('click', closeOff);
 
   viewBtn?.addEventListener('click', async () => {
+    // If we have recent scan data, use it immediately
+    if (currentScanData && (Date.now() - currentScanData.timestamp < 30000)) { // 30 seconds cache
+      renderOffcanvasMatches(currentScanData);
+      openOff();
+      return;
+    }
+
+    // Otherwise, run a new scan
     const file = pdfFileInput?.files?.[0] || null;
     const txt  = (pdfTextArea?.value || '').trim();
+
+    if (!file && !txt) {
+      alert('Please select a file first.');
+      return;
+    }
 
     openOff();
     bodyBox.innerHTML = `
       <div class="flex items-center gap-2 text-gray-600">
         <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
-          <path d="M4 12a 8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+          <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
         </svg>
         <span>Scanning for detailed matches…</span>
       </div>`;
@@ -488,48 +535,60 @@
         return;
       }
 
-      const matches = Array.isArray(data.matches) ? data.matches : [];
-      const score   = Number(data.score ?? 0);
+      // Store the data for future use
+      currentScanData = {
+        score: Number(data.score ?? 0),
+        matches: Array.isArray(data.matches) ? data.matches : [],
+        timestamp: Date.now()
+      };
 
-      if (!matches.length) {
-        bodyBox.innerHTML = `
-          <div class="space-y-3">
-            <div class="text-sm text-gray-600">Overall Score: <strong>${isNaN(score)?'—':score+'%'}</strong></div>
-            <div class="rounded-lg bg-gray-50 p-4 text-gray-700">No matches found for the current settings.</div>
-          </div>`;
-        return;
-      }
-
-      const cards = matches.map(m => `
-        <div class="mb-4 overflow-hidden rounded-xl border border-gray-200">
-          <div class="flex items-center justify-between bg-gray-50 px-4 py-2">
-            <div class="text-sm text-gray-700"><span class="font-semibold">Similarity:</span> ${m.percent}%</div>
-          </div>
-          <div class="p-4">
-            <div class="mb-1 text-xs font-semibold text-gray-500">Your content</div>
-            <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.your_excerpt)}</pre>
-          </div>
-          <hr class="border-gray-100">
-          <div class="p-4">
-            <div class="mb-1 text-xs font-semibold text-gray-500">
-              Source: <span class="text-gray-800">${esc(m.source_title)}</span>
-            </div>
-            <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.source_excerpt)}</pre>
-          </div>
-        </div>
-      `).join('');
-
-      bodyBox.innerHTML = `
-        <div class="mb-3 text-sm text-gray-600">
-          Overall Max Similarity: <strong>${isNaN(score)?'—':score+'%'}</strong> • Showing top ${matches.length} matches
-        </div>
-        ${cards}
-      `;
+      renderOffcanvasMatches(currentScanData);
+      
     } catch (err) {
       console.error(err);
       bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Error generating matches. Please try again.</div>`;
     }
   });
+
+  function renderOffcanvasMatches(scanData) {
+    const matches = scanData.matches || [];
+    const score = scanData.score || 0;
+
+    if (!matches.length) {
+      bodyBox.innerHTML = `
+        <div class="space-y-3">
+          <div class="text-sm text-gray-600">Overall Score: <strong>${isNaN(score)?'—':score+'%'}</strong></div>
+          <div class="rounded-lg bg-gray-50 p-4 text-gray-700">No matches found for the current settings.</div>
+        </div>`;
+      return;
+    }
+
+    const cards = matches.map(m => `
+      <div class="mb-4 overflow-hidden rounded-xl border border-gray-200">
+        <div class="flex items-center justify-between bg-gray-50 px-4 py-2">
+          <div class="text-sm text-gray-700"><span class="font-semibold">Similarity:</span> ${m.percent}%</div>
+        </div>
+        <div class="p-4">
+          <div class="mb-1 text-xs font-semibold text-gray-500">Your content</div>
+          <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.your_excerpt)}</pre>
+        </div>
+        <hr class="border-gray-100">
+        <div class="p-4">
+          <div class="mb-1 text-xs font-semibold text-gray-500">
+            Source: <span class="text-gray-800">${esc(m.source_title)}</span>
+          </div>
+          <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.source_excerpt)}</pre>
+        </div>
+      </div>
+    `).join('');
+
+    bodyBox.innerHTML = `
+      <div class="mb-3 text-sm text-gray-600">
+        Overall Max Similarity: <strong>${isNaN(score)?'—':score+'%'}</strong> • Showing top ${matches.length} matches
+      </div>
+      ${cards}
+    `;
+  }
 
   // ==== Init ====
   document.addEventListener('DOMContentLoaded', () => {
@@ -543,6 +602,5 @@
   });
 })();
 </script>
-
 
 </x-userlayout>
