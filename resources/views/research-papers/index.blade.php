@@ -36,39 +36,39 @@
                     @csrf
                     <input type="hidden" name="plagiarism_score" id="plagiarism_score" value="">
 
-                    {{-- Upload card (drag & drop) --}}
-                    <section aria-labelledby="upload-section">
-                        <h3 id="upload-section" class="text-base font-semibold text-gray-800">Upload PDF</h3>
-                        <p class="mt-1 text-sm text-gray-500">Choose a <strong>.pdf</strong> file to upload.</p>
+                   {{-- Upload card (drag & drop) --}}
+<section aria-labelledby="upload-section">
+    <h3 id="upload-section" class="text-base font-semibold text-gray-800">Upload PDF</h3>
+    <p class="mt-1 text-sm text-gray-500">Choose a <strong>.pdf</strong> file with <strong>selectable text</strong> (not scanned images only).</p>
 
-                        <div class="mt-3">
-                            <input
-                                id="pdfFile"
-                                name="fileToUpload"
-                                type="file"
-                                accept=".pdf,application/pdf"
-                                required
-                                class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700 cursor-pointer"
-                            />
-                        </div>
+    <div class="mt-3">
+        <input
+            id="pdfFile"
+            name="fileToUpload"
+            type="file"
+            accept=".pdf,application/pdf"
+            required
+            class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700 cursor-pointer"
+        />
+    </div>
 
-                        @error('fileToUpload')
-                        <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>
-                        @enderror
+    @error('fileToUpload')
+    <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>
+    @enderror
 
-                        {{-- Selected file pill + warnings --}}
-                        <div class="mt-3">
-                            <p id="filename-warning" class="text-xs font-medium text-red-600"></p>
-                        </div>
+    {{-- Selected file pill + warnings --}}
+    <div class="mt-3">
+        <p id="filename-warning" class="text-xs font-medium text-red-600"></p>
+    </div>
 
-                        {{-- File status indicator --}}
-                        <div id="file-status" class="mt-3 hidden">
-                            <div class="flex items-center gap-2">
-                                <div id="file-status-icon" class="h-4 w-4"></div>
-                                <span id="file-status-text" class="text-sm"></span>
-                            </div>
-                        </div>
-                    </section>
+    {{-- File status indicator --}}
+    <div id="file-status" class="mt-3 hidden">
+        <div class="flex items-center gap-2">
+            <div id="file-status-icon" class="h-4 w-4"></div>
+            <span id="file-status-text" class="text-sm"></span>
+        </div>
+    </div>
+</section>
 
                     {{-- Basic metadata --}}
                     <section aria-labelledby="meta-section">
@@ -482,84 +482,134 @@
         window.runLivePdfPlagiarismCheck = runLivePdfPlagiarismCheck;
 
         // ==== File input: extraction + filename validation ====
-        if (typeof pdfjsLib !== 'undefined' && pdfFileInput) {
-            pdfFileInput.addEventListener('change', async (event) => {
-                filenameWarning.textContent = '';
-                setSubmitDisabled(true);
-                if (pdfTextArea) pdfTextArea.value = '';
-                currentScanData = null; // Clear previous scan data
-                hasScanCompleted = false;
-                updateViewMatchesButton();
+if (typeof pdfjsLib !== 'undefined' && pdfFileInput) {
+    pdfFileInput.addEventListener('change', async (event) => {
+        filenameWarning.textContent = '';
+        setSubmitDisabled(true);
+        if (pdfTextArea) pdfTextArea.value = '';
+        currentScanData = null; // Clear previous scan data
+        hasScanCompleted = false;
+        updateViewMatchesButton();
 
-                const file = event.target.files?.[0] || null;
-                if (!file) {
-                    filenameWarning.textContent = '';
-                    resetUI();
-                    return;
-                }
-
-                // Reset UI for new file
-                updateFileStatus('Validating file...', 'loading');
-
-                // Duplicate filename check
-                try {
-                    const response = await fetch(`{{ route('research-papers.check-filename') }}?filename=${encodeURIComponent(file.name)}`);
-                    const data = await readJsonSafe(response);
-                    if (data.exists) {
-                        filenameWarning.textContent = `You already have a file named "${file.name}". Please rename your file.`;
-                        setSubmitDisabled(true);
-                        pdfFileInput.value = '';
-                        updateFileStatus('Duplicate filename detected.', 'error');
-                        return;
-                    }
-                } catch (_) { 
-                    console.warn('Filename check failed');
-                }
-
-                if (file.type !== 'application/pdf') {
-                    filenameWarning.textContent = 'Invalid file type. Only PDF is allowed.';
-                    setSubmitDisabled(true);
-                    updateFileStatus('Invalid file type. Please upload a PDF.', 'error');
-                    return;
-                }
-
-                updateFileStatus('Extracting text from PDF...', 'loading');
-
-                // Client-side preview extraction (optional)
-                try {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    let fullText = '';
-                    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                        const page = await pdf.getPage(pageNum);
-                        const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => item.str).join(' ');
-                        fullText += pageText + '\n\n';
-                    }
-                    if (pdfTextArea) pdfTextArea.value = fullText;
-                    updateFileStatus('Text extracted. Scanning for plagiarism...', 'loading');
-                } catch (error) {
-                    console.warn('pdf.js extraction failed (server will handle):', error);
-                    if (pdfTextArea) pdfTextArea.value = '';
-                    updateFileStatus('Text extraction failed. Scanning with server-side processing...', 'warning');
-                }
-
-                // Run plagiarism check
-                if (typeof window.runLivePdfPlagiarismCheck === 'function') {
-                    window.runLivePdfPlagiarismCheck();
-                }
-            });
-
-            // allow selecting same file twice
-            pdfFileInput.addEventListener('click', () => { 
-                // Don't reset if we're currently scanning
-                if (!isScanning) {
-                    pdfFileInput.value = ''; 
-                }
-            });
-        } else {
-            console.error("pdf.js is not loaded or pdfFileInput missing.");
+        const file = event.target.files?.[0] || null;
+        if (!file) {
+            filenameWarning.textContent = '';
+            resetUI();
+            return;
         }
+
+        // Reset UI for new file
+        updateFileStatus('Validating file...', 'loading');
+
+        // Duplicate filename check
+        try {
+            const response = await fetch(`{{ route('research-papers.check-filename') }}?filename=${encodeURIComponent(file.name)}`);
+            const data = await readJsonSafe(response);
+            if (data.exists) {
+                filenameWarning.textContent = `You already have a file named "${file.name}". Please rename your file.`;
+                setSubmitDisabled(true);
+                pdfFileInput.value = '';
+                updateFileStatus('Duplicate filename detected.', 'error');
+                return;
+            }
+        } catch (_) { 
+            console.warn('Filename check failed');
+        }
+
+        if (file.type !== 'application/pdf') {
+            filenameWarning.textContent = 'Invalid file type. Only PDF is allowed.';
+            setSubmitDisabled(true);
+            updateFileStatus('Invalid file type. Please upload a PDF.', 'error');
+            return;
+        }
+
+        updateFileStatus('Extracting text from PDF...', 'loading');
+
+        // Client-side preview extraction with proper error handling
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            let hasExtractableText = false;
+            
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n\n';
+                
+                // Check if this page has any extractable text
+                if (pageText.trim().length > 0) {
+                    hasExtractableText = true;
+                }
+            }
+
+            // Check if we found any extractable text
+            if (!hasExtractableText || fullText.trim().length === 0) {
+                filenameWarning.textContent = 'This PDF does not contain extractable text. Please submit a PDF with selectable text (not scanned images only).';
+                setSubmitDisabled(true);
+                pdfFileInput.value = '';
+                updateFileStatus('No extractable text found in PDF.', 'error');
+                resultBox.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-4 text-center">
+                        <svg class="h-12 w-12 text-red-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                        <p class="text-sm font-medium text-red-600">Invalid PDF</p>
+                        <p class="text-xs text-red-500 mt-1">PDF contains no extractable text</p>
+                    </div>`;
+                return;
+            }
+
+            // Success - we have extractable text
+            if (pdfTextArea) pdfTextArea.value = fullText;
+            updateFileStatus('Text extracted successfully. Scanning for plagiarism...', 'success');
+            
+        } catch (error) {
+            console.error('PDF text extraction failed:', error);
+            
+            // Handle different types of PDF extraction errors
+            let errorMessage = 'Failed to extract text from PDF. ';
+            
+            if (error.name === 'InvalidPDFException') {
+                errorMessage += 'The file appears to be corrupted or not a valid PDF.';
+            } else if (error.message && error.message.includes('password')) {
+                errorMessage += 'The PDF is password protected.';
+            } else {
+                errorMessage += 'This may be a scanned PDF without OCR text layer. Please submit a PDF with selectable text.';
+            }
+            
+            filenameWarning.textContent = errorMessage;
+            setSubmitDisabled(true);
+            pdfFileInput.value = '';
+            updateFileStatus('PDF text extraction failed.', 'error');
+            resultBox.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-4 text-center">
+                    <svg class="h-12 w-12 text-red-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <p class="text-sm font-medium text-red-600">PDF Error</p>
+                    <p class="text-xs text-red-500 mt-1">${errorMessage}</p>
+                </div>`;
+            return;
+        }
+
+        // Run plagiarism check only if we successfully extracted text
+        if (typeof window.runLivePdfPlagiarismCheck === 'function') {
+            window.runLivePdfPlagiarismCheck();
+        }
+    });
+
+    // allow selecting same file twice
+    pdfFileInput.addEventListener('click', () => { 
+        // Don't reset if we're currently scanning
+        if (!isScanning) {
+            pdfFileInput.value = ''; 
+        }
+    });
+} else {
+    console.error("pdf.js is not loaded or pdfFileInput missing.");
+}
 
         // ==== Guard submit if similarity too high ====
         document.getElementById('pdf-upload-form')?.addEventListener('submit', (e) => {
@@ -690,4 +740,19 @@
     })();
     </script>
 
+
+<style>
+/* Add some custom styles for better error visibility */
+.border-error {
+    border-color: #dc2626;
+}
+
+.text-error {
+    color: #dc2626;
+}
+
+.bg-error-light {
+    background-color: #fef2f2;
+}
+</style>
 </x-userlayout>
