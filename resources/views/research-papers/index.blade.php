@@ -28,7 +28,7 @@
     />
 
     {{-- ===== Content area: two-column on desktop, single-column on mobile ===== --}}
-    <div class="mx-auto mt-5 grid max-w-8xl grid-cols-1 gap-6 lg:grid-cols-3">
+    <div class="mx-auto mt-5 grid max-w-8xl grid-cols-1 gap-4 lg:grid-cols-3">
         {{-- ===== Left: Form (spans 2 cols on desktop) ===== --}}
         <div class="lg:col-span-2">
             <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -48,7 +48,7 @@
             type="file"
             accept=".pdf,application/pdf"
             required
-            class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700 cursor-pointer"
+            class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700 rounded-lg shadow-sm cursor-pointer"
         />
     </div>
 
