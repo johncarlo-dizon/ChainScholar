@@ -376,18 +376,32 @@
         }
 
         function updateViewMatchesButton() {
-            if (!viewBtn) return;
-            
-            // Enable button only if scan is complete and we have matches
-            const hasMatches = currentScanData && currentScanData.matches && currentScanData.matches.length > 0;
-            const shouldEnable = hasScanCompleted && hasMatches;
-            
-            viewBtn.disabled = !shouldEnable;
-            viewBtn.classList.toggle('bg-red-600', shouldEnable);
-            viewBtn.classList.toggle('hover:bg-red-700', shouldEnable);
-            viewBtn.classList.toggle('bg-gray-400', !shouldEnable);
-            viewBtn.classList.toggle('hover:bg-gray-500', !shouldEnable);
+    if (!viewBtn) return;
+    
+    // Enable button if scan is complete AND:
+    // 1. We have matches, OR 
+    // 2. Score is high enough (even if no individual matches due to algorithm filtering)
+    const hasMatches = currentScanData && currentScanData.matches && currentScanData.matches.length > 0;
+    const hasHighScore = currentScanData && currentScanData.score >= 20; // Show button for scores ≥20%
+    const shouldEnable = hasScanCompleted && (hasMatches || hasHighScore);
+    
+    viewBtn.disabled = !shouldEnable;
+    viewBtn.classList.toggle('bg-red-600', shouldEnable);
+    viewBtn.classList.toggle('hover:bg-red-700', shouldEnable);
+    viewBtn.classList.toggle('bg-gray-400', !shouldEnable);
+    viewBtn.classList.toggle('hover:bg-gray-500', !shouldEnable);
+    
+    // Update tooltip to explain why button might be disabled
+    if (viewBtn.disabled) {
+        if (!hasScanCompleted) {
+            viewBtn.title = "Complete plagiarism scan first";
+        } else if (!hasMatches && !hasHighScore) {
+            viewBtn.title = "No significant matches found";
         }
+    } else {
+        viewBtn.title = "View detailed plagiarism matches";
+    }
+}
 
         function updateFileStatus(status, type = 'info') {
             if (!fileStatus || !fileStatusIcon || !fileStatusText) return;
@@ -690,107 +704,125 @@ if (typeof pdfjsLib !== 'undefined' && pdfFileInput) {
         dim?.addEventListener('click', closeOff);
         closeBtn?.addEventListener('click', closeOff);
 
-        viewBtn?.addEventListener('click', async () => {
-            // If we have recent scan data, use it immediately
-            if (currentScanData && (Date.now() - currentScanData.timestamp < 30000)) { // 30 seconds cache
-                renderOffcanvasMatches(currentScanData);
-                openOff();
-                return;
-            }
+       viewBtn?.addEventListener('click', async () => {
+    // If we have recent scan data, use it immediately
+    if (currentScanData && (Date.now() - currentScanData.timestamp < 30000)) { // 30 seconds cache
+        renderOffcanvasMatches(currentScanData);
+        openOff();
+        return;
+    }
 
-            // Otherwise, run a new scan
-            const file = pdfFileInput?.files?.[0] || null;
-            const txt  = (pdfTextArea?.value || '').trim();
+    // Otherwise, run a new scan
+    const file = pdfFileInput?.files?.[0] || null;
+    const txt  = (pdfTextArea?.value || '').trim();
 
-            if (!file && !txt) {
-                alert('Please select a file first.');
-                return;
-            }
+    if (!file && !txt) {
+        alert('Please select a file first.');
+        return;
+    }
 
-            openOff();
-            bodyBox.innerHTML = `
-                <div class="flex items-center gap-2 text-gray-600">
-                    <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
-                        <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
-                    </svg>
-                    <span>Scanning for detailed matches…</span>
-                </div>`;
+    openOff();
+    bodyBox.innerHTML = `
+        <div class="flex items-center gap-2 text-gray-600">
+            <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+                <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" opacity=".75"></path>
+            </svg>
+            <span>Scanning for detailed matches…</span>
+        </div>`;
 
-            try {
-                let data, res;
-                if (file){
-                    const fd = new FormData();
-                    fd.append('file', file);
-                    fd.append('_token', '{{ csrf_token() }}');
-                    res  = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", { method:'POST', body: fd });
-                } else {
-                    res  = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", {
-                        method:'POST',
-                        headers:{ 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
-                        body: JSON.stringify({ pdf_text: txt })
-                    });
-                }
-                data = await readJsonSafe(res);
-                if (!res.ok) {
-                    bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Server error (${res.status}). Please try again.</div>`;
-                    return;
-                }
-
-                // Store the data for future use
-                currentScanData = {
-                    score: Number(data.score ?? 0),
-                    matches: Array.isArray(data.matches) ? data.matches : [],
-                    timestamp: Date.now()
-                };
-
-                renderOffcanvasMatches(currentScanData);
-                
-            } catch (err) {
-                console.error(err);
-                bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Error generating matches. Please try again.</div>`;
-            }
-        });
-
-        function renderOffcanvasMatches(scanData) {
-            const matches = scanData.matches || [];
-            const score = scanData.score || 0;
-
-            if (!matches.length) {
-                bodyBox.innerHTML = `
-                    <div class="space-y-3">
-                        <div class="text-sm text-gray-600">Overall Score: <strong>${isNaN(score)?'—':score+'%'}</strong></div>
-                        <div class="rounded-lg bg-gray-50 p-4 text-gray-700">No matches found for the current settings.</div>
-                    </div>`;
-                return;
-            }
-
-            const cards = matches.map(m => `
-                <div class="mb-4 overflow-hidden rounded-xl border border-gray-200">
-                    <div class="flex items-center justify-between bg-gray-50 px-4 py-2">
-                        <div class="text-sm text-gray-700"><span class="font-semibold">Similarity:</span> ${m.percent}%</div>
-                    </div>
-                    <div class="p-4">
-                        <div class="mb-1 text-xs font-semibold text-gray-500">Your content</div>
-                        <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.your_excerpt)}</pre>
-                    </div>
-                    <hr class="border-gray-100">
-                    <div class="p-4">
-                        <div class="mb-1 text-xs font-semibold text-gray-500">
-                            Source: <span class="text-gray-800">${esc(m.source_title)}</span>
-                        </div>
-                        <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.source_excerpt)}</pre>
-                    </div>
-                </div>
-            `).join('');
-
-            bodyBox.innerHTML = `
-                <div class="mb-3 text-sm text-gray-600">
-                    Overall Max Similarity: <strong>${isNaN(score)?'—':score+'%'}</strong> • Showing top ${matches.length} matches
-                </div>
-                ${cards}
-            `;
+    try {
+        let data, res;
+        if (file){
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('_token', '{{ csrf_token() }}');
+            res  = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", { method:'POST', body: fd });
+        } else {
+            res  = await fetch("{{ route('research-papers.check-plagiarism-detailed') }}", {
+                method:'POST',
+                headers:{ 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+                body: JSON.stringify({ pdf_text: txt })
+            });
         }
+        data = await readJsonSafe(res);
+        if (!res.ok) {
+            bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Server error (${res.status}). Please try again.</div>`;
+            return;
+        }
+
+        // Store the data for future use
+        currentScanData = {
+            score: Number(data.score ?? 0),
+            matches: Array.isArray(data.matches) ? data.matches : [],
+            timestamp: Date.now()
+        };
+
+        // Update the button state based on new scan
+        updateViewMatchesButton();
+        
+        renderOffcanvasMatches(currentScanData);
+        
+    } catch (err) {
+        console.error(err);
+        bodyBox.innerHTML = `<div class="rounded border bg-red-50 p-4 text-red-700">Error generating matches. Please try again.</div>`;
+    }
+});
+
+      function renderOffcanvasMatches(scanData) {
+    const matches = scanData.matches || [];
+    const score = scanData.score || 0;
+
+    if (!matches.length) {
+        bodyBox.innerHTML = `
+            <div class="space-y-3">
+                <div class="text-sm text-gray-600">Overall Score: <strong>${isNaN(score)?'—':score+'%'}</strong></div>
+                <div class="rounded-lg bg-gray-50 p-4 text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                    </svg>
+                    <p class="text-gray-700 font-medium">No individual matches found</p>
+                    <p class="text-sm text-gray-500 mt-1">
+                        The overall similarity score is ${score}%, but no specific text segments met the display threshold.
+                    </p>
+                    ${score >= 20 ? `
+                    <div class="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p class="text-sm text-yellow-800">
+                            <strong>Note:</strong> High overall score (${score}%) suggests potential plagiarism that may not be captured in individual matches due to algorithm filtering.
+                        </p>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>`;
+        return;
+    }
+
+    const cards = matches.map(m => `
+        <div class="mb-4 overflow-hidden rounded-xl border border-gray-200">
+            <div class="flex items-center justify-between bg-gray-50 px-4 py-2">
+                <div class="text-sm text-gray-700"><span class="font-semibold">Similarity:</span> ${m.percent}%</div>
+            </div>
+            <div class="p-4">
+                <div class="mb-1 text-xs font-semibold text-gray-500">Your content</div>
+                <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.your_excerpt)}</pre>
+            </div>
+            <hr class="border-gray-100">
+            <div class="p-4">
+                <div class="mb-1 text-xs font-semibold text-gray-500">
+                    Source: <span class="text-gray-800">${esc(m.source_title)}</span>
+                </div>
+                <pre class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">${esc(m.source_excerpt)}</pre>
+            </div>
+        </div>
+    `).join('');
+
+    bodyBox.innerHTML = `
+        <div class="mb-3 text-sm text-gray-600">
+            Overall Max Similarity: <strong>${isNaN(score)?'—':score+'%'}</strong> • Showing top ${matches.length} matches
+        </div>
+        ${cards}
+    `;
+}
 
         // ==== Init ====
         document.addEventListener('DOMContentLoaded', () => {
