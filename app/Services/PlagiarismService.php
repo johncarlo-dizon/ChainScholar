@@ -8,102 +8,43 @@ use App\Models\ResearchPaper;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Reasonable plagiarism checker:
- * - Much higher thresholds
- * - Better common phrase filtering
- * - Focus on substantial, meaningful matches only
+ * Robust plagiarism checker:
+ * - Conservative thresholds for reasonable results
+ * - Extensive filtering of common academic phrases
+ * - Focus on substantial matches only
  */
 class PlagiarismService
 {
     /** -------- Conservative Tunables -------- */
-    private const WINDOW_WORDS        = 25;   // Smaller windows
-    private const STRIDE_WORDS        = 15;   // Less overlap
-    private const MIN_CHUNK_WORDS     = 20;   // Ignore small chunks
-    private const NGRAM_N             = 8;    // Much longer sequences
-    private const RETURN_TOP_MATCHES  = 10;   // Fewer results
+    private const WINDOW_WORDS        = 25;
+    private const STRIDE_WORDS        = 15;
+    private const MIN_CHUNK_WORDS     = 20;
+    private const NGRAM_N             = 8;
+    private const RETURN_TOP_MATCHES  = 10;
     private const SCORE_SCALE         = 100.0;
     private const CACHE_MINUTES       = 10;
-    
-    // Much higher minimum thresholds
-    private const MIN_SIMILARITY      = 0.25; // 25% minimum (was 8%)
-    private const MIN_MATCH_LENGTH    = 100;  // characters
+    private const MIN_SIMILARITY      = 0.25;
+    private const MIN_MATCH_LENGTH    = 100;
 
-    // Conservative weighting
     private const USE_WEIGHTED = true;
-    private const COS_W        = 0.8;  // Heavy weight to semantic
-    private const JAC_W        = 0.2;  // Light weight to exact matches
+    private const COS_W        = 0.8;
+    private const JAC_W        = 0.2;
 
-    // Expanded stopwords
     private static array $STOP = [
-        'a'=>1,'an'=>1,'the'=>1,'and'=>1,'or'=>1,'but'=>1,'if'=>1,'while'=>1,'at'=>1,'by'=>1,
-        'for'=>1,'with'=>1,'about'=>1,'against'=>1,'between'=>1,'into'=>1,'through'=>1,'during'=>1,
-        'before'=>1,'after'=>1,'above'=>1,'below'=>1,'to'=>1,'from'=>1,'up'=>1,'down'=>1,'in'=>1,
-        'out'=>1,'on'=>1,'off'=>1,'over'=>1,'under'=>1,'again'=>1,'further'=>1,'then'=>1,'once'=>1,
-        'here'=>1,'there'=>1,'when'=>1,'where'=>1,'why'=>1,'how'=>1,'all'=>1,'any'=>1,'both'=>1,
-        'each'=>1,'few'=>1,'more'=>1,'most'=>1,'other'=>1,'some'=>1,'such'=>1,'no'=>1,'nor'=>1,
-        'not'=>1,'only'=>1,'own'=>1,'same'=>1,'so'=>1,'than'=>1,'too'=>1,'very'=>1,'can'=>1,
-        'will'=>1,'just'=>1,'don'=>1,'should'=>1,'now'=>1,'is'=>1,'am'=>1,'are'=>1,'was'=>1,
-        'were'=>1,'be'=>1,'been'=>1,'being'=>1,'of'=>1,'as'=>1,'it'=>1,'its'=>1,'this'=>1,
-        'that'=>1,'these'=>1,'those'=>1,'which'=>1,'who'=>1,'whom'=>1,'what'=>1,'via'=>1,
-        'however'=>1,'therefore'=>1,'moreover'=>1,'furthermore'=>1,'consequently'=>1,'nevertheless'=>1,
-        'thus'=>1,'hence'=>1,'accordingly'=>1,'meanwhile'=>1,'additionally'=>1,'likewise'=>1,
-        'otherwise'=>1,'instead'=>1,'similarly'=>1,'indeed'=>1,'certainly'=>1,'probably'=>1,
-        'perhaps'=>1,'maybe'=>1,'almost'=>1,'quite'=>1,'rather'=>1,'very'=>1,'much'=>1,'many'=>1,
-        'several'=>1,'various'=>1,'different'=>1,'important'=>1,'significant'=>1,'major'=>1,
-        'minor'=>1,'higher'=>1,'lower'=>1,'better'=>1,'worse'=>1,'large'=>1,'small'=>1,'high'=>1,
-        'low'=>1,'great'=>1,'good'=>1,'bad'=>1,'new'=>1,'old'=>1,'first'=>1,'last'=>1,'next'=>1,
-        'previous'=>1,'current'=>1,'recent'=>1,'early'=>1,'late'=>1,'long'=>1,'short'=>1,'time'=>1,
-        'times'=>1,'year'=>1,'years'=>1,'day'=>1,'days'=>1,'week'=>1,'weeks'=>1,'month'=>1,'months'=>1
+        'a'=>1,'an'=>1,'the'=>1,'and'=>1,'or'=>1,'but'=>1,'if'=>1,'while'=>1,'at'=>1,'by'=>1,'for'=>1,'with'=>1,'about'=>1,'against'=>1,'between'=>1,'into'=>1,'through'=>1,'during'=>1,'before'=>1,'after'=>1,'above'=>1,'below'=>1,'to'=>1,'from'=>1,'up'=>1,'down'=>1,'in'=>1,'out'=>1,'on'=>1,'off'=>1,'over'=>1,'under'=>1,'again'=>1,'further'=>1,'then'=>1,'once'=>1,'here'=>1,'there'=>1,'when'=>1,'where'=>1,'why'=>1,'how'=>1,'all'=>1,'any'=>1,'both'=>1,'each'=>1,'few'=>1,'more'=>1,'most'=>1,'other'=>1,'some'=>1,'such'=>1,'no'=>1,'nor'=>1,'not'=>1,'only'=>1,'own'=>1,'same'=>1,'so'=>1,'than'=>1,'too'=>1,'very'=>1,'can'=>1,'will'=>1,'just'=>1,'don'=>1,'should'=>1,'now'=>1,'is'=>1,'am'=>1,'are'=>1,'was'=>1,'were'=>1,'be'=>1,'been'=>1,'being'=>1,'of'=>1,'as'=>1,'it'=>1,'its'=>1,'this'=>1,'that'=>1,'these'=>1,'those'=>1,'which'=>1,'who'=>1,'whom'=>1,'what'=>1,'via'=>1,
+        'however'=>1,'therefore'=>1,'moreover'=>1,'furthermore'=>1,'consequently'=>1,'nevertheless'=>1,'thus'=>1,'hence'=>1,'accordingly'=>1,'meanwhile'=>1,'additionally'=>1,'likewise'=>1,'otherwise'=>1,'instead'=>1,'similarly'=>1,'indeed'=>1,'certainly'=>1,'probably'=>1,'perhaps'=>1,'maybe'=>1,'almost'=>1,'quite'=>1,'rather'=>1,'much'=>1,'many'=>1,'several'=>1,'various'=>1,'different'=>1,'important'=>1,'significant'=>1,'major'=>1,'minor'=>1,'higher'=>1,'lower'=>1,'better'=>1,'worse'=>1,'large'=>1,'small'=>1,'high'=>1,'low'=>1,'great'=>1,'good'=>1,'bad'=>1,'new'=>1,'old'=>1,'first'=>1,'last'=>1,'next'=>1,'previous'=>1,'current'=>1,'recent'=>1,'early'=>1,'late'=>1,'long'=>1,'short'=>1,
     ];
 
-    // Extensive common academic phrases
     private static array $COMMON_PHRASES = [
-        'this study shows that', 'in this paper we', 'the results indicate that',
-        'as shown in table', 'it can be seen that', 'in conclusion we can say',
-        'the purpose of this', 'this research examines', 'the data suggest that',
-        'previous research has', 'literature review shows', 'methodology section describes',
-        'findings of this study', 'limitations of this study', 'future research should',
-        'according to the results', 'the analysis reveals that', 'in summary we can say',
-        'the main objective is', 'as previously mentioned', 'based on the findings',
-        'the study found that', 'research has shown that', 'it is important to note',
-        'the results show that', 'the data indicate that', 'this suggests that',
-        'it was found that', 'the author concludes that', 'this paper presents',
-        'the aim of this study', 'the objective of this research', 'this chapter discusses',
-        'the following section describes', 'as can be seen from', 'figure one shows',
-        'table two presents', 'the graph illustrates', 'the chart demonstrates',
-        'statistical analysis shows', 'significant difference was', 'no significant difference',
-        'correlation was found', 'regression analysis showed', 'anova results indicated',
-        'the hypothesis was', 'null hypothesis was', 'alternative hypothesis was',
-        'confidence interval was', 'standard deviation was', 'mean value was',
-        'median value was', 'standard error was', 'p value was', 'r squared value',
-        'the sample size was', 'participants were asked', 'subjects completed the',
-        'materials and methods', 'procedure was followed', 'experiment was conducted',
-        'survey was administered', 'questionnaire was used', 'interview was conducted',
-        'data was collected', 'data were analyzed', 'results are presented',
-        'discussion of results', 'implications of findings', 'recommendations for practice',
-        'suggestions for future', 'contribution to knowledge', 'theoretical implications',
-        'practical implications', 'study limitations include', 'strengths of this study',
-        'weaknesses of this study', 'further research is needed', 'additional studies should',
-        'in future research', 'subsequent investigations', 'later studies may',
-        'research questions were', 'research objectives were', 'the problem statement',
-        'background of the study', 'significance of the study', 'scope and limitations',
-        'definition of terms', 'theoretical framework', 'conceptual framework',
-        'review of literature', 'summary of literature', 'gaps in literature',
-        'research methodology', 'research design', 'data collection methods',
-        'data analysis methods', 'ethical considerations', 'informed consent was',
-        'approval was obtained', 'the institution review board', 'protection of human subjects'
+        'this study shows that', 'in this paper we', 'the results indicate that', 'as shown in table', 'it can be seen that', 'in conclusion we can say', 'the purpose of this', 'this research examines', 'the data suggest that', 'previous research has', 'literature review shows', 'methodology section describes', 'findings of this study', 'limitations of this study', 'future research should', 'according to the results', 'the analysis reveals that', 'in summary we can say', 'the main objective is', 'as previously mentioned', 'based on the findings', 'the study found that', 'research has shown that', 'it is important to note', 'the results show that', 'the data indicate that', 'this suggests that', 'it was found that', 'the author concludes that', 'this paper presents', 'the aim of this study', 'the objective of this research', 'this chapter discusses', 'the following section describes', 'as can be seen from', 'figure one shows', 'table two presents', 'the graph illustrates', 'the chart demonstrates', 'statistical analysis shows', 'significant difference was', 'no significant difference', 'correlation was found', 'regression analysis showed', 'anova results indicated', 'the hypothesis was', 'null hypothesis was', 'alternative hypothesis was', 'confidence interval was', 'standard deviation was', 'mean value was', 'median value was', 'standard error was', 'p value was', 'r squared value', 'the sample size was', 'participants were asked', 'subjects completed the', 'materials and methods', 'procedure was followed', 'experiment was conducted', 'survey was administered', 'questionnaire was used', 'interview was conducted', 'data was collected', 'data were analyzed', 'results are presented', 'discussion of results', 'implications of findings', 'recommendations for practice', 'suggestions for future', 'contribution to knowledge', 'theoretical implications', 'practical implications', 'study limitations include', 'strengths of this study', 'weaknesses of this study', 'further research is needed', 'additional studies should', 'in future research', 'subsequent investigations', 'later studies may', 'research questions were', 'research objectives were', 'the problem statement', 'background of the study', 'significance of the study', 'scope and limitations', 'definition of terms', 'theoretical framework', 'conceptual framework', 'review of literature', 'summary of literature', 'gaps in literature', 'research methodology', 'research design', 'data collection methods', 'data analysis methods', 'ethical considerations', 'informed consent was', 'approval was obtained', 'the institution review board', 'protection of human subjects'
     ];
 
-    /** Cached corpus stats */
     private array $idf = [];
     private array $commonNgrams = [];
 
-    // Conservative limiters
-    private const MAX_PDFS                  = 500;   // Reduced
-    private const MAX_CHUNKS_PER_SOURCE     = 100;   // Much reduced
-    private const MAX_EXCERPT_CHARS         = 300;   // Shorter excerpts
-
-    /** ---------- Public API ---------- */
+    private const MAX_PDFS                  = 500;
+    private const MAX_CHUNKS_PER_SOURCE     = 100;
+    private const MAX_EXCERPT_CHARS         = 300;
 
     public function quickScore(string $rawHtmlOrText, Document $document): float
     {
@@ -123,9 +64,8 @@ class PlagiarismService
             }
         }
         
-        // Apply conservative scaling
         $score = $max * self::SCORE_SCALE;
-        return $score < 10 ? 0.0 : round($score, 2); // Ignore scores below 10%
+        return $score < 10 ? 0.0 : round($score, 2);
     }
 
     public function detailedMatches(string $html, Document $document, int $minPercent = 0): array
@@ -138,13 +78,7 @@ class PlagiarismService
                 'score'   => 0,
                 'matches' => [],
                 'aggregate' => [],
-                'meta' => [
-                    'window'     => self::WINDOW_WORDS,
-                    'stride'     => self::STRIDE_WORDS,
-                    'ngram'      => self::NGRAM_N,
-                    'candidates' => 0,
-                    'note'       => 'No analyzable content.',
-                ],
+                'meta' => ['window' => self::WINDOW_WORDS, 'stride' => self::STRIDE_WORDS, 'ngram' => self::NGRAM_N, 'candidates' => 0, 'note' => 'No analyzable content.'],
             ];
         }
 
@@ -156,6 +90,7 @@ class PlagiarismService
         $matches = [];
         $overall = 0.0;
         $seenYour = [];
+        $bySource = [];
 
         foreach ($your as $yc) {
             $best = null;
@@ -163,7 +98,6 @@ class PlagiarismService
                 $sim = $this->combinedSimilarity($yc, $cc);
                 $simPct = $sim * self::SCORE_SCALE;
                 
-                // Apply multiple conservative filters
                 if ($sim < $minSim) continue;
                 if (!$this->isSubstantialMatch($yc['text'], $cc['text'])) continue;
                 if ($this->isCommonPhrase($yc['text'])) continue;
@@ -182,11 +116,22 @@ class PlagiarismService
                 if ($best === null || $m['percent'] > $best['percent']) $best = $m;
             }
             
-            if ($best && $best['percent'] >= 25) { // Only keep substantial matches
+            if ($best && $best['percent'] >= 25) {
                 $h = substr(md5(mb_strtolower($best['your_excerpt'])), 0, 16);
                 if (!isset($seenYour[$h])) {
                     $seenYour[$h] = true;
                     $matches[] = $best;
+
+                    $sid = $best['document_id'];
+                    if (!isset($bySource[$sid]) || $best['percent'] > $bySource[$sid]['max_percent']) {
+                        $bySource[$sid] = [
+                            'document_id' => $sid,
+                            'source_title'=> $best['source_title'],
+                            'max_percent' => $best['percent'],
+                            'sample_your' => $best['your_excerpt'],
+                            'sample_src'  => $best['source_excerpt'],
+                        ];
+                    }
                 }
             }
         }
@@ -194,47 +139,42 @@ class PlagiarismService
         usort($matches, fn($a,$b)=>$b['percent'] <=> $a['percent']);
         $matches = array_slice($matches, 0, self::RETURN_TOP_MATCHES);
 
-        // Only return overall score if it's substantial
         $finalScore = $overall >= 25 ? round($overall, 2) : 0.0;
 
         return [
             'score'     => $finalScore,
             'matches'   => $matches,
+            'aggregate' => array_values($bySource),
             'meta'      => [
                 'window'     => self::WINDOW_WORDS,
                 'stride'     => self::STRIDE_WORDS,
                 'ngram'      => self::NGRAM_N,
                 'candidates' => count($cands),
-                'note'       => 'Conservative matching applied'
             ],
         ];
     }
-
-    /** ---------- Conservative Similarity ---------- */
 
     private function combinedSimilarity(array $a, array $b): float
     {
         $cos = $this->cosineTfidf($a['tf'], $b['tf'], $this->idf);
         $jac = $this->jaccardFiltered($a['ngrams'], $b['ngrams'], $this->commonNgrams);
         
-        // Very conservative combination
         $combined = (self::COS_W * $cos) + (self::JAC_W * $jac);
         
-        // Apply multiple conservative filters
         if ($combined < self::MIN_SIMILARITY) return 0.0;
-        if ($jac > 0.8 && $cos < 0.3) return 0.0; // Too exact, not semantic
+        if ($jac > 0.8 && $cos < 0.3) return 0.0;
         
-        return min($combined, 0.95); // Cap at 95%
+        return min($combined, 0.95);
     }
 
     private function cosineTfidf(array $va, array $vb, array $idf): float
     {
-        if (count($va) < 5 || count($vb) < 5) return 0.0; // Too short
+        if (count($va) < 5 || count($vb) < 5) return 0.0;
         
         $ma=0.0; $mb=0.0; $dot=0.0;
         
         foreach ($va as $k=>$tf){ 
-            $w=$idf[$k]??0.1; // Lower default weight
+            $w=$idf[$k]??0.1;
             $wt=$tf*$w; 
             $ma += $wt*$wt; 
         }
@@ -262,7 +202,6 @@ class PlagiarismService
     {
         if (empty($A) || empty($B) || count($A) < 3 || count($B) < 3) return 0.0;
         
-        // Remove boilerplate and very common ngrams
         $fa=[]; foreach($A as $g){ if(!isset($commonFlag[$g])) $fa[]=$g; }
         $fb=[]; foreach($B as $g){ if(!isset($commonFlag[$g])) $fb[]=$g; }
         
@@ -274,16 +213,12 @@ class PlagiarismService
         return $union > 0 ? ($inter / $union) : 0.0;
     }
 
-    /** ---------- Conservative Quality Checking ---------- */
-
     private function isSubstantialMatch(string $textA, string $textB): bool
     {
-        // Both texts must be reasonably long
         if (mb_strlen($textA) < self::MIN_MATCH_LENGTH || mb_strlen($textB) < self::MIN_MATCH_LENGTH) {
             return false;
         }
 
-        // Check if it's mostly unique content (not common phrases)
         $uniqueWordsA = $this->countUniqueWords($textA);
         $uniqueWordsB = $this->countUniqueWords($textB);
         
@@ -296,17 +231,15 @@ class PlagiarismService
     {
         $textLower = mb_strtolower(trim($text));
         
-        // Check against common academic phrases
         foreach (self::$COMMON_PHRASES as $phrase) {
             if (str_contains($textLower, $phrase)) {
                 $phraseRatio = mb_strlen($phrase) / mb_strlen($textLower);
-                if ($phraseRatio > 0.4) { // If 40% or more is common phrase
+                if ($phraseRatio > 0.4) {
                     return true;
                 }
             }
         }
         
-        // Check if it's too generic
         $wordCount = str_word_count($text);
         $stopwordCount = 0;
         $words = str_word_count($text, 1);
@@ -316,7 +249,6 @@ class PlagiarismService
             }
         }
         
-        // If more than 60% stopwords, it's probably not substantial
         if ($wordCount > 0 && ($stopwordCount / $wordCount) > 0.6) {
             return true;
         }
@@ -336,8 +268,6 @@ class PlagiarismService
         return count($unique);
     }
 
-    /** ---------- Conservative Chunking ---------- */
-
     private function makeChunks(string $text): array
     {
         $words = $this->splitWords($text);
@@ -351,7 +281,6 @@ class PlagiarismService
 
             $chunkText = implode(' ', $slice);
             
-            // Skip chunks that are too common
             if ($this->isCommonPhrase($chunkText)) continue;
 
             $normTokens = $this->normalizeTokens($slice);
@@ -399,7 +328,7 @@ class PlagiarismService
                 $w = mb_strtolower($tokens[$i+$k],'UTF-8');
                 $w = preg_replace('/[^\p{L}\p{M}\p{N}]+/u','',$w);
                 if ($w === '' || isset(self::$STOP[$w])) {
-                    continue 2; // Skip ngram if it contains stopwords
+                    continue 2;
                 }
                 $g[]=$w;
             }
@@ -421,24 +350,21 @@ class PlagiarismService
         return $f;
     }
 
-    /** ---------- Conservative Candidates ---------- */
-
     private function candidateChunks(Document $document): array
     {
         $latestRp = ResearchPaper::query()->max('updated_at');
         $rpStamp  = $latestRp ? (string)$latestRp : 'none';
 
-        $cacheKey = 'plag:candidates:conservative:' . $document->title_id . ':rp:' . $rpStamp;
+        $cacheKey = 'plag:candidates:conservative:title:' . $document->title_id . ':rp:' . $rpStamp;
 
         return $this->rememberSafe($cacheKey, self::CACHE_MINUTES, function () use ($document) {
             $out = [];
 
-            // Only get recent titles
             $titles = Title::query()
                 ->where('id', '!=', $document->title_id)
                 ->where('status', 'submitted')
                 ->whereNotNull('final_document_id')
-                ->where('created_at', '>', now()->subMonths(12)) // Only last year
+                ->where('created_at', '>', now()->subMonths(12))
                 ->with(['finalDocument:id,title_id,chapter,content'])
                 ->get(['id','title','final_document_id']);
 
@@ -448,10 +374,9 @@ class PlagiarismService
 
                 $src = $this->stripBoilerplate($this->htmlToCleanText($final->content));
                 $chunks = $this->makeChunks($src);
-                
-                // Take fewer chunks
-                $chunks = array_slice($chunks, 0, self::MAX_CHUNKS_PER_SOURCE);
-                
+                if (self::MAX_CHUNKS_PER_SOURCE > 0 && count($chunks) > self::MAX_CHUNKS_PER_SOURCE) {
+                    $chunks = array_slice($chunks, 0, self::MAX_CHUNKS_PER_SOURCE);
+                }
                 foreach ($chunks as $c) {
                     $excerpt = mb_strlen($c['text']) > self::MAX_EXCERPT_CHARS
                         ? (mb_substr($c['text'], 0, self::MAX_EXCERPT_CHARS) . '…')
@@ -468,11 +393,10 @@ class PlagiarismService
                 }
             }
 
-            // Fewer PDFs
             $papers = ResearchPaper::query()
                 ->whereNotNull('extracted_text')
                 ->whereRaw("TRIM(extracted_text) <> ''")
-                ->where('created_at', '>', now()->subMonths(24)) // Last 2 years only
+                ->where('created_at', '>', now()->subMonths(24))
                 ->latest('updated_at')
                 ->limit(self::MAX_PDFS)
                 ->get(['id','title','year','authors','extracted_text']);
@@ -488,8 +412,9 @@ class PlagiarismService
                 );
 
                 $chunks = $this->makeChunks($txt);
-                $chunks = array_slice($chunks, 0, self::MAX_CHUNKS_PER_SOURCE);
-                
+                if (self::MAX_CHUNKS_PER_SOURCE > 0 && count($chunks) > self::MAX_CHUNKS_PER_SOURCE) {
+                    $chunks = array_slice($chunks, 0, self::MAX_CHUNKS_PER_SOURCE);
+                }
                 foreach ($chunks as $c) {
                     $excerpt = mb_strlen($c['text']) > self::MAX_EXCERPT_CHARS
                         ? (mb_substr($c['text'], 0, self::MAX_EXCERPT_CHARS) . '…')
@@ -510,8 +435,6 @@ class PlagiarismService
         });
     }
 
-    /** ---------- Conservative Cleaning ---------- */
-
     public function htmlToCleanText(string $htmlOrText): string
     {
         $s = preg_replace('/<img[^>]+src="data:image\/[^"]+"[^>]*>/i','',$htmlOrText);
@@ -526,22 +449,17 @@ class PlagiarismService
     {
         $t = $text;
 
-        // Only remove references if they're clearly at the end
         if (preg_match('/\b(?:references|bibliography)\b/i', $t, $m, PREG_OFFSET_CAPTURE)) {
             $pos = $m[0][1];
-            if ($pos > mb_strlen($t) * 0.8) { // Only if in last 20%
+            if ($pos > mb_strlen($t) * 0.8) {
                 $t = trim(mb_substr($t, 0, $pos));
             }
         }
 
-        // Keep citations - they're part of academic writing
-        // Remove only obvious URL patterns
         $t = preg_replace('#https?://\S+#i', ' ', $t);
         
         return preg_replace('/\s+/u', ' ', trim($t));
     }
-
-    /** ---------- Conservative Corpus Stats ---------- */
 
     private function ensureCorpusStats(): void
     {
@@ -550,12 +468,11 @@ class PlagiarismService
         $latestRp = ResearchPaper::query()->max('updated_at');
         $rpStamp  = $latestRp ? (string)$latestRp : 'none';
 
-        $stats = $this->rememberSafe('plag:stats:conservative:' . $rpStamp, self::CACHE_MINUTES, function () {
+        $stats = $this->rememberSafe('plag:stats:conservative:rp:' . $rpStamp, self::CACHE_MINUTES, function () {
             $docCount = 0;
             $tokenDF  = [];
             $ngDF     = [];
 
-            // Smaller sample for stats
             $titles = Title::query()
                 ->whereNotNull('final_document_id')
                 ->where('status','submitted')
@@ -605,7 +522,7 @@ class PlagiarismService
             }
 
             $common  = [];
-            $minDF   = max(2, (int)ceil($N * 0.3)); // Higher threshold
+            $minDF   = max(2, (int)ceil($N * 0.3));
             foreach ($ngDF as $g => $df) {
                 if ($df >= $minDF) $common[$g] = true;
             }
@@ -617,8 +534,6 @@ class PlagiarismService
         $this->commonNgrams = $stats['common'] ?? [];
     }
 
-    /** ---------- Utility Methods ---------- */
-
     private function rememberSafe(string $key, int $minutes, \Closure $compute)
     {
         try {
@@ -628,8 +543,7 @@ class PlagiarismService
         }
     }
 
-    /** ---------- Test Method ---------- */
-    public function testConservatism(string $sampleText, Document $document): array
+    public function testPlagiarismSettings(string $sampleText, Document $document): array
     {
         $result = $this->detailedMatches($sampleText, $document);
         
@@ -637,7 +551,7 @@ class PlagiarismService
             'total_matches' => count($result['matches']),
             'max_score' => $result['score'],
             'candidates_checked' => $result['meta']['candidates'],
-            'settings_note' => 'VERY CONSERVATIVE: 25% minimum similarity, extensive filtering',
+            'settings_note' => 'CONSERVATIVE: 25% minimum similarity',
             'matches' => $result['matches']
         ];
     }
