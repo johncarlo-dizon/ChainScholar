@@ -207,7 +207,7 @@
 
 
         {{-- Table --}}
-        <div class="bg-white rounded-lg shadow overflow-x-auto">
+        <div class="bg-white rounded-lg shadow overflow-x-auto p-3">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                <tr>
@@ -541,8 +541,23 @@
                 @endforelse
                 </tbody>
             </table>
+
+                {{-- Pagination --}}
+{{-- Pagination --}}
+@if ($logs->hasPages())
+  <div class="mt-4">
+    {!! $logs->onEachSide(1)->links() !!}
+  </div>
+@endif
         </div>
 
+
+<style>
+td{
+  font-size: 12px !important;
+  padding: 12px;
+}
+</style>
 
 <script>
   function openActivityModal(id) {
@@ -572,21 +587,7 @@
 </script>
 
         {{-- Pagination --}}
-    {{-- Pagination --}}
-@if ($logs->hasPages())
-  <div class="flex flex-col sm:flex-row items-center justify-between mt-4 gap-2">
-    <div class="text-xs text-gray-500">
-      Showing <span class="font-medium">{{ $logs->firstItem() }}</span>
-      to <span class="font-medium">{{ $logs->lastItem() }}</span>
-      of <span class="font-medium">{{ $logs->total() }}</span> results
-    </div>
 
-    {{-- Render pagination links WITHOUT duplicate summary --}}
-    <div class="text-sm">
-      {!! str_replace('Showing', '', $logs->onEachSide(1)->links()) !!}
-    </div>
-  </div>
-@endif
 
     </div>
 
