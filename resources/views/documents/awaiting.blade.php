@@ -226,15 +226,15 @@
       {{-- RIGHT: stats + interests (fills remaining width) --}}
       <div class="md:col-span-8 lg:col-span-9">
         <div class="grid gap-3 sm:grid-cols-3">
-          <div class="rounded-lg bg-white border p-3">
+          <div class="rounded-lg bg-white border border-gray-200 p-3">
             <div class="text-xs text-gray-500">Highest Degree</div>
             <div id="adv-degree-{{ $t->id }}" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
           </div>
-          <div class="rounded-lg bg-white border p-3">
+          <div class="rounded-lg bg-white border border-gray-200 p-3">
             <div class="text-xs text-gray-500">Advisory Years</div>
             <div id="adv-years-{{ $t->id }}" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
           </div>
-          <div class="rounded-lg bg-white border p-3">
+          <div class="rounded-lg bg-white border border-gray-200 p-3">
             <div class="text-xs text-gray-500">Projects</div>
             <div id="adv-projects-{{ $t->id }}" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
           </div>
@@ -461,15 +461,15 @@
     </div>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
-      <div class="rounded-lg border bg-gray-50 p-3">
+      <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
         <div class="text-xs text-gray-500">Highest Degree</div>
         <div id="apm-degree" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
       </div>
-      <div class="rounded-lg border bg-gray-50 p-3">
+      <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
         <div class="text-xs text-gray-500">Advisory Years</div>
         <div id="apm-years" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
       </div>
-      <div class="rounded-lg border bg-gray-50 p-3">
+      <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
         <div class="text-xs text-gray-500">Projects</div>
         <div id="apm-projects" class="text-sm font-medium text-gray-800 mt-0.5">—</div>
       </div>

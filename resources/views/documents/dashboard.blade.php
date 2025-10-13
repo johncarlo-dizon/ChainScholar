@@ -17,7 +17,7 @@
   <input type="hidden" name="{{ $k }}" value="{{ $v }}">
 @endforeach
 
-        <div class="flex items-center rounded-lg border border-blue-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-blue-400">
+        <div class="flex items-center rounded-lg border border-gray-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-blue-400">
           <input
             type="text"
             name="query"

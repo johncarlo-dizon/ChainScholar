@@ -12,7 +12,7 @@
     @if(($unreadCount ?? 0) > 0)
       <span id="topNotifBadge"
             data-count="{{ $unreadCount }}"
-            class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold text-white bg-red-400 rounded-full leading-none shadow">
+            class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold text-black bg-red-400 rounded-full leading-none shadow">
         {{ ($unreadCount ?? 0) > 99 ? '99+' : $unreadCount }}
       </span>
     @endif

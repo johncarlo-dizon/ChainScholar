@@ -9,17 +9,19 @@
 @endphp
 
 <!-- Pill -->
+<!-- Pill -->
 <button id="accountPill"
-  class="flex items-center gap-2 px-2 pr-3 h-10 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm transition cursor-pointer
+  class="flex items-center gap-2 px-2 pr-3 h-10 rounded-lg bg-white/10 hover:bg-white/20  transition cursor-pointer
          w-24 basis-24 flex-none overflow-hidden">
   <span class="sr-only">Open account menu</span>
-  <div class="w-6 h-6 shrink-0 rounded-full overflow-hidden border-2 border-gray-200 ">
-    <img src="{{ $avatar }}" alt="User avatar" class="w-full h-full object-cover " />
+  <div class="w-6 h-6 shrink-0 rounded-full overflow-hidden border border-gray-400">
+    <img src="{{ $avatar }}" alt="User avatar" class="w-full h-full object-cover" />
   </div>
   <span class="flex-1 min-w-0 text-sm font-medium text-white truncate whitespace-nowrap">
     {{ $user?->name ?? 'User' }}
   </span>
 </button>
+
 
 <!-- Dialog - No backdrop, matches notification styling -->
 <div id="profileDialog"
@@ -55,7 +57,7 @@
 
     <!-- Logout Button -->
     <button type="button"
-            class="w-full rounded-lg text-red-600 bg-white px-4 py-2.5 hover:text-red-700 transition font-medium text-sm border border-gray-300 mt-4"
+            class="w-full rounded-lg text-gray-600 bg-white px-4 py-2.5 hover:text-red-700 transition font-medium text-sm border border-gray-300 mt-4"
             id="profileLogoutBtn">
       Logout
     </button>
