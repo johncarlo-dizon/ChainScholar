@@ -87,6 +87,13 @@ public function deleteTitle(Request $request, Title $title)
         return back()->with('error', 'Cannot delete title with pending adviser requests. Please cancel your requests first.');
     }
 
+    // FIXED: Get advisers to notify BEFORE deletion
+    $advisersToNotify = AdviserRequest::where('title_id', $title->id)
+        ->where('requested_by', 'adviser')
+        ->where('status', 'pending')
+        ->with('adviser')
+        ->get();
+
     DB::transaction(function () use ($title) {
         // Delete related data (reusing your existing pattern)
         $title->adviserNotes()->delete();
@@ -105,15 +112,10 @@ public function deleteTitle(Request $request, Title $title)
         ]);
     }
 
-    // Optional: Notify advisers who had pending requests for this title
-    $advisersWithPendingRequests = AdviserRequest::where('title_id', $title->id)
-        ->where('requested_by', 'adviser')
-        ->where('status', 'pending')
-        ->with('adviser')
-        ->get();
-
-    foreach ($advisersWithPendingRequests as $request) {
-        if (class_exists(Notification::class)) {
+    // FIXED: Notify advisers who had pending requests for this title
+    // This now happens AFTER we've stored the data but BEFORE we deleted everything
+    foreach ($advisersToNotify as $request) {
+        if (class_exists(Notification::class) && $request->adviser) {
             Notification::create([
                 'user_id' => $request->adviser_id,
                 'title' => 'Title Deleted',
