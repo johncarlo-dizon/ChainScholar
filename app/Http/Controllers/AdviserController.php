@@ -250,7 +250,7 @@ public function cancelAdviserRequest(Request $request, AdviserRequest $adviserRe
                 ]);
             }
 
-            return back()->with('success', 'Request sent. The student will need to accept.');
+            return back()->with('status', 'Request sent. The student will need to accept.');
         });
     }
 

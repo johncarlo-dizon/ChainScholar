@@ -127,13 +127,18 @@
           <!-- Right-side Actions - Compact and Consistent -->
           <div class="shrink-0 flex flex-col gap-2 min-w-[140px]">
             @if($requestable && !$sentPending && !$sentAccepted && !$studentInvited)
-              <form method="POST" action="{{ route('adviser.titles.request', $t) }}" class="w-full">
-                @csrf
-                <button type="submit" 
-                        class="w-full px-3 py-2 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 transition-colors font-medium">
-                  Request to Advise
-                </button>
-              </form>
+             <form method="POST" action="{{ route('adviser.titles.request', $t) }}" id="requestForm-{{ $t->id }}" class="w-full">
+  @csrf
+  <button type="button" 
+          class="w-full px-3 py-2 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 transition-colors font-medium"
+          data-confirm
+          data-title="Request to Advise"
+          data-message="Are you sure you want to request to advise the title &quot;{{ $t->title }}&quot;?"
+          data-form="requestForm-{{ $t->id }}">
+    Request to Advise
+  </button>
+</form>
+
             @elseif($requestable && $sentPending)
               <div class="flex flex-col gap-2">
                 <button class="w-full px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-md cursor-not-allowed" disabled>
