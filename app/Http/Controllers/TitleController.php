@@ -70,29 +70,32 @@ public function cancelStudentRequest(Request $request, Title $title)
 }
 
 /** Student deletes title (only if no pending requests) */
+/** Student deletes title (only if no pending requests) */
 public function deleteTitle(Request $request, Title $title)
 {
     $user = $request->user();
     abort_if($title->owner_id !== $user->id, 403);
 
-    // Check if there are any pending requests
-    $hasPendingRequests = AdviserRequest::where('title_id', $title->id)
+    // FIXED: Only check for student-initiated pending requests
+    // Students should be able to delete even if advisers sent them requests
+    $hasStudentPendingRequests = AdviserRequest::where('title_id', $title->id)
+        ->where('requested_by', 'student')  // Only check student-initiated requests
         ->where('status', 'pending')
         ->exists();
 
-    if ($hasPendingRequests) {
-        return back()->with('error', 'Cannot delete title with pending adviser requests. Please cancel requests first.');
+    if ($hasStudentPendingRequests) {
+        return back()->with('error', 'Cannot delete title with pending adviser requests. Please cancel your requests first.');
     }
 
     DB::transaction(function () use ($title) {
         // Delete related data (reusing your existing pattern)
         $title->adviserNotes()->delete();
-        $title->adviserRequests()->delete();
+        $title->adviserRequests()->delete();  // This will delete ALL requests (both student and adviser)
         $title->documents()->delete();
         $title->delete();
     });
 
-    // Notification
+    // Notify the student
     if (class_exists(Notification::class)) {
         Notification::create([
             'user_id' => $user->id,
@@ -100,6 +103,24 @@ public function deleteTitle(Request $request, Title $title)
             'message' => 'Your title "'.$title->title.'" has been deleted successfully.',
             'is_read' => false,
         ]);
+    }
+
+    // Optional: Notify advisers who had pending requests for this title
+    $advisersWithPendingRequests = AdviserRequest::where('title_id', $title->id)
+        ->where('requested_by', 'adviser')
+        ->where('status', 'pending')
+        ->with('adviser')
+        ->get();
+
+    foreach ($advisersWithPendingRequests as $request) {
+        if (class_exists(Notification::class)) {
+            Notification::create([
+                'user_id' => $request->adviser_id,
+                'title' => 'Title Deleted',
+                'message' => 'The title "'.$title->title.'" you requested to advise has been deleted by the student.',
+                'is_read' => false,
+            ]);
+        }
     }
 
     return back()->with('status', 'Title deleted successfully.');
