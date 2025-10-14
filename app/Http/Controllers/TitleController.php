@@ -11,6 +11,99 @@ use Illuminate\Support\Facades\DB;
 class TitleController extends Controller
 {
     //
+
+    // Add these methods to your TitleController
+
+/** Student cancels their own pending request */
+public function cancelStudentRequest(Request $request, Title $title)
+{
+    $user = $request->user();
+    abort_if($title->owner_id !== $user->id, 403);
+
+    // Check if title is in awaiting_admin status (not allowed to cancel)
+    if ($title->status === 'awaiting_admin') {
+        return back()->with('error', 'Cannot cancel request when title is awaiting admin approval.');
+    }
+
+    // Only allow cancellation if status is awaiting_adviser and no primary adviser assigned
+    if ($title->status !== 'awaiting_adviser' || $title->primary_adviser_id) {
+        return back()->with('error', 'This title is not eligible for cancellation.');
+    }
+
+    DB::transaction(function () use ($title, $user) {
+        // Get all pending student requests for this title
+        $pendingRequests = AdviserRequest::where('title_id', $title->id)
+            ->where('requested_by', 'student')
+            ->where('status', 'pending')
+            ->get();
+
+        // Update status to 'withdrawn' (reusing your pattern, not using 'cancel')
+        foreach ($pendingRequests as $request) {
+            $request->update([
+                'status' => 'withdrawn',
+                'decided_at' => now(),
+            ]);
+
+            // Notify the adviser
+            if (class_exists(Notification::class)) {
+                Notification::create([
+                    'user_id' => $request->adviser_id,
+                    'title' => 'Request Withdrawn',
+                    'message' => $user->name . ' withdrew their adviser request for "'.$title->title.'".',
+                    'is_read' => false,
+                ]);
+            }
+        }
+
+        // Notify the student
+        if (class_exists(Notification::class)) {
+            Notification::create([
+                'user_id' => $user->id,
+                'title' => 'Request Cancelled',
+                'message' => 'Your adviser request for "'.$title->title.'" has been cancelled.',
+                'is_read' => false,
+            ]);
+        }
+    });
+
+    return back()->with('status', 'Adviser request cancelled successfully.');
+}
+
+/** Student deletes title (only if no pending requests) */
+public function deleteTitle(Request $request, Title $title)
+{
+    $user = $request->user();
+    abort_if($title->owner_id !== $user->id, 403);
+
+    // Check if there are any pending requests
+    $hasPendingRequests = AdviserRequest::where('title_id', $title->id)
+        ->where('status', 'pending')
+        ->exists();
+
+    if ($hasPendingRequests) {
+        return back()->with('error', 'Cannot delete title with pending adviser requests. Please cancel requests first.');
+    }
+
+    DB::transaction(function () use ($title) {
+        // Delete related data (reusing your existing pattern)
+        $title->adviserNotes()->delete();
+        $title->adviserRequests()->delete();
+        $title->documents()->delete();
+        $title->delete();
+    });
+
+    // Notification
+    if (class_exists(Notification::class)) {
+        Notification::create([
+            'user_id' => $user->id,
+            'title' => 'Title Deleted',
+            'message' => 'Your title "'.$title->title.'" has been deleted successfully.',
+            'is_read' => false,
+        ]);
+    }
+
+    return back()->with('status', 'Title deleted successfully.');
+}
     
 
     public function verifyForm()  // NAV - DOC.VERIFY

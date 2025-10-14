@@ -34,6 +34,19 @@ use App\Http\Controllers\CertificateController;
 use Illuminate\Auth\Events\Verified;
 
 
+
+// Student routes
+Route::post('/titles/{title}/cancel-request', [TitleController::class, 'cancelStudentRequest'])
+    ->name('titles.cancel-request');
+Route::delete('/titles/{title}/delete', [TitleController::class, 'deleteTitle'])
+    ->name('titles.delete');
+
+// Adviser routes  
+Route::post('/adviser/requests/{adviserRequest}/cancel', [AdviserController::class, 'cancelAdviserRequest'])
+    ->name('adviser.requests.cancel');
+
+
+
 Route::get('/documents/{id}/content', [DocumentController::class, 'getContent'])->name('documents.content');
 
 

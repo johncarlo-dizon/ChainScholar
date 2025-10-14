@@ -1,4 +1,4 @@
-<x-userlayout>
+<x-userlayout> 
      
 <x-header.bar
   title="Dashboard"
@@ -79,22 +79,22 @@
             <div class="mt-4 flex gap-2">
               <button
                 type="button"
-                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors js-open-accept font-medium text-sm"
+                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors js-open-accept font-medium text-xs"
                 data-action="{{ route('adviser.requests.accept', $r) }}"
                 data-title="{{ $r->title->title }}"
                 data-student="{{ $r->title->owner->name }}"
-                @if($isAlreadyAssigned) disabled title="Title already assigned" class="px-4 py-2 rounded-lg bg-gray-300 text-gray-500 cursor-not-allowed font-medium text-sm" @endif
+                @if($isAlreadyAssigned) disabled title="Title already assigned" class="px-4 py-2 rounded-lg bg-gray-300 text-gray-500 cursor-not-allowed font-medium text-xs" @endif
               >
                 Accept
               </button>
 
               <button
                 type="button"
-                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors js-open-decline font-medium text-sm"
+                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors js-open-decline font-medium text-xs"
                 data-action="{{ route('adviser.requests.decline', $r) }}"
                 data-title="{{ $r->title->title }}"
                 data-student="{{ $r->title->owner->name }}"
-                @if($isAlreadyAssigned) disabled title="Title already assigned" class="px-4 py-2 rounded-lg bg-gray-300 text-gray-500 cursor-not-allowed font-medium text-sm" @endif
+                @if($isAlreadyAssigned) disabled title="Title already assigned" class="px-4 py-2 rounded-lg bg-gray-300 text-gray-500 cursor-not-allowed font-medium text-xs" @endif
               >
                 Decline
               </button>
@@ -114,6 +114,7 @@
                    @php
   $isAdviserRequest = ($r->requested_by === 'adviser') && ($r->status === 'pending') && is_null($r->decided_at);
   $isAlreadyAssigned = !is_null($r->title->primary_adviser_id);
+  $isAwaitingAdmin = $r->title->status === 'awaiting_admin';
 @endphp
 
 @if(!$isAdviserRequest)
@@ -149,12 +150,44 @@
     </div>
   @endif
 
-  <div class="mt-3 flex flex-wrap gap-2 text-xs">
-    <span class="px-2 py-1 rounded bg-yellow-100 text-yellow-800 border border-yellow-200">Request sent</span>
-    @if($isAlreadyAssigned)
-      <span class="px-2 py-1 rounded bg-gray-100 text-gray-700 border">
-        Assigned to: {{ optional($r->title->primaryAdviser ?? null)->name ?? 'another adviser' }}
-      </span>
+  {{-- Badges and Cancel Button in one row --}}
+  <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="px-2 py-1 rounded bg-yellow-100 text-yellow-800 border border-yellow-200">Request sent</span>
+      @if($isAlreadyAssigned)
+        <span class="px-2 py-1 rounded bg-gray-100 text-gray-700 border">
+          Assigned to: {{ optional($r->title->primaryAdviser ?? null)->name ?? 'another adviser' }}
+        </span>
+      @endif
+      @if($isAwaitingAdmin)
+        <span class="px-2 py-1 rounded bg-blue-100 text-blue-800 border border-blue-200">
+          Awaiting admin approval
+        </span>
+      @endif
+    </div>
+
+    {{-- Cancel Request Button - smaller and aligned with badges --}}
+    @if(!$isAlreadyAssigned && !$isAwaitingAdmin)
+      <form method="POST" action="{{ route('adviser.requests.cancel', $r) }}" 
+            id="cancelForm-{{ $r->id }}" class="flex-shrink-0">
+        @csrf
+        <button type="button"
+                class="px-4 py-2  bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                data-confirm
+                data-title="Cancel Request"
+                data-message="Cancel your request to advise &quot;{{ $r->title->title }}&quot;?"
+                data-form="cancelForm-{{ $r->id }}">
+          Cancel Request
+        </button>
+      </form>
+    @elseif($isAwaitingAdmin)
+      <button class="px-3 py-1 bg-gray-300 text-gray-500 text-xs rounded-lg cursor-not-allowed font-medium" disabled>
+        Cannot cancel
+      </button>
+    @else
+      <button class="px-3 py-1 bg-gray-300 text-gray-500 text-xs rounded-lg cursor-not-allowed font-medium" disabled>
+        Cannot cancel
+      </button>
     @endif
   </div>
 </li>
@@ -280,6 +313,30 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Confirm Modal (for cancel requests) -->
+    <div id="confirmModal" class="fixed inset-0 hidden items-center justify-center z-[60]">
+      <div id="confirmOverlay" class="absolute inset-0 backdrop-blur-sm bg-black/20"></div>
+      <div class="relative bg-white rounded-xl shadow-xl p-6 max-w-lg w-full mx-4 z-10">
+        <div class="flex items-start gap-3">
+          <div class="shrink-0 w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 9v4m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h3 id="confirmTitle" class="text-lg font-semibold text-gray-900">Confirm</h3>
+            <p id="confirmMessage" class="mt-1 text-sm text-gray-600">Are you sure?</p>
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" id="confirmCancelBtn"
+                  class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">Cancel</button>
+          <button type="button" id="confirmOkBtn"
+                  class="px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">Confirm</button>
+        </div>
       </div>
     </div>
 
@@ -452,6 +509,91 @@
         }
         hidden.value = val;
       });
+    })();
+
+    // Confirm Modal functionality for cancel requests
+    (function () {
+      const modal = document.getElementById('confirmModal');
+      const overlay = document.getElementById('confirmOverlay');
+      const titleEl = document.getElementById('confirmTitle');
+      const msgEl = document.getElementById('confirmMessage');
+      const okBtn = document.getElementById('confirmOkBtn');
+      const cancelBtn = document.getElementById('confirmCancelBtn');
+      
+      // Check if elements exist
+      if (!modal || !overlay || !okBtn || !cancelBtn) {
+        console.log('Confirm modal elements not found:', { modal, overlay, okBtn, cancelBtn });
+        return;
+      }
+
+      let targetFormId = null;
+
+      function openModal({ title, message, formId }) {
+        console.log('Opening confirm modal for form:', formId);
+        titleEl.textContent = title || 'Confirm';
+        msgEl.textContent = message || 'Are you sure?';
+        targetFormId = formId || null;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+        targetFormId = null;
+      }
+
+      // Event delegation for confirm buttons
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-confirm]');
+        if (!btn) return;
+        
+        const formId = btn.getAttribute('data-form');
+        const form = document.getElementById(formId);
+        
+        if (!form) {
+          console.error('Form not found with ID:', formId);
+          return;
+        }
+        
+        console.log('Confirm button clicked, form found:', form);
+        openModal({
+          title: btn.getAttribute('data-title'),
+          message: btn.getAttribute('data-message'),
+          formId: formId
+        });
+      });
+
+      // Close handlers
+      overlay.addEventListener('click', closeModal);
+      cancelBtn.addEventListener('click', closeModal);
+      
+      // Confirm action
+      okBtn.addEventListener('click', () => {
+        console.log('Confirm button clicked, target form:', targetFormId);
+        
+        if (targetFormId) {
+          const form = document.getElementById(targetFormId);
+          if (form) {
+            console.log('Submitting form:', form);
+            form.submit();
+          } else {
+            console.error('Form not found with ID:', targetFormId);
+          }
+        }
+        closeModal();
+      });
+
+      // ESC key close
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+          closeModal();
+        }
+      });
+      
+      console.log('Confirm modal initialized successfully');
     })();
     </script>
 </x-userlayout>

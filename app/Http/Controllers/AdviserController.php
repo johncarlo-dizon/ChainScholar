@@ -13,6 +13,60 @@ class AdviserController extends Controller
     /**
      * Adviser dashboard: quick stats + shortcuts.
      */
+
+    // Add this method to your AdviserController
+
+/** Adviser cancels their pending request */
+public function cancelAdviserRequest(Request $request, AdviserRequest $adviserRequest)
+{
+    $user = $request->user();
+
+    if ($adviserRequest->adviser_id !== $user->id) {
+        abort(403, 'Forbidden');
+    }
+
+    if ($adviserRequest->status !== 'pending') {
+        return back()->with('error', 'This request is no longer pending.');
+    }
+
+    // Check if title is in awaiting_admin status (not allowed to cancel)
+    $title = $adviserRequest->title;
+    if ($title->status === 'awaiting_admin') {
+        return back()->with('error', 'Cannot cancel request when title is awaiting admin approval.');
+    }
+
+    DB::transaction(function () use ($adviserRequest, $user) {
+        $title = $adviserRequest->title;
+
+        // Update request status to 'withdrawn'
+        $adviserRequest->update([
+            'status' => 'withdrawn',
+            'decided_at' => now(),
+        ]);
+
+        // Notify the student
+        if (class_exists(\App\Models\Notification::class)) {
+            \App\Models\Notification::create([
+                'user_id' => $title->owner_id,
+                'title' => 'Adviser Request Cancelled',
+                'message' => $user->name . ' cancelled their request to advise your title "'.$title->title.'".',
+                'is_read' => false,
+            ]);
+        }
+
+        // Notify the adviser
+        if (class_exists(\App\Models\Notification::class)) {
+            \App\Models\Notification::create([
+                'user_id' => $user->id,
+                'title' => 'Request Cancelled',
+                'message' => 'Your request to advise "'.$title->title.'" has been cancelled.',
+                'is_read' => false,
+            ]);
+        }
+    });
+
+    return back()->with('status', 'Request cancelled successfully.');
+}
     public function index(Request $request)
     {
         $user = $request->user();

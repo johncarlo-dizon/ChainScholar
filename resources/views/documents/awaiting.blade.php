@@ -320,6 +320,42 @@
   </div>
 @endif
 
+
+{{-- Add these action buttons in the title card --}}
+<div class="mt-3 flex flex-wrap gap-2 justify-end">
+    {{-- Cancel Request Button (Student) --}}
+    @if($t->status === 'awaiting_adviser' && $studentPending && !$t->primary_adviser_id)
+        <form id="cancelRequestForm-{{ $t->id }}" method="POST" 
+              action="{{ route('titles.cancel-request', $t) }}">
+            @csrf
+            <button type="button"
+                    class="px-3 py-1.5 rounded-md bg-white text-blue-600 font-semibold text-xs hover:text-blue-700"
+                    data-confirm
+                    data-title="Cancel Request"
+                    data-message="Cancel your adviser request for &quot;{{ $t->title }}&quot;?"
+                    data-form="cancelRequestForm-{{ $t->id }}">
+                Cancel Request
+            </button>
+        </form>
+    @endif
+
+    {{-- Delete Title Button (Student) --}}
+    @if($t->status === 'awaiting_adviser' && !$studentPending && !$t->primary_adviser_id)
+        <form id="deleteTitleForm-{{ $t->id }}" method="POST" 
+              action="{{ route('titles.delete', $t) }}">
+            @csrf
+            @method('DELETE')
+            <button type="button"
+                    class="px-3 py-1.5 rounded-md bg-white font-semibold text-red-600 text-xs hover:text-red-700"
+                    data-confirm
+                    data-title="Delete Title"
+                    data-message="Permanently delete &quot;{{ $t->title }}&quot;? This action cannot be undone."
+                    data-form="deleteTitleForm-{{ $t->id }}">
+                Delete Title
+            </button>
+        </form>
+    @endif
+</div>
 </li>
 
 {{-- per-row script (unchanged logic, works with full-width card) --}}

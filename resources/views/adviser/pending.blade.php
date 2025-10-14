@@ -46,7 +46,7 @@
                     <div class="flex gap-2 ml-4">
                         <button
                             type="button"
-                            class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 js-open-accept"
+                            class="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 js-open-accept"
                             data-action="{{ route('adviser.requests.accept', $r) }}"
                             data-title="{{ $r->title->title }}"
                             data-student="{{ $r->title->owner->name }}"
@@ -56,7 +56,7 @@
 
                        <button
                             type="button"
-                            class="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 js-open-decline"
+                            class="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 js-open-decline"
                             data-action="{{ route('adviser.requests.decline', $r) }}"
                             data-title="{{ $r->title->title }}"
                             data-student="{{ $r->title->owner->name }}"
