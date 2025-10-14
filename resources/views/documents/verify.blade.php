@@ -40,8 +40,8 @@
     placeholder="Briefly describe what the research is about (scope, population/context, method, expected contribution)"
     disabled
   ></textarea>
-  <p class="text-xs text-gray-500 mt-1">
-    Provide a concise summary (e.g., 2–4 sentences) so advisers can quickly understand your study.
+<p class="text-xs text-gray-500 mt-1">
+    Provide a concise summary (e.g., 2–4 sentences) so advisers can quickly understand your study. Minimum 20 characters required.
   </p>
 </div>
 
@@ -585,7 +585,7 @@ function updateProceedButton(){
 
   const authorsOk = auth ? (auth.value && auth.value.trim().length > 0) : true;
   const adviserOk = (mode === 'later') ? true : (adv ? (adv.value && adv.value !== '') : true);
-  const descOk    = desc ? (desc.value && desc.value.trim().length > 0) : true; // required by HTML too
+    const descOk    = desc ? (desc.value && desc.value.trim().length >= 20) : true; 
 
   btn.disabled = !(passed && authorsOk && adviserOk && descOk);
 }
