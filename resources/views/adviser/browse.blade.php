@@ -64,17 +64,21 @@
     </form>
 
     @forelse($titles as $t)
-      @php
-        $requestable = is_null($t->primary_adviser_id) && in_array($t->status, ['verified','awaiting_adviser']);
-        $sentPending = !empty($t->has_my_pending_request);
-        $sentAccepted = !empty($t->has_my_accepted_request);
-        $studentInvited = !empty($t->has_student_pending_invite);
-        $assignedNow = !is_null($t->primary_adviser_id);
-        $assignedToMe = $assignedNow && ((int)$t->primary_adviser_id === (int)auth()->id());
-        
-        // Get the adviser request for cancel action
-        $adviserRequest = $t->adviserRequests->firstWhere('requested_by', 'adviser');
-      @endphp
+     @php
+    $requestable = is_null($t->primary_adviser_id) && in_array($t->status, ['verified','awaiting_adviser']);
+    $sentPending = !empty($t->has_my_pending_request);
+    $sentAccepted = !empty($t->has_my_accepted_request);
+    $studentInvited = !empty($t->has_student_pending_invite);
+    $assignedNow = !is_null($t->primary_adviser_id);
+    $assignedToMe = $assignedNow && ((int)$t->primary_adviser_id === (int)auth()->id());
+    
+    // FIXED: Get YOUR specific adviser request, not just any adviser request
+    $adviserRequest = $t->adviserRequests
+        ->where('adviser_id', auth()->id())  // Only YOUR requests
+        ->where('requested_by', 'adviser')
+        ->where('status', 'pending')
+        ->first();
+@endphp
 
       <div class="bg-white rounded-xl shadow p-5">
         <div class="flex items-start justify-between gap-4">

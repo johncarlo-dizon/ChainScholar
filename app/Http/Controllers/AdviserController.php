@@ -21,7 +21,9 @@ public function cancelAdviserRequest(Request $request, AdviserRequest $adviserRe
 {
     $user = $request->user();
 
- 
+    if ($adviserRequest->adviser_id !== $user->id) {
+        abort(403, 'Forbidden');
+    }
 
     if ($adviserRequest->status !== 'pending') {
         return back()->with('error', 'This request is no longer pending.');
