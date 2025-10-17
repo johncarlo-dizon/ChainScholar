@@ -138,7 +138,7 @@
                 <!-- Copy Content -->
                 <button 
                     onclick="copyContent({{ $title->finalDocument->id }})" 
-                    class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 copy-btn"
+                    class="dropdown-action flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 copy-btn"
                     data-id="{{ $title->finalDocument->id }}"
                     role="menuitem"
                 >
@@ -151,7 +151,7 @@
                 <!-- View Document -->
                 <a 
                     href="{{ route('documents.view', ['id' => $title->finalDocument->id]) }}"
-                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    class="dropdown-action flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                     role="menuitem"
                 >
                     <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -164,7 +164,7 @@
                 <!-- Plagiarism Certificate -->
                 <a 
                     href="{{ route('titles.plagiarism-certificate', $title->id) }}"
-                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    class="dropdown-action flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                     target="_blank"
                     role="menuitem"
                 >
@@ -183,7 +183,7 @@
                 @method('PATCH')
                 <button 
                     type="submit" 
-                    class="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 hover:text-red-900"
+                    class="dropdown-action flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 hover:text-red-900"
                     role="menuitem"
                     onclick="return confirm('Are you sure you want to withdraw this submission?')"
                 >
@@ -225,6 +225,24 @@
             </div>
         </div>
     </div>
+
+
+    <style>
+/* Force consistent font weight and color for dropdown actions */
+.dropdown-action {
+    font-weight: 400 !important; /* normal weight */
+    color: #374151 !important; 
+    outline: none !important;
+}
+
+/* Hover effect – only change background, not text */
+.dropdown-action:hover {
+    color: #374151 !important; /* keep same text color */
+    font-weight: 400 !important;
+    background-color: #e5e7eb !important;/* text-gray-700 */
+}
+</style>
+
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
