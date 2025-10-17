@@ -144,22 +144,30 @@
                         </div>
                     </div>
 
-                    <div class="space-y-4">
+                                      <div class="space-y-4">
                         <div class="flex items-center justify-between">
                             <h3 class="text-lg font-semibold text-gray-700">Actions</h3>
                         </div>
                         <div class="space-y-2">
-<a href="{{ auth()->user()->role === 'ADMIN'
-              ? route('admin.titles.submitted')
-              : (auth()->user()->role === 'ADVISER'
-                  ? route('adviser.advised.index')
-                  : route('documents.submitted')) }}"
-   class="text-sm text-blue-500 hover:text-blue-700 transition">
-    ← Back to Submitted Titles
-</a>
+                            <!-- Plagiarism Certificate Button -->
+                            @if($document->titleRelation && $document->plagiarism_internal !== null)
+                                <a href="{{ route('titles.plagiarism-certificate', $document->titleRelation->id) }}"
+                                   class="block w-full text-center text-sm bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+                                   target="_blank">
+                                    📄 Download Plagiarism Certificate
+                                </a>
+                            @endif
 
+                            <a href="{{ auth()->user()->role === 'ADMIN'
+                              ? route('admin.titles.submitted')
+                              : (auth()->user()->role === 'ADVISER'
+                                  ? route('adviser.advised.index')
+                                  : route('documents.submitted')) }}"
+                               class="text-sm font-semibold text-blue-500 hover:text-blue-700 transition">
+                                ← Back to Submitted Titles
+                            </a>
+                        </div>
                     </div>
-                </div>
             </div>
         </div>
     </div>

@@ -1,12 +1,11 @@
 <x-userlayout>
- 
-<x-header.bar
-  title="Submitted Titles"
-  subtitle="Research titles successfully submitted to the system"
-  :unread-count="$unreadCount ?? 0"
-  :notifications="$notifications ?? collect()"
-  :user="Auth::user()"
-/>
+    <x-header.bar
+        title="Submitted Titles"
+        subtitle="Research titles successfully submitted to the system"
+        :unread-count="$unreadCount ?? 0"
+        :notifications="$notifications ?? collect()"
+        :user="Auth::user()"
+    />
 
     <div class="container mx-auto px-4 mt-4">
         @if(session('success'))
@@ -50,93 +49,156 @@
             @else
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
-                       <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Authors</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted At</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Similarity</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                    </thead>
-
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Authors</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted At</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Similarity</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             @foreach($titles as $title)
-                               <tr>
-  <td class="px-6 py-4 text-sm font-medium text-gray-900">
-    {{ $title->title }}
-  </td>
+                                <tr>
+                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                                        {{ $title->title }}
+                                    </td>
 
- <td class="px-6 py-4 text-sm text-gray-700">
-  {{ $title->authors ?? '—' }}
-</td>
+                                    <td class="px-6 py-4 text-sm text-gray-700">
+                                        {{ $title->authors ?? '—' }}
+                                    </td>
 
-  <td class="px-6 py-4 text-sm text-gray-500">
-    {{ $title->submitted_at?->format('M d, Y h:i A') ?? '—' }}
-  </td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">
+                                        {{ $title->submitted_at?->format('M d, Y h:i A') ?? '—' }}
+                                    </td>
 
-  {{-- Similarity column --}}
-  <td class="px-6 py-4 text-sm">
-    @if($title->finalDocument)
-      @php
-        $int = $title->finalDocument->plagiarism_internal;
-        $ext = $title->finalDocument->plagiarism_external;
+                                    {{-- Similarity column --}}
+                                    <td class="px-6 py-4 text-sm">
+                                        @if($title->finalDocument)
+                                            @php
+                                                $int = $title->finalDocument->plagiarism_internal;
+                                                $ext = $title->finalDocument->plagiarism_external;
 
-        $cls = function($v){
-          if ($v === null) return 'bg-gray-100 text-gray-600';
-          if ($v < 20)     return 'bg-green-100 text-green-800';
-          if ($v < 40)     return 'bg-yellow-100 text-yellow-800';
-          return            'bg-red-100 text-red-800';
-        };
-      @endphp
+                                                $cls = function($v){
+                                                    if ($v === null) return 'bg-gray-100 text-gray-600';
+                                                    if ($v < 20)     return 'bg-green-100 text-green-800';
+                                                    if ($v < 40)     return 'bg-yellow-100 text-yellow-800';
+                                                    return            'bg-red-100 text-red-800';
+                                                };
+                                            @endphp
 
-      <div class="flex items-center gap-2">
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $cls($int) }}">
-          Int: {{ is_null($int) ? '—' : number_format($int, 2) . '%' }}
-        </span>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $cls($ext) }}">
-          Ext: {{ is_null($ext) ? '—' : number_format($ext, 2) . '%' }}
-        </span>
-      </div>
-    @else
-      —
-    @endif
-  </td>
+                                            <div class="flex items-center gap-2">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $cls($int) }}">
+                                                    Int: {{ is_null($int) ? '—' : number_format($int, 2) . '%' }}
+                                                </span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $cls($ext) }}">
+                                                    Ext: {{ is_null($ext) ? '—' : number_format($ext, 2) . '%' }}
+                                                </span>
+                                            </div>
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
 
-  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-    @if($title->finalDocument)
-      <!-- Copy Content Button -->
-      <button onclick="copyContent({{ $title->finalDocument->id }})" 
-              class="text-blue-600 hover:text-blue-900 copy-btn"
-              data-id="{{ $title->finalDocument->id }}"
-              title="Copy document content to clipboard">
-        Copy 
-      </button>
-      
-      <!-- View Document Link -->
-      <a href="{{ route('documents.view', ['id' => $title->finalDocument->id]) }}"
-         class="text-indigo-600 hover:text-indigo-900">
-        View 
-      </a>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div class="relative" x-data="{ open: false, dropdownTop: 0, dropdownLeft: 0 }">
+    <button 
+        @click="
+            open = !open;
+            if (open) {
+                const rect = $el.getBoundingClientRect();
+                dropdownTop = rect.bottom + window.scrollY;
+                dropdownLeft = rect.right - 224; // 224px = w-56 width
+            }
+        "
+        class="flex items-center justify-between w-32 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+    >
+        Actions
+        <svg class="w-4 h-4 ml-2 -mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+    </button>
 
-          <a href="{{ route('titles.plagiarism-certificate', $title->id) }}"
-           class="text-green-600 hover:text-green-900"
-           target="_blank">
-            Plagiarism Cert 
-        </a>
-    @endif
+    <!-- Dropdown -->
+    <div 
+        x-show="open"
+        @click.away="open = false"
+        x-transition:enter="transition ease-out duration-100"
+        x-transition:enter-start="transform opacity-0 scale-95"
+        x-transition:enter-end="transform opacity-100 scale-100"
+        x-transition:leave="transition ease-in duration-75"
+        x-transition:leave-start="transform opacity-100 scale-100"
+        x-transition:leave-end="transform opacity-0 scale-95"
+        class="fixed z-50 w-56 bg-white rounded-md shadow-lg ring-1 ring-gray-300 ring-opacity-5"
+        :style="`top: ${dropdownTop}px; left: ${dropdownLeft}px;`"
+    >
+        <div class="py-1" role="none">
+            @if($title->finalDocument)
+                <!-- Copy Content -->
+                <button 
+                    onclick="copyContent({{ $title->finalDocument->id }})" 
+                    class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 copy-btn"
+                    data-id="{{ $title->finalDocument->id }}"
+                    role="menuitem"
+                >
+                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy Content
+                </button>
 
-    <!-- Cancel Submission Form -->
-    <form method="POST" action="{{ route('titles.cancel', $title->id) }}" class="inline">
-      @csrf
-      @method('PATCH')
-      <button type="submit" class="text-red-600 hover:text-red-900">
-        Withdraw 
-      </button>
-    </form>
-  </td>
-</tr>
+                <!-- View Document -->
+                <a 
+                    href="{{ route('documents.view', ['id' => $title->finalDocument->id]) }}"
+                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    role="menuitem"
+                >
+                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    View Document
+                </a>
 
+                <!-- Plagiarism Certificate -->
+                <a 
+                    href="{{ route('titles.plagiarism-certificate', $title->id) }}"
+                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    target="_blank"
+                    role="menuitem"
+                >
+                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Plagiarism Certificate
+                </a>
+
+                <div class="border-t border-gray-100 my-1"></div>
+            @endif
+
+            <!-- Withdraw Submission -->
+            <form method="POST" action="{{ route('titles.cancel', $title->id) }}" class="w-full">
+                @csrf
+                @method('PATCH')
+                <button 
+                    type="submit" 
+                    class="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 hover:text-red-900"
+                    role="menuitem"
+                    onclick="return confirm('Are you sure you want to withdraw this submission?')"
+                >
+                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Withdraw Submission
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+                                    </td>
+                                </tr>
                             @endforeach
                         </tbody>
                     </table>
@@ -149,8 +211,6 @@
             @endif
         </div>
     </div>
-
- 
 
     <!-- Comment Modal -->
     <div id="commentModal" class="fixed inset-0 hidden backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
@@ -166,6 +226,9 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
     <script>
         function openCommentModal(comment) {
             document.getElementById('commentContent').textContent = comment;
@@ -181,8 +244,8 @@
             try {
                 // Show loading state
                 const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
-                const originalText = button.textContent;
-                button.textContent = 'Copying...';
+                const originalText = button.innerHTML;
+                button.innerHTML = '<svg class="w-4 h-4 mr-2 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Copying...';
                 button.disabled = true;
 
                 // Fetch the document content
@@ -220,7 +283,7 @@
                 // Restore button state
                 const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
                 if (button) {
-                    button.textContent = originalText;
+                    button.innerHTML = '<svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Copy Content';
                     button.disabled = false;
                 }
             }
@@ -230,8 +293,8 @@
         async function copyContentSimple(documentId) {
             try {
                 const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
-                const originalText = button.textContent;
-                button.textContent = 'Copying...';
+                const originalText = button.innerHTML;
+                button.innerHTML = '<svg class="w-4 h-4 mr-2 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Copying...';
                 button.disabled = true;
 
                 const response = await fetch(`/documents/${documentId}/content`);
@@ -270,23 +333,22 @@
             } finally {
                 const button = document.querySelector(`.copy-btn[data-id="${documentId}"]`);
                 if (button) {
-                    button.textContent = 'Copy Content';
+                    button.innerHTML = '<svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Copy Content';
                     button.disabled = false;
                 }
             }
         }
 
         function showCopySuccess() {
-    Swal.fire({
-        icon: 'success',
-        title: 'Content copied!',
-        showConfirmButton: false,
-        timer: 3000,
-        toast: true,
-        position: 'top-end'
-    });
-}
-
+            Swal.fire({
+                icon: 'success',
+                title: 'Content copied!',
+                showConfirmButton: false,
+                timer: 3000,
+                toast: true,
+                position: 'top-end'
+            });
+        }
 
         // Use the modern Clipboard API if available, otherwise fallback
         if (!navigator.clipboard || !navigator.clipboard.write) {
