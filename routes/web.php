@@ -31,11 +31,18 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BlockchainController;
 use App\Http\Controllers\BlockchainRequestController;
 use App\Http\Controllers\PlagiarismCertificateController;
+use App\Http\Controllers\PdfPlagiarismCertificateController;
 use App\Http\Controllers\CertificateController;
 use Illuminate\Auth\Events\Verified;
 
 Route::get('/titles/{title}/plagiarism-certificate', [PlagiarismCertificateController::class, 'download'])
     ->name('titles.plagiarism-certificate')
+    ->middleware(['auth']);
+
+
+// Plagiarism Certificate Routes
+Route::get('/research-papers/{paper}/plagiarism-certificate', [PdfPlagiarismCertificateController::class, 'download'])
+    ->name('research-papers.plagiarism-certificate')
     ->middleware(['auth']);
 
 // Student routes

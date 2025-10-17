@@ -230,6 +230,15 @@
                               </a>
                             @endif
 
+                            {{-- Plagiarism Certificate (if plagiarism score exists) --}}
+@if(!is_null($paper->plagiarism_score))
+    <a href="{{ route('research-papers.plagiarism-certificate', $paper) }}"
+        class="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 text-emerald-700">
+         <i data-feather="file-text" class="w-4 h-4"></i>
+        <span>Plagiarism Certificate</span>
+    </a>
+@endif
+
                             {{-- Verify (read-only) — visible --}}
                             <button type="button"
                                     class="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 hidden text-gray-700 text-left btn-verify-chain"
