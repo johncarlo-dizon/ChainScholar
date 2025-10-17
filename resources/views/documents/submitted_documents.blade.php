@@ -118,6 +118,12 @@
          class="text-indigo-600 hover:text-indigo-900">
         View 
       </a>
+
+          <a href="{{ route('titles.plagiarism-certificate', $title->id) }}"
+           class="text-green-600 hover:text-green-900"
+           target="_blank">
+            Plagiarism Cert 
+        </a>
     @endif
 
     <!-- Cancel Submission Form -->

@@ -30,10 +30,13 @@ use App\Http\Controllers\AdviserProfileController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BlockchainController;
 use App\Http\Controllers\BlockchainRequestController;
+use App\Http\Controllers\PlagiarismCertificateController;
 use App\Http\Controllers\CertificateController;
 use Illuminate\Auth\Events\Verified;
 
-
+Route::get('/titles/{title}/plagiarism-certificate', [PlagiarismCertificateController::class, 'download'])
+    ->name('titles.plagiarism-certificate')
+    ->middleware(['auth']);
 
 // Student routes
 Route::post('/titles/{title}/cancel-request', [TitleController::class, 'cancelStudentRequest'])
